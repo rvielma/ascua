@@ -15,6 +15,10 @@ build:
   output: dist
 runtime:
   serve: static
+  # El contenido va a un volumen del host (/datadrive/sites/ascua-site) montado
+  # en /www, no dentro de la imagen. Un `mt up` lo reemplaza con el servicio
+  # corriendo, sin el `scale 0` que devolvía 502 durante medio minuto.
+  live: true
   port: 3013
   memory: 64M
   cpu: 0.5
