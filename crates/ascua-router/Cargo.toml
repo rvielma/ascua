@@ -1,0 +1,30 @@
+[package]
+name = "ascua-router"
+description = "Router de Ascua: la ruta actual es un signal, y navegar es escribir en él."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ascua-reactive = { path = "../ascua-reactive" }
+ascua-dom = { path = "../ascua-dom" }
+wasm-bindgen = { version = "0.2", optional = true }
+web-sys = { version = "0.3", features = [
+    "Document",
+    "Element",
+    "Event",
+    "EventTarget",
+    "History",
+    "Location",
+    "Node",
+    "Window",
+], optional = true }
+
+[features]
+# Integración con la barra de direcciones del navegador.
+web = ["dep:wasm-bindgen", "dep:web-sys", "ascua-dom/web"]
+
+[lints]
+workspace = true

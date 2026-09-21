@@ -1,0 +1,21 @@
+[package]
+name = "ascua"
+description = "Framework de UI en Rust y WebAssembly con reactividad fine-grained, sin Virtual DOM."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ascua-reactive = { path = "../ascua-reactive" }
+ascua-dom = { path = "../ascua-dom" }
+ascua-macro = { path = "../ascua-macro" }
+ascua-router = { path = "../ascua-router" }
+
+[features]
+default = []
+web = ["ascua-dom/web", "ascua-router/web"]
+
+[lints]
+workspace = true
