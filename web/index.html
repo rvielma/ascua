@@ -123,6 +123,7 @@ footer .apagado { opacity: .45; }
   <a class="marca" href="#arriba"><span class="punto"></span>Ascua</a>
   <a href="#reactividad">reactividad</a>
   <a href="#templates">templates</a>
+  <a href="#componentes">componentes</a>
   <a href="#estilos">estilos</a>
   <a href="#compilador">compilador</a>
   <a href="/playground/">playground</a>
@@ -223,8 +224,53 @@ _$add(_n0, _n2);</code></pre>
   </p>
 </section>
 
+<section id="componentes">
+  <h2><span class="numero">04</span>Componentes, y el control de flujo</h2>
+  <p>
+    La inicial decide: <strong>minúscula es HTML, mayúscula es componente</strong>. Un
+    componente es una función que recibe props y devuelve un nodo, y eso es todo lo que
+    es: <code>&lt;Ficha titulo=${t}/&gt;</code> compila a <code>Ficha({ titulo: t })</code>,
+    que se puede escribir a mano. No hay clase base, ni ciclo de vida, ni nada que
+    registrar.
+  </p>
+  <pre><code>view`
+  &lt;main&gt;
+    &lt;Show when=${() =&gt; sesion() !== null}&gt;
+      &lt;Ficha titulo=${() =&gt; sesion()!.nombre}&gt;
+        &lt;ul&gt;
+          &lt;For each=${() =&gt; tareas()}
+               key=${(t) =&gt; t.id}
+               render=${(t) =&gt; view`&lt;li&gt;${t.titulo}&lt;/li&gt;`}/&gt;
+        &lt;/ul&gt;
+      &lt;/Ficha&gt;
+      &lt;Else&gt;&lt;Acceso onentrar=${entrar}/&gt;&lt;/Else&gt;
+    &lt;/Show&gt;
+  &lt;/main&gt;`</code></pre>
+  <p class="pie-codigo">Los hijos son una receta que recibe el padre, no nodos ya hechos.</p>
+  <p>
+    <code>&lt;Show&gt;</code> construye cada rama <strong>dentro de su función</strong>: la
+    que no se ve no existe todavía, ni sus nodos ni sus efectos. Al cambiar la condición,
+    el scope de la rama anterior se libera entero —efectos, memos, listeners,
+    <code>onCleanup</code>— y se construye la otra. Si la condición devuelve el mismo
+    valor que ya tenía, no se toca el DOM.
+  </p>
+
+  <div data-isla="panel"></div>
+  <p>
+    Entra, marca alguna tarea, añade otra y sal. El contador de abajo lleva la cuenta: las
+    filas se construyen una vez por clave, y al salir se liberan todas. Marcar una tarea no
+    reconstruye su fila — escribe en un atributo y en un nodo de texto.
+  </p>
+  <p>
+    Un formulario necesita una cosa más: <code>prop:value</code>. El atributo
+    <code>value</code> de un <code>&lt;input&gt;</code> es su valor inicial y deja de mandar
+    en cuanto el usuario teclea; la propiedad manda siempre. Es la diferencia entre poder
+    vaciar un formulario desde el código y no poder.
+  </p>
+</section>
+
 <section>
-  <h2><span class="numero">04</span>El único sitio con reconciliación</h2>
+  <h2><span class="numero">05</span>El único sitio con reconciliación</h2>
   <p>
     Para texto y atributos no hay nada que comparar. Con una lista dinámica sí: no se
     puede saber de antemano qué le pasó a cada elemento. La diferencia con un VDOM es el
@@ -241,7 +287,7 @@ _$add(_n0, _n2);</code></pre>
 </section>
 
 <section id="estilos">
-  <h2><span class="numero">05</span>Los estilos se quedan en el compilador</h2>
+  <h2><span class="numero">06</span>Los estilos se quedan en el compilador</h2>
   <p>
     Un bloque <code>&lt;style&gt;</code> dentro de una plantilla no deja <strong>nada</strong>
     en tiempo de ejecución: ni <code>&lt;style&gt;</code> inyectado, ni <code>insertRule</code>,
@@ -275,7 +321,7 @@ p[data-ascua-98909ba2]:hover {
 </section>
 
 <section id="compilador">
-  <h2><span class="numero">06</span>El compilador es WebAssembly</h2>
+  <h2><span class="numero">07</span>El compilador es WebAssembly</h2>
   <div class="destacado">
     <p>
       <strong>Un solo artefacto de 81 KB</strong> que corre en Node, Bun, Deno y en el
@@ -301,7 +347,7 @@ p[data-ascua-98909ba2]:hover {
 </section>
 
 <section id="comparativa">
-  <h2><span class="numero">07</span>Frente a los de siempre</h2>
+  <h2><span class="numero">08</span>Frente a los de siempre</h2>
   <div class="tabla">
     <table>
       <thead>
@@ -314,19 +360,20 @@ p[data-ascua-98909ba2]:hover {
         <tr><td>Compilador</td><td class="nuestra">WASM</td><td>—</td><td>JS</td><td>JS</td></tr>
         <tr><td>Binarios por plataforma</td><td class="nuestra">0</td><td>—</td><td>0</td><td>0</td></tr>
         <tr><td>CSS scoped</td><td class="nuestra">build time</td><td>no</td><td>build time</td><td>no</td></tr>
+        <tr><td>Control de flujo</td><td class="nuestra">&lt;Show&gt; &lt;For&gt;</td><td>JS</td><td>bloques</td><td>&lt;Show&gt; &lt;For&gt;</td></tr>
         <tr><td>Deps del runtime</td><td class="nuestra">0</td><td>varias</td><td>0</td><td>0</td></tr>
       </tbody>
     </table>
   </div>
   <p>
     La columna que importa no es ninguna de estas: es si puedes leer el mecanismo entero
-    en una sesión y repararlo sin esperar a que lo arregle otro. El runtime son 600 líneas
-    y el compilador 1.200.
+    en una sesión y repararlo sin esperar a que lo arregle otro. El runtime son 700 líneas
+    y el compilador 1.600.
   </p>
 </section>
 
 <section id="empezar">
-  <h2><span class="numero">08</span>Empezar</h2>
+  <h2><span class="numero">09</span>Empezar</h2>
   <pre><code>stil add @ascua/runtime
 stil add -D @ascua/vite-plugin</code></pre>
   <pre><code>// vite.config.ts
@@ -343,7 +390,7 @@ export default { plugins: [ascua()] };</code></pre>
 <footer>
   <p>Ascua v0.1.0 · MIT o Apache-2.0</p>
   <p class="apagado">
-    Esta página es HTML. Solo los dos demos cargan JavaScript, y pesan lo que dice arriba.
+    Esta página es HTML. Solo los tres demos cargan JavaScript, y pesan lo que dice arriba.
   </p>
   <p class="apagado">Santiago de Chile</p>
 </footer>
