@@ -407,7 +407,7 @@ mod tests {
     fn distingue_atributos_estaticos_dinamicos_y_eventos() {
         let nodo = parsear_simple(
             "<button class=\"base\" id=\u{E000}0\u{E001} data-x=\u{E000}1\u{E001} onclick=\u{E000}2\u{E001}/>",
-            &["idFijo".into(), "() => activo()".into(), "manejar".into()],
+            &["idFijo", "() => activo()", "manejar"],
         );
 
         let Nodo::Elemento(elemento) = nodo else {
@@ -451,17 +451,13 @@ mod tests {
 
     #[test]
     fn rechaza_una_plantilla_con_dos_raices() {
-        let error = parsear("<p>a</p><p>b</p>", &[])
-            .err()
-            .expect("debería fallar");
+        let error = parsear("<p>a</p><p>b</p>", &[]).expect_err("debería fallar");
         assert!(error.mensaje.contains("único elemento raíz"), "{error}");
     }
 
     #[test]
     fn rechaza_un_cierre_que_no_corresponde() {
-        let error = parsear("<div><p>a</div></p>", &[])
-            .err()
-            .expect("debería fallar");
+        let error = parsear("<div><p>a</div></p>", &[]).expect_err("debería fallar");
         assert!(error.mensaje.contains("no cierra"), "{error}");
     }
 }
