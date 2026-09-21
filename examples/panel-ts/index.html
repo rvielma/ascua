@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Panel · Ascua</title>
+    <style>
+      :root {
+        --fondo: #fbfbfa;
+        --panel: #fff;
+        --borde: #00000018;
+        --tenue: #6b6b70;
+        --acento: #2f6fd0;
+        --exito: #1c8a5b;
+        --aviso: #b26a00;
+        --error: #c0392b;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --fondo: #131315;
+          --panel: #1a1a1d;
+          --borde: #ffffff1f;
+          --tenue: #9a9aa2;
+          --acento: #6ea8fe;
+          --exito: #4ac38a;
+          --aviso: #e0a33e;
+          --error: #f07167;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--fondo);
+        color: light-dark(#17171a, #ececf0);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="raiz"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
