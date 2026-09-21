@@ -1,4 +1,9 @@
-# El sitio de Ascua
+# El sitio, en la vía Rust/WebAssembly
+
+**Este fue el sitio del proyecto hasta que se reescribió con la vía de
+TypeScript**, que es la que está publicada hoy en ascua.gitweave.run. Se
+conserva como ejemplo porque demuestra lo que la otra vía todavía no tiene: SSR
+con hidratación real, midiendo *40 nodos adoptados y 0 creados*.
 
 Construido con Ascua. No es una demostración de juguete: el contenido que se lee
 sale del mismo `render_to_string_hydratable` que usaría cualquier aplicación, y
@@ -24,17 +29,11 @@ stil run build      # build.sh + vite build -> dist/
 Vite no es dueño de nada: sirve estáticos y copia assets. Si mañana hay que
 cambiarlo, se cambia `vite.config.js` y el sitio sigue igual.
 
-## En producción
+## Ya no se despliega
 
-En **https://ascua.gitweave.run**, en el cluster GCP de Mentat, junto a stil,
-hull y condor. Hull con `serve: static`, 3 réplicas de 64 MB detrás de Condor.
-
-```sh
-mt --server https://www.getmentat.run up deploy/sitio.yaml
-```
-
-`mt up` hace el build local (wasm + html + vite), empaqueta la salida, la sube y
-reescala. Es idempotente: para publicar un cambio, se vuelve a ejecutar.
+Su spec de despliegue se quitó a propósito: apuntaba al mismo servicio que el
+sitio actual (`ascua-site`) y ejecutarlo por error publicaría esta versión
+encima de la buena.
 
 ## Cifras del build
 

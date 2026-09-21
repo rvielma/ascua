@@ -1,176 +1,131 @@
 # Ascua
 
-Framework de UI para la web escrito desde cero en Rust y compilado a
-WebAssembly. Sin React, sin Vue, sin Svelte, sin Virtual DOM y sin runtime de
-reactividad de terceros: el mecanismo completo se construye aquí para que pueda
-entenderse y repararse sin depender de nadie.
+Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
+compilador —un módulo **WebAssembly** de 91 KB— lo traduce a operaciones
+directas de DOM. Una aplicación entera pesa 2,18 kB.
 
-Esto es lo que sirve el servidor del demo, sin que el navegador haya ejecutado
-todavía una sola línea de JavaScript:
+**[ascua.gitweave.run](https://ascua.gitweave.run)** · el compilador corre en tu
+pestaña: **[playground](https://ascua.gitweave.run/playground/)**
 
-```html
-<ascua-island data-ascua-island="app">
-  <div class="app"><nav class="nav">…</nav>
-    <section class="panel"><h2>Tareas</h2>
-      <p class="resumen">2 tareas pendientes</p>
-      <ul class="lista"><li class="pendiente">…</li><li class="pendiente">…</li></ul>
-```
+```ts
+export function Contador() {
+  const count = signal(0);
 
-Cuando el WASM arranca, **adopta** esos nodos en vez de rehacerlos: 37 adoptados,
-0 creados.
-
-```rust
-#[component]
-fn Contador<B: Backend>(dom: &Dom<B>, count: Signal<i32>) -> B::Node {
-    view! { dom,
-        <button on:click={move |_| count.update(|c| *c += 1)}>
-            "Clicks: " {move || count.get()}
-            <style>r#"
-                button { border-radius: 8px; }
-            "#</style>
-        </button>
-    }
+  return view`
+    <button class="contador" onclick=${() => count.update((c) => c + 1)}>
+      Clicks: ${() => count()}
+      <style>
+        .contador { border-radius: 8px; padding: .5rem 1rem; }
+      </style>
+    </button>`;
 }
 ```
 
+Una closure es reactiva; cualquier otra expresión se evalúa una vez. El
+`<style>` se extrae al compilar y no deja nada en tiempo de ejecución.
+
 ## Estado
 
-| Fase | Entregable | Estado |
+| Pieza | Qué es | Estado |
 |---|---|---|
-| 1 | `ascua-reactive` — signals, effects, memos | ✅ |
-| 2 | `ascua-dom` — runtime DOM con backends intercambiables | ✅ |
-| 3 | `ascua-macro` — `view!` y `#[component]` | ✅ |
-| 4 | Componentes con hijos, `<Show>`, `<For>` | ✅ |
-| 5 | CSS scoped extraído en build time | ✅ |
-| 6 | `ascua-router` — la ruta como signal | ✅ |
-| 7 | SSR e islas | ✅ |
-| 8 | Hidratación real: el cliente adopta los nodos del servidor | ✅ |
-| 9 | Props opcionales y control de flujo dentro de componentes | ✅ |
+| `@ascua/runtime` | Signals y DOM, 1,72 kB gzip, cero dependencias | ✅ |
+| `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
+| `@ascua/vite-plugin` | Integración con Vite | ✅ |
+| CSS scoped en build time | `<style>` sin runtime de estilos | ✅ |
+| SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
+| Componentes con props | Pendiente | ⬜ |
 
-**84 tests**, sin warnings de `clippy`, todo verificado en navegador real. El
-demo son 160 KB de WASM y 11 KB de glue JS, sin una línea de ningún framework
-de UI de terceros. Su hidratación, medida en el navegador: **37 nodos
-adoptados, 0 creados**.
+**139 tests** (111 en Rust, 28 en TypeScript), sin warnings de `clippy`, todo
+verificado en navegador real.
+
+| | gzip |
+|---|---|
+| Una aplicación entera (runtime + contador + lista con clave) | **2,18 kB** |
+| Solo el runtime | 1,72 kB |
+| React + ReactDOM, sin aplicación | ~45 kB |
 
 ## Cómo está construido
 
 ```
+packages/
+  runtime/          @ascua/runtime — signals y operaciones de DOM (TypeScript)
+  compilador/       @ascua/compilador — el compilador como .wasm
+  vite-plugin/      @ascua/vite-plugin
 crates/
-  ascua-reactive/   El grafo reactivo. Rust puro, cero dependencias, sin DOM.
-  ascua-dom/        Operaciones de nodo, bindings, SSR, islas e hidratación.
-  ascua-macro/      Las macros view! y #[component], y el scoping de CSS.
-  ascua-router/     La ruta actual como signal.
-  ascua/            Fachada: lo único que una aplicación declara.
+  ascua-compilador/ El compilador: escáner, parser de plantillas y codegen
+  ascua-css/        Scoping de CSS, compartido por los dos compiladores
+  ascua-reactive/   El grafo reactivo en Rust puro, cero dependencias
+  ascua-dom/        Runtime DOM en Rust: SSR, islas e hidratación
+  ascua-macro/      La macro view! y #[component] de la vía Rust
+  ascua-router/     La ruta como signal
+web/                El sitio, con los demos como islas
+playground/         El compilador corriendo en el navegador
 examples/
-  demo/             SSR + islas + router, con los componentes compartidos
-                    entre servidor y cliente (src/app.rs).
-site/               El sitio del proyecto, construido con Ascua: el contenido
-                    se renderiza en servidor y los demos son islas.
-docs/
-  reactividad.md    El mecanismo reactivo completo, explicado.
-  templates.md      La macro view!, sus reglas y el CSS scoped.
-  meta-framework.md Router, SSR, islas e hidratación.
+  contador-ts/      Una aplicación en la vía TypeScript
+  demo/             SSR + islas + router + hidratación (vía Rust)
+  sitio-wasm/       El sitio anterior, en la vía Rust
+docs/               reactividad · templates · meta-framework
 ```
 
-Las capas son independientes: el núcleo reactivo no sabe que existe el DOM, el
-runtime DOM no sabe que existe la macro, y el router solo necesita signals.
+### Dos vías
 
-## Las cuatro ideas
+Ascua empezó como un framework en Rust compilado a WebAssembly. Ese trabajo
+sigue aquí, funciona y tiene cosas que la vía nueva todavía no: SSR con
+hidratación que adopta los nodos del servidor sin recrear ninguno.
+
+La vía que se recomienda hoy es la de **TypeScript**: el desarrollador escribe
+HTML y TypeScript, y el WebAssembly se queda donde de verdad aporta —el
+compilador— en lugar de cobrarle 46 kB al visitante. El motivo, con números,
+está en el sitio.
+
+## Las tres ideas
 
 ### 1. Sin Virtual DOM
 
 La relación entre un dato y el nodo que lo muestra se establece una sola vez, al
-compilar el template. Cambiar el dato ejecuta directamente la operación de DOM
-que le corresponde, porque el efecto ya tiene capturado el nodo.
-
-Esto es comprobable, y el demo lo comprueba: tras varios clicks, el nodo de
-texto **sigue siendo el mismo objeto del DOM** que al montar. Ver
-[`docs/reactividad.md`](docs/reactividad.md).
+compilar la plantilla. Cambiar el dato ejecuta la operación que le corresponde,
+porque el efecto ya tiene capturado el nodo. Comprobable: tras varios clicks, el
+nodo de texto **sigue siendo el mismo objeto del DOM**.
 
 ### 2. Una closure es reactiva; todo lo demás, no
 
-```rust
-{count.get()}          // valor fijo, nunca cambia
-{move || count.get()}  // este nodo sigue al signal
+```ts
+${count()}          // valor fijo, nunca cambia
+${() => count()}    // este nodo sigue al signal
 ```
 
-La distinción es sintáctica, no de tipos: mirando el template se sabe qué puede
-cambiar, sin conocer los tipos ni confiar en ninguna regla implícita. Ver
-[`docs/templates.md`](docs/templates.md).
+La distinción es sintáctica, no de tipos: mirando la plantilla se sabe qué puede
+cambiar. Ver [`docs/templates.md`](docs/templates.md).
 
-### 3. Un componente es una función
+### 3. WebAssembly donde suma
 
-`#[component]` solo genera el struct de props y su builder, porque Rust no
-tiene argumentos con nombre. El componente se puede llamar a mano y no hay
-registro de componentes ni despacho dinámico.
+El compilador es un `.wasm` de 91 KB: un solo artefacto para Node, Bun, Deno y
+el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
+veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
+binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
+un playground que compila en tu pestaña.
 
-Los props con `#[prop(default)]` se pueden omitir, y olvidar uno obligatorio es
-un **error de compilación** con un mensaje que lo dice:
-
-```text
-error: faltan props obligatorios: este componente necesita texto
-```
-
-### 4. Un backend, cuatro destinos
-
-El runtime habla con el trait `Backend`, no con `web-sys`. De ahí salen cuatro
-cosas sin escribir el código cuatro veces: la interfaz en el navegador, el HTML
-en el servidor, la hidratación (un backend que envuelve a otro y adopta lo que
-encuentra) y una suite de **84 tests que corre sin navegador**. Ver
-[`docs/meta-framework.md`](docs/meta-framework.md).
-
-## Decisiones de arquitectura
-
-- **Reactividad fine-grained con signals**, sin VDOM ni diffing global. El único
-  sitio con reconciliación es la lista con clave, y compara una lista de claves,
-  no un árbol.
-- **Sintaxis vía macro de Rust** (`view! { }`), no archivo `.ascua`: funciona con
-  `rust-analyzer`, `cargo build` y el borrow checker desde el primer día.
-- **CSS scoped en build time**: el `<style>` no deja nada en runtime, solo un
-  atributo en los elementos y un archivo CSS que recoge el build.
-- **El router es un signal**: sin componente `<Router>`, sin contexto, sin
-  re-render al navegar.
-- **SSR, islas e hidratación**: el servidor renderiza HTML con los mismos
-  componentes y numera los elementos de cada isla; el cliente construye en el
-  mismo orden y **adopta** esos nodos en vez de rehacerlos. Si algo no encaja,
-  ese nodo se crea y la aplicación sigue.
-- **Cero dependencias en el núcleo reactivo.** Literalmente cero.
-
-### Las únicas dependencias externas, y por qué
-
-| Crate | Dónde | Por qué |
-|---|---|---|
-| `wasm-bindgen`, `web-sys` | `ascua-dom`, `ascua-router`, feature `web` | Son los bindings a las APIs del navegador, no un framework. Solo en los backends web, que son sustituibles. |
-| `syn`, `quote`, `proc-macro2` | `ascua-macro` | Parsear tokens de Rust en un proc-macro. Son infraestructura del compilador, no de UI, y no aparecen en el bundle final. |
-
-Ninguna entra en el núcleo reactivo ni en el runtime DOM genérico.
+En el navegador, en cambio, no aporta: el DOM vive en JavaScript y cruzar la
+frontera cuesta más que la operación. Por eso el runtime son 1,72 kB de
+JavaScript.
 
 ## Desarrollo
 
 ```sh
-cargo test                                   # 84 tests, sin navegador
-cargo clippy --all-targets                   # sin warnings
-cargo fmt --all
-cargo build --target wasm32-unknown-unknown  # el núcleo compila a WASM
+cargo test                   # 111 tests del compilador y la vía Rust
+cargo clippy --all-targets   # sin warnings
+
+cd packages/runtime && stil run test    # 28 tests del runtime
+cd web && ./build.sh                    # el sitio, con el playground dentro
+cd examples/contador-ts && stil run build
 ```
 
-El sitio (construido con el propio framework):
+El compilador como WebAssembly:
 
 ```sh
-cd site
-./build.sh && stil run dev    # http://localhost:5178
+cargo build -p ascua-compilador --features wasm --target wasm32-unknown-unknown --release
+wasm-bindgen --target web --out-dir packages/compilador/web target/.../ascua_compilador.wasm
 ```
-
-El demo completo (servidor + cliente):
-
-```sh
-cd examples/demo
-./build.sh                      # necesita wasm-bindgen-cli
-python3 -m http.server 8080     # abrir http://localhost:8080
-```
-
-`build.sh` compila el WASM del cliente, genera el HTML de cada ruta con los
-mismos componentes y le incrusta el CSS que la macro extrajo al compilar.
 
 > **macOS**: esta plataforma tiene dos manías que no vienen del código y que
 > `.cargo/config.toml` ya sortea con
@@ -181,8 +136,7 @@ mismos componentes y le incrusta el CSS que la macro extrajo al compilar.
 > proc-macro sin encontrar `libstd`.
 >
 > Los build scripts no pasan por ese runner. Si uno muere con SIGKILL, usar
-> [`./scripts/cargo.sh`](scripts/cargo.sh) en lugar de `cargo`: detecta ese
-> fallo concreto, re-firma y reintenta.
+> [`./scripts/cargo.sh`](scripts/cargo.sh) en lugar de `cargo`.
 
 ## Lo que queda fuera, a propósito
 
