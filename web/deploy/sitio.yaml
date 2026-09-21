@@ -1,7 +1,7 @@
 # El sitio de Ascua en el cluster GCP, junto a stil, hull y condor.
 #
 # Hull con serve:static — son ficheros: un index.html que es HTML de verdad, el
-# JavaScript de los dos demos y el playground con su .wasm. No hay servidor de
+# JavaScript de los tres demos y el playground con su .wasm. No hay servidor de
 # aplicación que mantener.
 name: ascua-site
 domain: ascua.gitweave.run
