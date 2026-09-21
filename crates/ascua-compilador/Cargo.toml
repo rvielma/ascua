@@ -1,0 +1,17 @@
+[package]
+name = "ascua-compilador"
+description = "Compilador de plantillas de Ascua: HTML en TypeScript -> operaciones directas de DOM."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "ascuac"
+path = "src/main.rs"
+
+[dependencies]
+
+[lints]
+workspace = true
