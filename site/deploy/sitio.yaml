@@ -1,0 +1,21 @@
+# El sitio de Ascua en el cluster GCP, junto a stil, hull y condor.
+#
+# Hull con serve:static — son ficheros: un index.html generado por Rust, un
+# .wasm y el glue de wasm-bindgen. No hay servidor de aplicación que mantener.
+name: ascua-site
+domain: ascua.gitweave.run
+replicas: 2
+build:
+  cwd: ../
+  # `stil run build` = ./build.sh (wasm + html del servidor) && vite build.
+  # El store va al que ya existe en este volumen: clonefile no cruza volúmenes.
+  cmd: >-
+    STIL_STORE=/Volumes/Working/.stil-store stil run build
+  output: dist
+runtime:
+  serve: static
+  port: 3013
+  memory: 64M
+  cpu: 0.5
+  pids: 32
+health: /

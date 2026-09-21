@@ -24,6 +24,18 @@ stil run build      # build.sh + vite build -> dist/
 Vite no es dueño de nada: sirve estáticos y copia assets. Si mañana hay que
 cambiarlo, se cambia `vite.config.js` y el sitio sigue igual.
 
+## En producción
+
+En **https://ascua.gitweave.run**, en el cluster GCP de Mentat, junto a stil,
+hull y condor. Hull con `serve: static`, 3 réplicas de 64 MB detrás de Condor.
+
+```sh
+mt --server https://www.getmentat.run up deploy/sitio.yaml
+```
+
+`mt up` hace el build local (wasm + html + vite), empaqueta la salida, la sube y
+reescala. Es idempotente: para publicar un cambio, se vuelve a ejecutar.
+
 ## Cifras del build
 
 ```
