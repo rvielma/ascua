@@ -1,5 +1,8 @@
 # La macro `view!`
 
+> Esto documenta la **vía Rust**. La vía recomendada hoy es TypeScript con el
+> compilador en WebAssembly: [`plantillas-ts.md`](plantillas-ts.md).
+
 `view!` es el compilador de templates de Ascua: traduce marcado a las llamadas
 de DOM que lo construyen, más un efecto por cada punto dinámico. No genera
 ninguna estructura intermedia en tiempo de ejecución.

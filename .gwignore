@@ -97,3 +97,11 @@ packages/compilador/web/**
 # Playground: su dist y la copia que consume el sitio
 playground/dist
 playground/dist/**
+
+# Capturas y volcados de las comprobaciones con Playwright
+.playwright-mcp
+.playwright-mcp/**
+
+# Ejemplos
+examples/panel-ts/dist
+examples/panel-ts/dist/**

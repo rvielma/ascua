@@ -2,12 +2,28 @@
   "name": "@ascua/compilador",
   "version": "0.1.0",
   "description": "El compilador de plantillas de Ascua, como módulo WebAssembly. Un solo artefacto para Node, Bun, Deno y el navegador.",
+  "keywords": [
+    "compilador",
+    "webassembly",
+    "wasm",
+    "plantillas",
+    "ascua"
+  ],
+  "homepage": "https://ascua.gitweave.run",
+  "license": "MIT OR Apache-2.0",
   "main": "./pkg/ascua_compilador.js",
   "exports": {
     ".": "./pkg/ascua_compilador.js",
     "./web": "./web/ascua_compilador.js",
     "./web/wasm": "./web/ascua_compilador_bg.wasm"
   },
-  "files": ["pkg", "web"],
-  "license": "MIT OR Apache-2.0"
+  "files": [
+    "pkg",
+    "web",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

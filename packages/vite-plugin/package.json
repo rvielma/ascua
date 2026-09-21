@@ -1,10 +1,33 @@
 {
   "name": "@ascua/vite-plugin",
   "version": "0.1.0",
-  "description": "Plugin de Vite que compila las plantillas de Ascua con ascuac.",
+  "description": "Plugin de Vite que compila las plantillas de Ascua con el compilador en WebAssembly.",
+  "keywords": [
+    "vite",
+    "plugin",
+    "ascua",
+    "compilador",
+    "wasm"
+  ],
+  "homepage": "https://ascua.gitweave.run",
+  "license": "MIT OR Apache-2.0",
   "type": "module",
   "main": "./index.js",
-  "exports": { ".": "./index.js" },
-  "files": ["index.js"],
-  "license": "MIT OR Apache-2.0"
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@ascua/compilador": "0.1.0"
+  },
+  "peerDependencies": {
+    "vite": ">=6"
+  }
 }

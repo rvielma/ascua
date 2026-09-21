@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ascua — HTML y TypeScript, con el compilador en WebAssembly</title>
-<meta name="description" content="Framework de UI sin Virtual DOM: escribes HTML dentro de TypeScript y el compilador —un .wasm de 91 KB— lo traduce a operaciones directas de DOM. Una aplicación entera pesa 2,18 kB.">
+<meta name="description" content="Framework de UI sin Virtual DOM: escribes HTML dentro de TypeScript y el compilador —un .wasm de 81 KB— lo traduce a operaciones directas de DOM. Una aplicación entera pesa 2,18 kB.">
 <meta property="og:title" content="Ascua">
 <meta property="og:description" content="Escribes HTML y TypeScript. El compilador es WebAssembly. Una aplicación entera, 2,18 kB.">
 <meta property="og:type" content="website">
@@ -137,9 +137,9 @@ footer .apagado { opacity: .45; }
   </p>
   <div class="cifras">
     <span><b>2,18 kB</b> una aplicación entera, gzip</span>
-    <span><b>1,72 kB</b> el runtime</span>
+    <span><b>1,77 kB</b> el runtime</span>
     <span><b>0</b> dependencias</span>
-    <span><b>139</b> tests</span>
+    <span><b>173</b> tests</span>
   </div>
 </header>
 
@@ -278,7 +278,7 @@ p[data-ascua-98909ba2]:hover {
   <h2><span class="numero">06</span>El compilador es WebAssembly</h2>
   <div class="destacado">
     <p>
-      <strong>Un solo artefacto de 91 KB</strong> que corre en Node, Bun, Deno y en el
+      <strong>Un solo artefacto de 81 KB</strong> que corre en Node, Bun, Deno y en el
       navegador. SWC publica una decena de binarios por plataforma; esbuild, veinte. Ascua
       publica uno.
     </p>
@@ -296,7 +296,7 @@ p[data-ascua-98909ba2]:hover {
   <p>
     En el navegador, en cambio, WebAssembly no aporta: el DOM vive en JavaScript y cada
     cruce de la frontera cuesta más que la operación. Por eso el runtime que llega al
-    usuario son 1,72 kB de JavaScript, y el WebAssembly se queda donde sí gana.
+    usuario son 1,77 kB de JavaScript, y el WebAssembly se queda donde sí gana.
   </p>
 </section>
 
@@ -328,7 +328,7 @@ p[data-ascua-98909ba2]:hover {
 <section id="empezar">
   <h2><span class="numero">08</span>Empezar</h2>
   <pre><code>stil add @ascua/runtime
-stil add -D @ascua/vite-plugin @ascua/compilador</code></pre>
+stil add -D @ascua/vite-plugin</code></pre>
   <pre><code>// vite.config.ts
 import ascua from "@ascua/vite-plugin";
 
