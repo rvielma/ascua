@@ -93,8 +93,22 @@ export default function ascua(opciones = {}) {
 
       // El CSS se entrega como un módulo aparte: Vite lo inyecta en dev y lo
       // extrae a un .css en el build. No queda nada de estilos en runtime.
+      //
+      // El id lleva **el scope del propio CSS**, que el compilador deriva de su
+      // contenido. Así, tocar un `<style>` produce otro módulo virtual en vez
+      // de cambiar el contenido de uno que ya existe: en dev, un id estable con
+      // contenido nuevo se queda servido con el de antes, y los estilos dejan
+      // de casar con los elementos, que sí llevan ya el scope nuevo.
       const nombre = archivo.replace(/[^a-zA-Z0-9]/g, "_").slice(-60);
-      const idVirtual = `${PREFIJO}${nombre}.css`;
+      const scope = /data-ascua-([0-9a-f]+)/.exec(salida.css)?.[1] ?? "css";
+      const idVirtual = `${PREFIJO}${nombre}-${scope}.css`;
+
+      // Las versiones anteriores de este mismo archivo ya no las pide nadie.
+      for (const anterior of hojas.keys()) {
+        if (anterior.startsWith(`${PREFIJO}${nombre}-`) && anterior !== idVirtual) {
+          hojas.delete(anterior);
+        }
+      }
       hojas.set(idVirtual, salida.css);
 
       return {

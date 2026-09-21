@@ -65,33 +65,15 @@ pub struct Salida {
 /// # Errors
 /// Si alguna plantilla está mal formada.
 pub fn compilar(fuente: &str) -> Result<Salida, Error> {
-    let ocurrencias = escaner::buscar(fuente);
-    if ocurrencias.is_empty() {
-        return Ok(Salida {
-            codigo: fuente.to_string(),
-            css: String::new(),
-        });
-    }
-
-    let mut codigo = fuente.to_string();
     let mut importes: BTreeSet<(&'static str, &'static str)> = BTreeSet::new();
     let mut hojas: Vec<String> = Vec::new();
 
-    // De atrás hacia adelante: así los cortes de las anteriores siguen valiendo.
-    for ocurrencia in ocurrencias.iter().rev() {
-        let marcada = marcar(&ocurrencia.partes);
-        let plantilla =
-            plantilla::parsear(&marcada, &ocurrencia.expresiones).map_err(|error| Error {
-                mensaje: error.mensaje,
-                linea: linea_de(fuente, ocurrencia.inicio),
-            })?;
-
-        let generado = codegen::generar(&plantilla);
-        importes.extend(generado.importes);
-        if !generado.css.is_empty() {
-            hojas.push(generado.css);
-        }
-        codigo.replace_range(ocurrencia.inicio..ocurrencia.fin, &generado.codigo);
+    let codigo = compilar_en(fuente, &mut importes, &mut hojas)?;
+    if importes.is_empty() {
+        return Ok(Salida {
+            codigo,
+            css: String::new(),
+        });
     }
 
     // En orden de aparición, no al revés.
@@ -101,6 +83,50 @@ pub fn compilar(fuente: &str) -> Result<Salida, Error> {
         codigo: format!("{}\n{codigo}", declaracion_import(&importes)),
         css: hojas.join("\n"),
     })
+}
+
+/// Compila las plantillas de un fragmento de código.
+///
+/// Se llama también **sobre las expresiones de los huecos**, porque ahí puede
+/// haber otra plantilla: el `render` de un `<For>` es el caso normal. Sin esto,
+/// un `view` anidado saldría intacto al otro lado.
+fn compilar_en(
+    fuente: &str,
+    importes: &mut BTreeSet<(&'static str, &'static str)>,
+    hojas: &mut Vec<String>,
+) -> Result<String, Error> {
+    let ocurrencias = escaner::buscar(fuente);
+    if ocurrencias.is_empty() {
+        return Ok(fuente.to_string());
+    }
+
+    let mut codigo = fuente.to_string();
+
+    // De atrás hacia adelante: así los cortes de las anteriores siguen valiendo.
+    for ocurrencia in ocurrencias.iter().rev() {
+        // También al revés, para que el `reverse` final deje las hojas de
+        // estilo en el orden en que aparecen en el archivo.
+        let mut expresiones = Vec::with_capacity(ocurrencia.expresiones.len());
+        for expresion in ocurrencia.expresiones.iter().rev() {
+            expresiones.push(compilar_en(expresion, importes, hojas)?);
+        }
+        expresiones.reverse();
+
+        let marcada = marcar(&ocurrencia.partes);
+        let plantilla = plantilla::parsear(&marcada, &expresiones).map_err(|error| Error {
+            mensaje: error.mensaje,
+            linea: linea_de(fuente, ocurrencia.inicio),
+        })?;
+
+        let generado = codegen::generar(&plantilla);
+        importes.extend(generado.importes);
+        if !generado.css.is_empty() {
+            hojas.push(generado.css);
+        }
+        codigo.replace_range(ocurrencia.inicio..ocurrencia.fin, &generado.codigo);
+    }
+
+    Ok(codigo)
 }
 
 /// Une los trozos de marcado intercalando los marcadores de hueco.
@@ -187,6 +213,42 @@ export function Contador() {
             salida.codigo
         );
         assert!(salida.codigo.contains("data-ascua-"), "{}", salida.codigo);
+    }
+
+    #[test]
+    fn compila_las_plantillas_que_van_dentro_de_un_hueco() {
+        // El `render` de un <For> lleva otra plantilla: si el compilador no
+        // entrara ahí, saldría un `view` sin definir al otro lado.
+        let fuente = "const a = view`<ul><For each=${() => t()} key=${(x) => x.id} \
+                      render=${(x) => view`<li>${x.texto}</li>`}/></ul>`;\n";
+        let salida = compilar(fuente).expect("debería compilar").codigo;
+
+        assert!(!salida.contains("view`"), "{salida}");
+        assert!(salida.contains("_$list("), "{salida}");
+        assert!(salida.contains("_$el(\"li\")"), "{salida}");
+        // Un solo import, con todo lo que hace falta.
+        assert_eq!(
+            salida.matches("from \"@ascua/runtime\"").count(),
+            1,
+            "{salida}"
+        );
+    }
+
+    #[test]
+    fn junta_el_css_de_las_plantillas_anidadas() {
+        let fuente = "const a = view`<ul><style>ul { margin: 0; }</style>\
+                      <For each=${() => t()} key=${(x) => x.id} \
+                      render=${(x) => view`<li><style>li { color: red; }</style></li>`}/></ul>`;\n";
+        let salida = compilar(fuente).expect("debería compilar");
+
+        assert!(salida.css.contains("margin: 0"), "{}", salida.css);
+        assert!(salida.css.contains("color: red"), "{}", salida.css);
+        // En orden de aparición: primero la de fuera.
+        assert!(
+            salida.css.find("margin: 0") < salida.css.find("color: red"),
+            "{}",
+            salida.css
+        );
     }
 
     #[test]

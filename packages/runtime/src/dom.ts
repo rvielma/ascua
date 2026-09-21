@@ -12,6 +12,16 @@
 
 import { currentScope, effect, memo, onCleanup, root, withScope } from "./reactivo.js";
 
+/**
+ * El contenido que recibe un componente.
+ *
+ * No son nodos ya construidos, sino la **receta** para construirlos: recibe el
+ * elemento donde deben ir y los crea dentro. El componente decide dónde —y
+ * si— los pone, y un `<Show>` o un `<For>` del contenido encuentran el padre
+ * real que necesitan para anclarse.
+ */
+export type Children = (padre: Node) => void;
+
 /** Lo que puede acabar dentro de un atributo. */
 export type ValorAtributo = string | number | boolean | null | undefined;
 
@@ -67,6 +77,20 @@ export function attribute(nodo: Element, nombre: string, calcular: () => ValorAt
   });
 }
 
+/**
+ * Propiedad del nodo, atada a una expresión.
+ *
+ * No es lo mismo que un atributo, y la diferencia se nota justo donde importa:
+ * el atributo `value` de un `<input>` es su valor *inicial*, y deja de mandar
+ * en cuanto el usuario teclea. La propiedad sí manda siempre. Por eso `value`
+ * y `checked` se escriben con `prop:` en la plantilla.
+ */
+export function property(nodo: Element, nombre: string, calcular: () => unknown): void {
+  effect(() => {
+    (nodo as unknown as Record<string, unknown>)[nombre] = calcular();
+  });
+}
+
 /** Atributo que no cambia nunca. */
 export function staticAttribute(nodo: Element, nombre: string, valor: ValorAtributo): void {
   if (valor === false || valor === null || valor === undefined) return;
@@ -100,7 +124,7 @@ export function on<K extends keyof HTMLElementEventMap>(
 export function show<T>(
   padre: Node,
   elegir: () => T,
-  construir: (valor: T) => Node | null,
+  construir: (valor: T) => Node | readonly Node[] | null,
 ): void {
   const ancla = marker();
   padre.appendChild(ancla);
@@ -109,7 +133,7 @@ export function show<T>(
   // pertenecer a quien contiene esta región, no al efecto que la actualiza.
   const scope = currentScope();
 
-  let actual: Node | null = null;
+  let actuales: readonly Node[] = [];
   let liberar: (() => void) | null = null;
 
   // El selector va envuelto en un memo: si devuelve el mismo valor, no se
@@ -119,20 +143,25 @@ export function show<T>(
   effect(() => {
     const valor = valorActual();
 
-    if (actual) padre.removeChild(actual);
+    for (const nodo of actuales) padre.removeChild(nodo);
     if (liberar) liberar();
-    actual = null;
+    actuales = [];
     liberar = null;
 
     withScope(scope, () => {
-      const [nodo, dispose] = root(() => construir(valor));
-      if (nodo) {
-        padre.insertBefore(nodo, ancla);
-        actual = nodo;
-        liberar = dispose;
-      } else {
+      const [construido, dispose] = root(() => construir(valor));
+      // Una rama puede tener varios nodos hermanos: son contenido dentro de
+      // un padre que ya existe, no una vista con raíz propia.
+      const nodos =
+        construido === null ? [] : Array.isArray(construido) ? construido : [construido as Node];
+
+      if (nodos.length === 0) {
         dispose();
+        return;
       }
+      for (const nodo of nodos) padre.insertBefore(nodo, ancla);
+      actuales = nodos;
+      liberar = dispose;
     });
   });
 }
