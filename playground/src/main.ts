@@ -1,6 +1,6 @@
 // El playground de Ascua, escrito con Ascua.
 //
-// El compilador que traduce las plantillas es un módulo WebAssembly de 91 KB,
+// El compilador que traduce las plantillas es un módulo WebAssembly de 81 KB,
 // y aquí corre en la pestaña: no hay servidor que compile nada.
 
 import init, { compilar_json, version } from "@ascua/compilador/web";
@@ -53,7 +53,7 @@ function App() {
       <header class="cabecera">
         <a class="marca" href="/"><span class="punto"></span>Ascua</a>
         <p class="lema">
-          El compilador es un <b>.wasm de 91 KB</b>. Está corriendo en tu pestaña:
+          El compilador es un <b>.wasm de 81 KB</b>. Está corriendo en tu pestaña:
           esta página no tiene servidor detrás.
         </p>
       </header>

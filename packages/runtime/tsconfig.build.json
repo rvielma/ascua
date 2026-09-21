@@ -1,4 +1,9 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // Sin esto, tsc cuelga la salida de `dist/src/` —porque el tsconfig de
+    // base incluye también `test`— y `main` apunta a un archivo que no existe.
+    "rootDir": "src"
+  },
   "include": ["src"]
 }

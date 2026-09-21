@@ -1,7 +1,7 @@
 # Ascua
 
 Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
-compilador —un módulo **WebAssembly** de 91 KB— lo traduce a operaciones
+compilador —un módulo **WebAssembly** de 81 KB— lo traduce a operaciones
 directas de DOM. Una aplicación entera pesa 2,18 kB.
 
 **[ascua.gitweave.run](https://ascua.gitweave.run)** · el compilador corre en tu
@@ -24,24 +24,50 @@ export function Contador() {
 Una closure es reactiva; cualquier otra expresión se evalúa una vez. El
 `<style>` se extrae al compilar y no deja nada en tiempo de ejecución.
 
+Para lo que no cabe en un botón están los componentes y el control de flujo,
+con la convención de siempre —minúscula es HTML, mayúscula es componente:
+
+```ts
+view`
+  <main>
+    <Show when=${() => sesion() !== null}>
+      <Panel sesion=${() => sesion()!}/>
+      <Else><Login onentrar=${(s) => sesion.set(s)}/></Else>
+    </Show>
+
+    <ul>
+      <For each=${() => tareas()} key=${(t) => t.id}
+           render=${(t) => view`<li>${t.titulo}</li>`}/>
+    </ul>
+  </main>`;
+```
+
+Hay un panel con acceso, tabla filtrable y componentes con props en
+[`examples/panel-ts`](examples/panel-ts): **4,7 kB** de JavaScript y 1,4 kB de
+CSS, gzip, la aplicación entera.
+
 ## Estado
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| `@ascua/runtime` | Signals y DOM, 1,72 kB gzip, cero dependencias | ✅ |
+| `@ascua/runtime` | Signals y DOM, 1,77 kB gzip, cero dependencias | ✅ |
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
 | `@ascua/vite-plugin` | Integración con Vite | ✅ |
 | CSS scoped en build time | `<style>` sin runtime de estilos | ✅ |
+| Componentes con props e hijos | `<Panel titulo=${t}>…</Panel>` | ✅ |
+| Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
+| Propiedades del DOM | `prop:value`, para formularios que mandan | ✅ |
+| Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
-| Componentes con props | Pendiente | ⬜ |
 
-**139 tests** (111 en Rust, 28 en TypeScript), sin warnings de `clippy`, todo
+**173 tests** (132 en Rust, 41 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
 |---|---|
 | Una aplicación entera (runtime + contador + lista con clave) | **2,18 kB** |
-| Solo el runtime | 1,72 kB |
+| Un panel con acceso, tabla filtrable y componentes | 4,72 kB + 1,39 kB de CSS |
+| Solo el runtime | 1,77 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
 ## Cómo está construido
@@ -62,9 +88,10 @@ web/                El sitio, con los demos como islas
 playground/         El compilador corriendo en el navegador
 examples/
   contador-ts/      Una aplicación en la vía TypeScript
+  panel-ts/         Un panel con acceso: componentes, regiones y lista con clave
   demo/             SSR + islas + router + hidratación (vía Rust)
   sitio-wasm/       El sitio anterior, en la vía Rust
-docs/               reactividad · templates · meta-framework
+docs/               reactividad · plantillas-ts · templates · meta-framework
 ```
 
 ### Dos vías
@@ -95,36 +122,43 @@ ${() => count()}    // este nodo sigue al signal
 ```
 
 La distinción es sintáctica, no de tipos: mirando la plantilla se sabe qué puede
-cambiar. Ver [`docs/templates.md`](docs/templates.md).
+cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 91 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 81 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
 un playground que compila en tu pestaña.
 
 En el navegador, en cambio, no aporta: el DOM vive en JavaScript y cruzar la
-frontera cuesta más que la operación. Por eso el runtime son 1,72 kB de
+frontera cuesta más que la operación. Por eso el runtime son 1,77 kB de
 JavaScript.
 
 ## Desarrollo
 
 ```sh
-cargo test                   # 111 tests del compilador y la vía Rust
+cargo test                   # 132 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 28 tests del runtime
+cd packages/runtime && stil run test    # 41 tests del runtime
 cd web && ./build.sh                    # el sitio, con el playground dentro
-cd examples/contador-ts && stil run build
+cd examples/panel-ts && stil run dev
 ```
 
-El compilador como WebAssembly:
+El compilador como WebAssembly —**hay que rehacerlo cada vez que cambia el
+compilador**, o el plugin de Vite seguirá usando el artefacto de antes:
 
 ```sh
-cargo build -p ascua-compilador --features wasm --target wasm32-unknown-unknown --release
-wasm-bindgen --target web --out-dir packages/compilador/web target/.../ascua_compilador.wasm
+./scripts/compilar-wasm.sh   # pkg/ para Node, web/ para el navegador
+```
+
+Publicar los paquetes (pide `npm login`; `stil` no cubre `publish`):
+
+```sh
+./scripts/publicar-npm.sh --dry-run   # enseña qué subiría cada paquete
+./scripts/publicar-npm.sh
 ```
 
 > **macOS**: esta plataforma tiene dos manías que no vienen del código y que
@@ -143,7 +177,7 @@ wasm-bindgen --target web --out-dir packages/compilador/web target/.../ascua_com
 - **Vistas con varias raíces.** Un nodo raíz por vista es lo que permite que
   montar, desmontar e hidratar sean operaciones sobre *un* nodo. Donde los
   fragmentos hacen falta —el contenido que recibe un componente— sí están.
-- **Insertar nodos con `{expr}`.** Un bloque siempre es texto; para componer
+- **Insertar nodos con `${expr}`.** Un hueco siempre es texto; para componer
   árboles, un componente. Distinguirlo por tipo exigiría adivinar la intención.
 - **Server Components y compatibilidad con JSX o con la API de hooks.** Eran
   no-objetivos desde el principio.
