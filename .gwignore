@@ -81,5 +81,9 @@ node_modules/**
 **/node_modules/**
 packages/*/dist
 packages/*/dist/**
+packages/runtime/test/.generado
+packages/runtime/test/.generado/**
+examples/contador-ts/dist
+examples/contador-ts/dist/**
 packages/*/dist-lib
 packages/*/dist-lib/**

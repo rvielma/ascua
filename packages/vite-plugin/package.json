@@ -1,0 +1,10 @@
+{
+  "name": "@ascua/vite-plugin",
+  "version": "0.1.0",
+  "description": "Plugin de Vite que compila las plantillas de Ascua con ascuac.",
+  "type": "module",
+  "main": "./index.js",
+  "exports": { ".": "./index.js" },
+  "files": ["index.js"],
+  "license": "MIT OR Apache-2.0"
+}
