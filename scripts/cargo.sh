@@ -39,7 +39,17 @@ while :; do
         exit 1
     fi
 
-    echo "→ re-firmando artefactos de target/ y reintentando ($intentos/$maximo)" >&2
-    find target -type f -perm +111 ! -name '*.rlib' ! -name '*.d' \
-        -exec codesign --force --sign - {} \; 2>/dev/null || true
+    echo "→ re-firmando build scripts y reintentando ($intentos/$maximo)" >&2
+    # Solo los build scripts: son los que cargo ejecuta por su cuenta.
+    #
+    # Y conservando su fecha de modificación. Cargo decide por mtime si algo
+    # está sucio, así que firmar sin más haría que lo recompilase —otra vez sin
+    # firma— y el bucle no terminaría nunca.
+    find target -type f -name 'build-script-build' -perm +111 | while read -r binario; do
+        marca=$(mktemp)
+        touch -r "$binario" "$marca"
+        codesign --force --sign - "$binario" >/dev/null 2>&1 || true
+        touch -r "$marca" "$binario"
+        rm -f "$marca"
+    done
 done
