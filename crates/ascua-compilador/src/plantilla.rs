@@ -73,19 +73,31 @@ impl std::fmt::Display for Error {
 
 type Resultado<T> = Result<T, Error>;
 
+/// Lo que sale de parsear una plantilla.
+#[derive(Debug)]
+pub struct Plantilla {
+    pub raiz: Nodo,
+    /// El contenido de los bloques `<style>`, ya fuera del árbol.
+    pub css: String,
+}
+
 /// Parsea una plantilla ya marcada.
 ///
 /// `expresiones` son los huecos en orden: el marcador con índice N se refiere
 /// a `expresiones[N]`.
-pub fn parsear(entrada: &str, expresiones: &[String]) -> Resultado<Nodo> {
+///
+/// # Errors
+/// Si el marcado está mal formado.
+pub fn parsear(entrada: &str, expresiones: &[String]) -> Resultado<Plantilla> {
     let mut parser = Parser {
         chars: entrada.chars().collect(),
         posicion: 0,
         expresiones,
+        css: String::new(),
     };
 
     parser.saltar_espacios();
-    let nodo = parser.nodo()?;
+    let raiz = parser.nodo()?;
     parser.saltar_espacios();
 
     if parser.posicion < parser.chars.len() {
@@ -93,13 +105,17 @@ pub fn parsear(entrada: &str, expresiones: &[String]) -> Resultado<Nodo> {
             "una plantilla tiene un único elemento raíz; envuelve el contenido en un elemento",
         ));
     }
-    Ok(nodo)
+    Ok(Plantilla {
+        raiz,
+        css: parser.css,
+    })
 }
 
 struct Parser<'a> {
     chars: Vec<char>,
     posicion: usize,
     expresiones: &'a [String],
+    css: String,
 }
 
 impl Parser<'_> {
@@ -212,6 +228,17 @@ impl Parser<'_> {
         }
         self.consumir('>')?;
 
+        // El CSS no es marcado: se lee tal cual hasta </style> y se saca del
+        // árbol. No genera ningún nodo ni deja nada en tiempo de ejecución.
+        if etiqueta.eq_ignore_ascii_case("style") {
+            self.estilo()?;
+            return Ok(Elemento {
+                etiqueta: String::new(),
+                atributos: Vec::new(),
+                hijos: Vec::new(),
+            });
+        }
+
         if SIN_CIERRE.contains(&etiqueta.to_ascii_lowercase().as_str()) {
             return Ok(Elemento {
                 etiqueta,
@@ -238,6 +265,40 @@ impl Parser<'_> {
         })
     }
 
+    /// Lee el contenido de un `<style>` sin interpretarlo como HTML.
+    fn estilo(&mut self) -> Resultado<()> {
+        let inicio = self.posicion;
+        while self.posicion < self.chars.len() {
+            if self.actual() == Some('<') && self.mirar(1) == Some('/') {
+                break;
+            }
+            self.posicion += 1;
+        }
+        let css: String = self.chars[inicio..self.posicion].iter().collect();
+
+        if css.contains(ABRE) {
+            return Err(self.error(
+                "el CSS de un <style> se extrae en tiempo de compilación, así que no admite \
+                 interpolaciones ${...}; para estilos que cambian, usa un atributo",
+            ));
+        }
+
+        self.consumir('<')?;
+        self.consumir('/')?;
+        let cierre = self.nombre();
+        self.saltar_espacios();
+        self.consumir('>')?;
+        if !cierre.eq_ignore_ascii_case("style") {
+            return Err(self.error(&format!("</{cierre}> no cierra <style>")));
+        }
+
+        if !self.css.is_empty() {
+            self.css.push('\n');
+        }
+        self.css.push_str(css.trim());
+        Ok(())
+    }
+
     fn hijos(&mut self, etiqueta: &str) -> Resultado<Vec<Nodo>> {
         let mut hijos = Vec::new();
         loop {
@@ -248,6 +309,10 @@ impl Parser<'_> {
                 Some('<') if self.mirar(1) == Some('/') => return Ok(hijos),
                 _ => {
                     let nodo = self.nodo()?;
+                    // El <style> ya se guardó aparte: no produce nodo.
+                    if matches!(&nodo, Nodo::Elemento(e) if e.etiqueta.is_empty()) {
+                        continue;
+                    }
                     // El texto que solo son espacios entre etiquetas no aporta
                     // nada y sí bytes: se descarta, como hace cualquier
                     // minificador de HTML.
@@ -375,7 +440,9 @@ mod tests {
 
     fn parsear_simple(entrada: &str, expresiones: &[&str]) -> Nodo {
         let expresiones: Vec<String> = expresiones.iter().map(|e| (*e).to_string()).collect();
-        parsear(entrada, &expresiones).expect("debería parsear")
+        parsear(entrada, &expresiones)
+            .expect("debería parsear")
+            .raiz
     }
 
     #[test]
@@ -447,6 +514,28 @@ mod tests {
             panic!("debería ser un elemento");
         };
         assert_eq!(elemento.hijos.len(), 2);
+    }
+
+    #[test]
+    fn extrae_el_css_y_lo_saca_del_arbol() {
+        let plantilla = parsear(
+            "<div><p>hola</p><style>.caja { color: red; }</style></div>",
+            &[],
+        )
+        .expect("debería parsear");
+
+        assert_eq!(plantilla.css, ".caja { color: red; }");
+        let Nodo::Elemento(elemento) = plantilla.raiz else {
+            panic!("debería ser un elemento");
+        };
+        assert_eq!(elemento.hijos.len(), 1, "el <style> no deja nodo");
+    }
+
+    #[test]
+    fn rechaza_interpolaciones_dentro_del_css() {
+        let entrada = format!("<div><style>.c {{ color: {ABRE}0{CIERRA}; }}</style></div>");
+        let error = parsear(&entrada, &["rojo".into()]).expect_err("debería fallar");
+        assert!(error.mensaje.contains("interpolaciones"), "{error}");
     }
 
     #[test]

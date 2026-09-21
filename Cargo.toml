@@ -6,6 +6,7 @@ members = [
     "crates/ascua-macro",
     "crates/ascua-router",
     "crates/ascua-compilador",
+    "crates/ascua-css",
     "crates/ascua",
 ]
 exclude = ["examples/demo", "site"]

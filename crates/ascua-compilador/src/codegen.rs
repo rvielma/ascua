@@ -10,7 +10,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::plantilla::{Elemento, Nodo, Valor};
+use crate::plantilla::{Elemento, Nodo, Plantilla, Valor};
 
 /// Funciones del runtime, con el alias con el que se importan.
 const ELEMENT: (&str, &str) = ("element", "_$el");
@@ -26,18 +26,33 @@ pub struct Generado {
     pub codigo: String,
     /// Las funciones del runtime que hacen falta, ya con su alias.
     pub importes: BTreeSet<(&'static str, &'static str)>,
+    /// El CSS de la plantilla, ya reescrito para aplicar solo a sus elementos.
+    pub css: String,
 }
 
 /// Genera la expresión que construye la plantilla.
+///
+/// Si la plantilla trae un `<style>`, se calcula su scope y **cada elemento
+/// recibe el atributo correspondiente**. El CSS sale por separado: no queda
+/// nada de estilos en tiempo de ejecución.
 #[must_use]
-pub fn generar(raiz: &Nodo) -> Generado {
+pub fn generar(plantilla: &Plantilla) -> Generado {
+    let (scope, css) = if plantilla.css.trim().is_empty() {
+        (None, String::new())
+    } else {
+        let atributo = format!("data-ascua-{}", ascua_css::scope_id(&plantilla.css));
+        let css = ascua_css::scope_css(&plantilla.css, &atributo);
+        (Some(atributo), css)
+    };
+
     let mut generador = Generador {
         lineas: Vec::new(),
         importes: BTreeSet::new(),
         contador: 0,
+        scope,
     };
 
-    let variable = generador.nodo(raiz);
+    let variable = generador.nodo(&plantilla.raiz);
     let cuerpo = generador
         .lineas
         .iter()
@@ -48,6 +63,7 @@ pub fn generar(raiz: &Nodo) -> Generado {
     Generado {
         codigo: format!("(() => {{\n{cuerpo}\n  return {variable};\n}})()"),
         importes: generador.importes,
+        css,
     }
 }
 
@@ -55,6 +71,8 @@ struct Generador {
     lineas: Vec<String>,
     importes: BTreeSet<(&'static str, &'static str)>,
     contador: usize,
+    /// Atributo de scope, si la plantilla lleva estilos.
+    scope: Option<String>,
 }
 
 impl Generador {
@@ -103,6 +121,13 @@ impl Generador {
         let etiqueta = cadena(&elemento.etiqueta);
         self.lineas
             .push(format!("const {variable} = {el}({etiqueta});"));
+
+        if let Some(scope) = self.scope.clone() {
+            let sattr = self.usar(STATIC_ATTRIBUTE);
+            let nombre = cadena(&scope);
+            self.lineas
+                .push(format!("{sattr}({variable}, {nombre}, \"\");"));
+        }
 
         for atributo in &elemento.atributos {
             let nombre = cadena(&atributo.nombre);
@@ -163,8 +188,8 @@ mod tests {
 
     fn compilar(entrada: &str, expresiones: &[&str]) -> Generado {
         let expresiones: Vec<String> = expresiones.iter().map(|e| (*e).to_string()).collect();
-        let nodo = parsear(entrada, &expresiones).expect("debería parsear");
-        generar(&nodo)
+        let plantilla = parsear(entrada, &expresiones).expect("debería parsear");
+        generar(&plantilla)
     }
 
     #[test]
@@ -218,6 +243,52 @@ mod tests {
             generado
                 .codigo
                 .contains("_$on(_n0, \"click\", () => hola())"),
+            "{}",
+            generado.codigo
+        );
+    }
+
+    #[test]
+    fn el_style_scopea_el_css_y_marca_los_elementos() {
+        let generado = compilar(
+            "<div class=\"caja\"><p>hola</p><style>.caja { color: red; } p:hover { opacity: .5 }</style></div>",
+            &[],
+        );
+
+        let scope = generado
+            .css
+            .split("[data-ascua-")
+            .nth(1)
+            .and_then(|resto| resto.split(']').next())
+            .expect("debería haber un scope");
+        let atributo = format!("data-ascua-{scope}");
+
+        assert!(
+            generado.css.contains(&format!(".caja[{atributo}]")),
+            "{}",
+            generado.css
+        );
+        assert!(
+            generado.css.contains(&format!("p[{atributo}]:hover")),
+            "el atributo va antes de la pseudo-clase: {}",
+            generado.css
+        );
+        // Los dos elementos del template llevan el scope.
+        assert_eq!(
+            generado.codigo.matches(&atributo).count(),
+            2,
+            "{}",
+            generado.codigo
+        );
+        assert!(!generado.codigo.contains("style"), "{}", generado.codigo);
+    }
+
+    #[test]
+    fn sin_style_no_hay_scope_ni_css() {
+        let generado = compilar("<p>hola</p>", &[]);
+        assert!(generado.css.is_empty());
+        assert!(
+            !generado.codigo.contains("data-ascua"),
             "{}",
             generado.codigo
         );

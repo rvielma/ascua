@@ -15,6 +15,14 @@ dependencies = [
 [[package]]
 name = "ascua-compilador"
 version = "0.1.0"
+dependencies = [
+ "ascua-css",
+ "wasm-bindgen",
+]
+
+[[package]]
+name = "ascua-css"
+version = "0.1.0"
 
 [[package]]
 name = "ascua-dom"
@@ -29,6 +37,7 @@ dependencies = [
 name = "ascua-macro"
 version = "0.1.0"
 dependencies = [
+ "ascua-css",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
