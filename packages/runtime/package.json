@@ -1,0 +1,31 @@
+{
+  "name": "@ascua/runtime",
+  "version": "0.1.0",
+  "description": "Runtime reactivo de Ascua: signals, effects y operaciones directas de DOM. Sin Virtual DOM.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "size": "node ../../scripts/medir-runtime.mjs"
+  },
+  "license": "MIT OR Apache-2.0",
+  "devDependencies": {
+    "vitest": "^5.0.0",
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "terser": "^5.51.2"
+  }
+}
