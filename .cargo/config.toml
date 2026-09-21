@@ -1,0 +1,6 @@
+# Ver scripts/cargo-runner-macos.sh para el porqué de este runner.
+[target.aarch64-apple-darwin]
+runner = "./scripts/cargo-runner-macos.sh"
+
+[target.x86_64-apple-darwin]
+runner = "./scripts/cargo-runner-macos.sh"

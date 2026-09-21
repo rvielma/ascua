@@ -1,0 +1,23 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/ascua-reactive",
+    "crates/ascua-dom",
+    "crates/ascua-macro",
+    "crates/ascua-router",
+    "crates/ascua",
+]
+exclude = ["examples/demo"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/rafavielma/ascua"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+unwrap_used = "deny"

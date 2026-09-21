@@ -1,0 +1,67 @@
+# GitWeave ignore file — glob patterns, one per line. Comments start with #.
+# Edit freely: patterns take effect on the next `gw status` or `gw record`.
+
+# Detected: Rust
+
+# AI assistants / context
+.claude
+.claude/**
+.teg
+.teg/**
+.cursor
+.cursor/**
+.aider*
+.continue
+.continue/**
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.github/copilot-instructions.md
+
+# IDE / editors
+.idea
+.idea/**
+.vscode
+.vscode/**
+.fleet
+.fleet/**
+*.swp
+*.swo
+*~
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/**
+
+# Rust
+target
+target/**
+**/*.rs.bk
+
+# Generic build artifacts
+*.o
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Logs
+*.log
+logs/**
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+
+# Salida del demo: la genera examples/demo/build.sh
+examples/demo/pkg
+examples/demo/pkg/**
+examples/demo/index.html
+examples/demo/acerca
+examples/demo/acerca/**

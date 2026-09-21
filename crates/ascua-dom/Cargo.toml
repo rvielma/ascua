@@ -1,0 +1,21 @@
+[package]
+name = "ascua-dom"
+description = "Runtime DOM de Ascua: actualizaciones directas al nodo, sin VDOM ni diffing global."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ascua-reactive = { path = "../ascua-reactive" }
+wasm-bindgen = { version = "0.2", optional = true }
+web-sys = { version = "0.3", features = ["Document", "Element", "Node", "Text", "Comment", "Window", "Event", "EventTarget", "HtmlElement", "CharacterData", "NodeList"], optional = true }
+
+[lints]
+workspace = true
+
+[features]
+# Backend de navegador. Fuera de wasm32 no tiene sentido, así que el crate se
+# compila sin él por defecto: los tests del runtime corren en Rust nativo.
+web = ["dep:wasm-bindgen", "dep:web-sys"]
