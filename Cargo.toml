@@ -23,3 +23,12 @@ unsafe_code = "forbid"
 
 [workspace.lints.clippy]
 unwrap_used = "deny"
+
+# El compilador se distribuye como .wasm y lo descarga quien instala el
+# paquete, así que aquí el tamaño es una cifra publicada, no un detalle.
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true

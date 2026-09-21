@@ -24,12 +24,42 @@ const SIN_CIERRE: &[&str] = &[
 #[derive(Debug, PartialEq)]
 pub enum Nodo {
     Elemento(Elemento),
+    /// Una etiqueta que empieza por mayúscula: `<Panel titulo="x"/>`.
+    Componente(Componente),
     /// Texto literal del marcado.
     Texto(String),
     /// `${expr}` — se evalúa una vez, al construir.
     Estatico(String),
     /// `${() => expr}` — se reevalúa cuando cambia lo que lee.
     Dinamico(String),
+}
+
+/// Nombres de componente que resuelve el propio compilador.
+pub const SHOW: &str = "Show";
+pub const ELSE: &str = "Else";
+pub const FOR: &str = "For";
+
+/// `<Panel titulo=${t}>…</Panel>`
+///
+/// Los props se pasan **tal cual**: un literal es una cadena y un `${...}` es
+/// la expresión, sea o no una closure. Quien recibe decide qué hacer con
+/// ella; el compilador no envuelve nada a tus espaldas.
+#[derive(Debug, PartialEq)]
+pub struct Componente {
+    pub nombre: String,
+    pub props: Vec<Atributo>,
+    pub hijos: Vec<Nodo>,
+}
+
+impl Componente {
+    /// El valor de un prop, si está.
+    #[must_use]
+    pub fn prop(&self, nombre: &str) -> Option<&Valor> {
+        self.props
+            .iter()
+            .find(|prop| prop.nombre == nombre)
+            .map(|prop| &prop.valor)
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -53,6 +83,10 @@ pub enum Valor {
     Estatico(String),
     /// `class=${() => ...}` — se reevalúa; `false`/`null` quitan el atributo.
     Dinamico(String),
+    /// `prop:value=${() => ...}` — escribe la **propiedad** del nodo, no el
+    /// atributo. Es lo que hace falta para `value` y `checked`, que en el DOM
+    /// dejan de seguir a su atributo en cuanto el usuario los toca.
+    Propiedad(String),
     /// `onclick=${manejador}`
     Evento { evento: String, manejador: String },
 }
@@ -105,6 +139,17 @@ pub fn parsear(entrada: &str, expresiones: &[String]) -> Resultado<Plantilla> {
             "una plantilla tiene un único elemento raíz; envuelve el contenido en un elemento",
         ));
     }
+
+    // `show` y `list` anclan su contenido con un marcador, y un marcador
+    // necesita un padre donde vivir. Como raíz no hay dónde ponerlo.
+    if let Nodo::Componente(componente) = &raiz {
+        if matches!(componente.nombre.as_str(), SHOW | FOR | ELSE) {
+            return Err(parser.error(&format!(
+                "<{}> necesita un elemento donde anclarse; envuélvelo",
+                componente.nombre
+            )));
+        }
+    }
     Ok(Plantilla {
         raiz,
         css: parser.css,
@@ -152,7 +197,7 @@ impl Parser<'_> {
     /// Un nodo: elemento, texto o hueco.
     fn nodo(&mut self) -> Resultado<Nodo> {
         match self.actual() {
-            Some('<') => Ok(Nodo::Elemento(self.elemento()?)),
+            Some('<') => self.etiqueta(),
             Some(ABRE) => self.hueco(),
             Some(_) => Ok(Nodo::Texto(self.texto())),
             None => Err(self.error("plantilla vacía")),
@@ -201,19 +246,25 @@ impl Parser<'_> {
             .ok_or_else(|| self.error("marcador de hueco fuera de rango"))
     }
 
-    fn elemento(&mut self) -> Resultado<Elemento> {
+    /// Un elemento HTML o un componente.
+    ///
+    /// La inicial decide: **minúscula es HTML, mayúscula es componente**. Es
+    /// la misma convención de la vía Rust, y la que ya usan React, Solid y
+    /// Svelte, así que no hay nada nuevo que aprender.
+    fn etiqueta(&mut self) -> Resultado<Nodo> {
         self.consumir('<')?;
         let etiqueta = self.nombre();
         if etiqueta.is_empty() {
             return Err(self.error("se esperaba el nombre de una etiqueta"));
         }
+        let es_componente = etiqueta.starts_with(char::is_uppercase);
 
         let mut atributos = Vec::new();
         loop {
             self.saltar_espacios();
             match self.actual() {
                 Some('>') | Some('/') | None => break,
-                _ => atributos.push(self.atributo()?),
+                _ => atributos.push(self.atributo(es_componente)?),
             }
         }
 
@@ -221,31 +272,23 @@ impl Parser<'_> {
         if self.actual() == Some('/') {
             self.posicion += 1;
             self.consumir('>')?;
-            return Ok(Elemento {
-                etiqueta,
-                atributos,
-                hijos: Vec::new(),
-            });
+            return self.terminar(etiqueta, atributos, Vec::new());
         }
         self.consumir('>')?;
 
         // El CSS no es marcado: se lee tal cual hasta </style> y se saca del
         // árbol. No genera ningún nodo ni deja nada en tiempo de ejecución.
-        if etiqueta.eq_ignore_ascii_case("style") {
+        if !es_componente && etiqueta.eq_ignore_ascii_case("style") {
             self.estilo()?;
-            return Ok(Elemento {
+            return Ok(Nodo::Elemento(Elemento {
                 etiqueta: String::new(),
                 atributos: Vec::new(),
                 hijos: Vec::new(),
-            });
+            }));
         }
 
-        if SIN_CIERRE.contains(&etiqueta.to_ascii_lowercase().as_str()) {
-            return Ok(Elemento {
-                etiqueta,
-                atributos,
-                hijos: Vec::new(),
-            });
+        if !es_componente && SIN_CIERRE.contains(&etiqueta.to_ascii_lowercase().as_str()) {
+            return self.terminar(etiqueta, atributos, Vec::new());
         }
 
         let hijos = self.hijos(&etiqueta)?;
@@ -255,15 +298,115 @@ impl Parser<'_> {
         self.saltar_espacios();
         self.consumir('>')?;
 
-        if !cierre.eq_ignore_ascii_case(&etiqueta) {
+        let coincide = if es_componente {
+            cierre == etiqueta
+        } else {
+            cierre.eq_ignore_ascii_case(&etiqueta)
+        };
+        if !coincide {
             return Err(self.error(&format!("</{cierre}> no cierra <{etiqueta}>")));
         }
 
-        Ok(Elemento {
-            etiqueta,
-            atributos,
+        self.terminar(etiqueta, atributos, hijos)
+    }
+
+    /// Construye el nodo ya cerrado, y valida los componentes del compilador.
+    fn terminar(
+        &self,
+        etiqueta: String,
+        atributos: Vec<Atributo>,
+        hijos: Vec<Nodo>,
+    ) -> Resultado<Nodo> {
+        if etiqueta != SHOW {
+            if let Some(Nodo::Componente(suelto)) = hijos
+                .iter()
+                .find(|hijo| matches!(hijo, Nodo::Componente(c) if c.nombre == ELSE))
+            {
+                return Err(self.error(&format!(
+                    "<{}> es la otra rama de un <Show>, y aquí no hay ninguno",
+                    suelto.nombre
+                )));
+            }
+        }
+
+        if !etiqueta.starts_with(char::is_uppercase) {
+            return Ok(Nodo::Elemento(Elemento {
+                etiqueta,
+                atributos,
+                hijos,
+            }));
+        }
+
+        let componente = Componente {
+            nombre: etiqueta,
+            props: atributos,
             hijos,
-        })
+        };
+        self.validar(&componente)?;
+        Ok(Nodo::Componente(componente))
+    }
+
+    /// Lo que el compilador sabe exigirle a `<Show>` y `<For>`.
+    ///
+    /// Se comprueba aquí y no al generar para que el error salga con la
+    /// posición de la plantilla, y para que sea imposible emitir una llamada
+    /// a `show` o `list` a la que le falte un argumento.
+    fn validar(&self, componente: &Componente) -> Resultado<()> {
+        match componente.nombre.as_str() {
+            SHOW => {
+                if componente.prop("when").is_none() {
+                    return Err(self.error(
+                        "<Show> necesita `when`, una closure que devuelva si el contenido se \
+                         muestra: <Show when=${() => activo()}>",
+                    ));
+                }
+                let ramas = componente
+                    .hijos
+                    .iter()
+                    .filter(|hijo| matches!(hijo, Nodo::Componente(c) if c.nombre == ELSE))
+                    .count();
+                if ramas > 1 {
+                    return Err(self.error("un <Show> tiene un solo <Else>"));
+                }
+                self.sin_regiones_sueltas(&componente.hijos)?;
+            }
+            FOR => {
+                for obligatorio in ["each", "key", "render"] {
+                    if componente.prop(obligatorio).is_none() {
+                        return Err(self.error(&format!(
+                            "<For> necesita `{obligatorio}`: <For each=${{() => items()}} \
+                             key=${{(item) => item.id}} render=${{(item) => view`…`}}/>"
+                        )));
+                    }
+                }
+                if !componente.hijos.is_empty() {
+                    return Err(self.error(
+                        "el contenido de <For> va en `render`, que se ejecuta una vez por clave",
+                    ));
+                }
+            }
+            ELSE => self.sin_regiones_sueltas(&componente.hijos)?,
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Una rama de `<Show>` se construye y se inserta entera, así que sus
+    /// nodos tienen que existir. `<Show>` y `<For>` no son nodos: son un
+    /// marcador dentro de un padre. Anidarlos sin un elemento de por medio
+    /// obligaría al compilador a inventarse un contenedor que nadie escribió.
+    fn sin_regiones_sueltas(&self, hijos: &[Nodo]) -> Resultado<()> {
+        for hijo in hijos {
+            if let Nodo::Componente(componente) = hijo {
+                if matches!(componente.nombre.as_str(), SHOW | FOR) {
+                    return Err(self.error(&format!(
+                        "un <{}> dentro de una rama necesita un elemento que lo contenga",
+                        componente.nombre
+                    )));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Lee el contenido de un `<style>` sin interpretarlo como HTML.
@@ -328,12 +471,18 @@ impl Parser<'_> {
         }
     }
 
-    fn atributo(&mut self) -> Resultado<Atributo> {
-        let nombre = self.nombre();
+    fn atributo(&mut self, es_componente: bool) -> Resultado<Atributo> {
+        let mut nombre = self.nombre();
         if nombre.is_empty() {
             return Err(self.error("se esperaba el nombre de un atributo"));
         }
         self.saltar_espacios();
+
+        if nombre.starts_with("prop:") && self.actual() != Some('=') {
+            return Err(self.error(
+                "`prop:` escribe una propiedad del nodo, así que necesita un valor en ${}",
+            ));
+        }
 
         // Atributo sin valor: `disabled`.
         if self.actual() != Some('=') {
@@ -349,8 +498,15 @@ impl Parser<'_> {
             Some('"') | Some('\'') => Valor::Literal(self.literal()?),
             Some(ABRE) => {
                 let expresion = self.leer_hueco()?;
-                // Los eventos son atributos `on*`, como en HTML.
-                if let Some(evento) = nombre.strip_prefix("on") {
+                // A un componente los props le llegan tal cual: `onguardar` es
+                // un prop suyo, no un listener del DOM.
+                if es_componente {
+                    Valor::Estatico(expresion)
+                } else if let Some(propiedad) = nombre.strip_prefix("prop:") {
+                    nombre = propiedad.to_string();
+                    Valor::Propiedad(expresion)
+                } else if let Some(evento) = nombre.strip_prefix("on") {
+                    // Los eventos son atributos `on*`, como en HTML.
                     Valor::Evento {
                         evento: evento.to_ascii_lowercase(),
                         manejador: expresion,
@@ -629,5 +785,109 @@ mod tests {
     fn rechaza_un_cierre_que_no_corresponde() {
         let error = parsear("<div><p>a</div></p>", &[]).expect_err("debería fallar");
         assert!(error.mensaje.contains("no cierra"), "{error}");
+    }
+
+    #[test]
+    fn la_inicial_distingue_elemento_de_componente() {
+        let plantilla = parsear("<div><Panel/></div>", &[]).expect("debería parsear");
+        let Nodo::Elemento(elemento) = plantilla.raiz else {
+            panic!("debería ser un elemento");
+        };
+        let Nodo::Componente(componente) = &elemento.hijos[0] else {
+            panic!("la mayúscula hace componente");
+        };
+        assert_eq!(componente.nombre, "Panel");
+    }
+
+    #[test]
+    fn los_props_de_un_componente_no_se_interpretan() {
+        let entrada = format!("<div><Aviso onguardar={ABRE}0{CIERRA}/></div>");
+        let plantilla = parsear(&entrada, &["() => x()".into()]).expect("debería parsear");
+        let Nodo::Elemento(elemento) = plantilla.raiz else {
+            panic!("debería ser un elemento");
+        };
+        let Nodo::Componente(componente) = &elemento.hijos[0] else {
+            panic!("debería ser un componente");
+        };
+        assert_eq!(
+            componente.prop("onguardar"),
+            Some(&Valor::Estatico("() => x()".into())),
+            "en un componente `on*` no es un evento del DOM"
+        );
+    }
+
+    #[test]
+    fn el_cierre_de_un_componente_distingue_mayusculas() {
+        let error = parsear("<div><Panel></panel></div>", &[]).expect_err("debería fallar");
+        assert!(error.mensaje.contains("no cierra"), "{error}");
+    }
+
+    #[test]
+    fn prop_escribe_la_propiedad_y_no_el_atributo() {
+        let entrada = format!("<input prop:value={ABRE}0{CIERRA}>");
+        let plantilla = parsear(&entrada, &["() => texto()".into()]).expect("debería parsear");
+        let Nodo::Elemento(elemento) = plantilla.raiz else {
+            panic!("debería ser un elemento");
+        };
+        assert_eq!(elemento.atributos[0].nombre, "value");
+        assert_eq!(
+            elemento.atributos[0].valor,
+            Valor::Propiedad("() => texto()".into())
+        );
+    }
+
+    #[test]
+    fn un_show_sin_when_lo_dice() {
+        let error = parsear("<div><Show><p>a</p></Show></div>", &[]).expect_err("debería fallar");
+        assert!(error.mensaje.contains("necesita `when`"), "{error}");
+    }
+
+    #[test]
+    fn un_for_sin_render_lo_dice() {
+        let entrada = format!("<ul><For each={ABRE}0{CIERRA} key={ABRE}1{CIERRA}/></ul>");
+        let error = parsear(&entrada, &["() => x()".into(), "(i) => i.id".into()])
+            .expect_err("debería fallar");
+        assert!(error.mensaje.contains("`render`"), "{error}");
+    }
+
+    #[test]
+    fn el_contenido_de_un_for_va_en_render() {
+        let entrada =
+            format!("<ul><For each={ABRE}0{CIERRA} key={ABRE}1{CIERRA} render={ABRE}2{CIERRA}><li>x</li></For></ul>");
+        let error = parsear(
+            &entrada,
+            &["() => x()".into(), "(i) => i.id".into(), "(i) => i".into()],
+        )
+        .expect_err("debería fallar");
+        assert!(error.mensaje.contains("va en `render`"), "{error}");
+    }
+
+    #[test]
+    fn un_else_suelto_no_pasa() {
+        let error = parsear("<div><Else><p>a</p></Else></div>", &[]).expect_err("debería fallar");
+        assert!(error.mensaje.contains("otra rama de un <Show>"), "{error}");
+    }
+
+    #[test]
+    fn una_region_no_puede_ser_la_raiz() {
+        let entrada = format!("<Show when={ABRE}0{CIERRA}><p>a</p></Show>");
+        let error = parsear(&entrada, &["() => x()".into()]).expect_err("debería fallar");
+        assert!(
+            error.mensaje.contains("dónde anclarse") || error.mensaje.contains("anclarse"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn una_region_dentro_de_una_rama_necesita_contenedor() {
+        let entrada = format!(
+            "<div><Show when={ABRE}0{CIERRA}><Show when={ABRE}1{CIERRA}><p>a</p></Show></Show></div>"
+        );
+        let error = parsear(&entrada, &["() => x()".into(), "() => y()".into()])
+            .expect_err("debería fallar");
+        assert!(
+            error.mensaje.contains("elemento que lo contenga"),
+            "{error}"
+        );
     }
 }

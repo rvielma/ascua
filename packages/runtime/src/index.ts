@@ -35,8 +35,24 @@ export {
   marker,
   mount,
   on,
+  property,
   show,
   staticAttribute,
   text,
+  type Children,
   type ValorAtributo,
 } from "./dom.js";
+
+declare global {
+  /**
+   * Una plantilla de Ascua.
+   *
+   * En tiempo de ejecución no existe: el compilador la sustituye por las
+   * llamadas que construyen el árbol. Se declara aquí para que TypeScript la
+   * conozca —y para que el editor no la marque en rojo— sin obligar a
+   * importarla en cada archivo.
+   *
+   * Sin pasar por el compilador, `view` no está definida y el error es claro.
+   */
+  function view(plantilla: TemplateStringsArray, ...valores: unknown[]): HTMLElement;
+}
