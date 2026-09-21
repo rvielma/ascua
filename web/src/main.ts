@@ -5,6 +5,7 @@
 
 import { mount } from "@ascua/runtime";
 
+import { brasas } from "./brasas.js";
 import { DemoContador, DemoLista, DemoPanel } from "./demos.js";
 
 const islas: Record<string, () => HTMLElement> = {
@@ -17,3 +18,6 @@ for (const contenedor of document.querySelectorAll<HTMLElement>("[data-isla]")) 
   const construir = islas[contenedor.dataset.isla ?? ""];
   if (construir) mount(contenedor, construir);
 }
+
+const lienzo = document.querySelector<HTMLCanvasElement>("#brasas");
+if (lienzo) brasas(lienzo);

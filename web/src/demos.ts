@@ -50,7 +50,7 @@ export function DemoContador(): HTMLElement {
           gap: 1px; background: var(--borde); border: 1px solid var(--borde);
           border-radius: 12px; overflow: hidden; margin: 0 0 1rem;
         }
-        .panel, .registro { background: #131109; padding: 1.5rem; }
+        .panel, .registro { background: var(--panel); padding: 1.5rem; }
         .valor {
           font-size: 3.5rem; margin: 0 0 1rem; font-weight: 600; line-height: 1;
           font-family: var(--mono); font-variant-numeric: tabular-nums;
@@ -126,7 +126,7 @@ export function DemoLista(): HTMLElement {
       <style>
         .demo-lista {
           border: 1px solid var(--borde); border-radius: 12px; padding: 1.5rem;
-          background: #131109; margin: 0 0 1rem;
+          background: var(--panel); margin: 0 0 1rem;
         }
         .items {
           list-style: none; padding: 0; margin: 0 0 1.25rem; display: flex;
@@ -248,7 +248,7 @@ export function DemoPanel(): HTMLElement {
       <style>
         .demo-acceso {
           border: 1px solid var(--borde); border-radius: 12px; padding: 1.5rem;
-          background: #131109; margin: 0 0 1rem;
+          background: var(--panel); margin: 0 0 1rem;
         }
         .acceso { display: flex; gap: .5rem; flex-wrap: wrap; }
         .acceso input {
