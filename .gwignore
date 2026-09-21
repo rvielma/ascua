@@ -87,3 +87,7 @@ examples/contador-ts/dist
 examples/contador-ts/dist/**
 packages/*/dist-lib
 packages/*/dist-lib/**
+
+# El .wasm del compilador: lo produce cargo + wasm-bindgen
+packages/compilador/pkg
+packages/compilador/pkg/**

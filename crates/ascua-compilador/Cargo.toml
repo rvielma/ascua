@@ -7,11 +7,23 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[lib]
+# cdylib para poder compilar el compilador a WebAssembly y distribuirlo por
+# npm sin binarios nativos por plataforma.
+crate-type = ["cdylib", "rlib"]
+
 [[bin]]
 name = "ascuac"
 path = "src/main.rs"
 
 [dependencies]
+ascua-css = { path = "../ascua-css" }
+wasm-bindgen = { version = "0.2", optional = true }
+
+[features]
+# El compilador como módulo WebAssembly: corre en Node, Bun, Deno y en el
+# navegador, sin instalar nada nativo.
+wasm = ["dep:wasm-bindgen"]
 
 [lints]
 workspace = true

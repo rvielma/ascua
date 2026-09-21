@@ -22,6 +22,8 @@
 pub mod codegen;
 pub mod escaner;
 pub mod plantilla;
+#[cfg(feature = "wasm")]
+mod wasm;
 
 use std::collections::BTreeSet;
 use std::fmt;
@@ -46,6 +48,15 @@ impl fmt::Display for Error {
 
 impl std::error::Error for Error {}
 
+/// El resultado de compilar un archivo.
+#[derive(Debug, Default)]
+pub struct Salida {
+    /// El TypeScript con las plantillas ya compiladas.
+    pub codigo: String,
+    /// El CSS extraído de los `<style>`, ya scopeado. Vacío si no había.
+    pub css: String,
+}
+
 /// Compila un archivo entero.
 ///
 /// Si no contiene plantillas, se devuelve tal cual: el compilador no toca lo
@@ -53,30 +64,43 @@ impl std::error::Error for Error {}
 ///
 /// # Errors
 /// Si alguna plantilla está mal formada.
-pub fn compilar(fuente: &str) -> Result<String, Error> {
+pub fn compilar(fuente: &str) -> Result<Salida, Error> {
     let ocurrencias = escaner::buscar(fuente);
     if ocurrencias.is_empty() {
-        return Ok(fuente.to_string());
+        return Ok(Salida {
+            codigo: fuente.to_string(),
+            css: String::new(),
+        });
     }
 
-    let mut salida = fuente.to_string();
+    let mut codigo = fuente.to_string();
     let mut importes: BTreeSet<(&'static str, &'static str)> = BTreeSet::new();
+    let mut hojas: Vec<String> = Vec::new();
 
     // De atrás hacia adelante: así los cortes de las anteriores siguen valiendo.
     for ocurrencia in ocurrencias.iter().rev() {
         let marcada = marcar(&ocurrencia.partes);
-        let nodo =
+        let plantilla =
             plantilla::parsear(&marcada, &ocurrencia.expresiones).map_err(|error| Error {
                 mensaje: error.mensaje,
                 linea: linea_de(fuente, ocurrencia.inicio),
             })?;
 
-        let generado = codegen::generar(&nodo);
+        let generado = codegen::generar(&plantilla);
         importes.extend(generado.importes);
-        salida.replace_range(ocurrencia.inicio..ocurrencia.fin, &generado.codigo);
+        if !generado.css.is_empty() {
+            hojas.push(generado.css);
+        }
+        codigo.replace_range(ocurrencia.inicio..ocurrencia.fin, &generado.codigo);
     }
 
-    Ok(format!("{}\n{salida}", declaracion_import(&importes)))
+    // En orden de aparición, no al revés.
+    hojas.reverse();
+
+    Ok(Salida {
+        codigo: format!("{}\n{codigo}", declaracion_import(&importes)),
+        css: hojas.join("\n"),
+    })
 }
 
 /// Une los trozos de marcado intercalando los marcadores de hueco.
@@ -113,7 +137,9 @@ mod tests {
     #[test]
     fn deja_intacto_un_archivo_sin_plantillas() {
         let fuente = "export const dos = 1 + 1;\n";
-        assert_eq!(compilar(fuente).expect("debería compilar"), fuente);
+        let salida = compilar(fuente).expect("debería compilar");
+        assert_eq!(salida.codigo, fuente);
+        assert!(salida.css.is_empty());
     }
 
     #[test]
@@ -125,7 +151,7 @@ export function Contador() {
   return view`<button onclick=${() => count.set(count() + 1)}>Clicks: ${() => count()}</button>`;
 }
 "#;
-        let salida = compilar(fuente).expect("debería compilar");
+        let salida = compilar(fuente).expect("debería compilar").codigo;
 
         assert!(salida.starts_with("import {"), "{salida}");
         assert!(salida.contains("element as _$el"), "{salida}");
@@ -143,9 +169,24 @@ export function Contador() {
     #[test]
     fn compila_varias_plantillas_del_mismo_archivo() {
         let fuente = "const a = view`<p>uno</p>`;\nconst b = view`<p>dos</p>`;\n";
-        let salida = compilar(fuente).expect("debería compilar");
+        let salida = compilar(fuente).expect("debería compilar").codigo;
         assert_eq!(salida.matches("_$el(\"p\")").count(), 2, "{salida}");
         assert!(!salida.contains("view`"), "{salida}");
+    }
+
+    #[test]
+    fn saca_el_css_del_codigo() {
+        let fuente = "const a = view`<p class=\"x\">hola<style>.x { color: red; }</style></p>`;\n";
+        let salida = compilar(fuente).expect("debería compilar");
+
+        assert!(salida.css.contains("color: red"), "{}", salida.css);
+        assert!(salida.css.contains("[data-ascua-"), "{}", salida.css);
+        assert!(
+            !salida.codigo.contains("color: red"),
+            "el CSS no va en el JS: {}",
+            salida.codigo
+        );
+        assert!(salida.codigo.contains("data-ascua-"), "{}", salida.codigo);
     }
 
     #[test]

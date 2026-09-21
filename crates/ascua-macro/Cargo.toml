@@ -11,6 +11,7 @@ repository.workspace = true
 proc-macro = true
 
 [dependencies]
+ascua-css = { path = "../ascua-css" }
 proc-macro2 = "1"
 quote = "1"
 syn = { version = "2", features = ["full"] }
