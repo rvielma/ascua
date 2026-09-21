@@ -7,7 +7,7 @@ members = [
     "crates/ascua-router",
     "crates/ascua",
 ]
-exclude = ["examples/demo"]
+exclude = ["examples/demo", "site"]
 
 [workspace.package]
 version = "0.1.0"
