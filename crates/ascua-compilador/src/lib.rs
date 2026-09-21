@@ -151,7 +151,7 @@ export function Contador() {
     #[test]
     fn informa_de_la_linea_al_fallar() {
         let fuente = "const a = 1;\nconst b = 2;\nconst c = view`<div><p>x</div></p>`;\n";
-        let error = compilar(fuente).err().expect("debería fallar");
+        let error = compilar(fuente).expect_err("debería fallar");
         assert_eq!(error.linea, 3, "{error}");
         assert!(error.mensaje.contains("no cierra"), "{error}");
     }
