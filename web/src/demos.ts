@@ -3,7 +3,7 @@
 // Lo que enseñan no es "mira, reacciona" —eso lo hace cualquiera— sino
 // **cuántas operaciones de DOM** cuesta que reaccione.
 
-import { list, memo, signal } from "@ascua/runtime";
+import { memo, onCleanup, signal, type Children, type Signal } from "@ascua/runtime";
 
 /** Un contador, y al lado el registro de lo que el framework le hace al DOM. */
 export function DemoContador(): HTMLElement {
@@ -84,9 +84,30 @@ export function DemoLista(): HTMLElement {
   const construidos = signal(0);
   let siguiente = 5;
 
-  const app = view`
+  const construir = (item: number) => {
+    const indice = construidos();
+    construidos.set(indice + 1);
+    // El tono se fija al construir: si el nodo se rehiciera al reordenar,
+    // cambiaría de color.
+    const tono = (indice * 47) % 360;
+
+    return view`
+      <li style=${`border-color: hsl(${tono} 70% 55% / .55); color: hsl(${tono} 70% 70%)`}>
+        ${item}
+        <style>
+          li {
+            font-family: var(--mono); font-size: .9rem; padding: .5rem .9rem;
+            border-radius: 8px; border: 1px solid; background: #ffffff08;
+          }
+        </style>
+      </li>`;
+  };
+
+  return view`
     <div class="demo-lista">
-      <ul class="items"></ul>
+      <ul class="items">
+        <For each=${() => items()} key=${(item: number) => item} render=${construir}/>
+      </ul>
       <div class="botones">
         <button onclick=${() => {
           items.update((lista) => [...lista, siguiente]);
@@ -118,30 +139,132 @@ export function DemoLista(): HTMLElement {
         }
       </style>
     </div>`;
+}
 
-  list(
-    app.querySelector(".items")!,
-    () => items(),
-    (item) => item,
-    (item) => {
-      const indice = construidos();
-      construidos.set(indice + 1);
-      // El tono se fija al construir: si el nodo se rehiciera al reordenar,
-      // cambiaría de color.
-      const tono = (indice * 47) % 360;
+/**
+ * Un componente con hijos, una región que se sustituye y una lista con clave,
+ * juntos.
+ *
+ * Lo que enseña es lo que pasa **al salir**: la rama anterior se libera entera
+ * —nodos, efectos y listeners—, y el contador de liberados lo demuestra sin
+ * abrir las herramientas del navegador.
+ */
+interface Tarea {
+  id: number;
+  titulo: string;
+  hecha: Signal<boolean>;
+}
 
-      return view`
-        <li style=${`border-color: hsl(${tono} 70% 55% / .55); color: hsl(${tono} 70% 70%)`}>
-          ${item}
-          <style>
-            li {
-              font-family: var(--mono); font-size: .9rem; padding: .5rem .9rem;
-              border-radius: 8px; border: 1px solid; background: #ffffff08;
-            }
-          </style>
-        </li>`;
-    },
-  );
+/** Un componente de verdad: recibe props, devuelve un nodo, coloca los hijos. */
+function Ficha(props: { titulo: () => string; children?: Children }) {
+  const caja = view`
+    <section class="ficha">
+      <header><h3>${() => props.titulo()}</h3></header>
+      <div class="cuerpo"></div>
+      <style>
+        .ficha { border: 1px solid var(--borde); border-radius: 10px; overflow: hidden; }
+        header { padding: .7rem 1rem; border-bottom: 1px solid var(--borde); background: #ffffff05; }
+        h3 { margin: 0; font-size: .9rem; font-weight: 600; }
+        .cuerpo { padding: 1rem; }
+      </style>
+    </section>`;
 
-  return app;
+  props.children?.(caja.querySelector(".cuerpo")!);
+  return caja;
+}
+
+export function DemoPanel(): HTMLElement {
+  const nombre = signal("");
+  const sesion = signal<string | null>(null);
+  const construidos = signal(0);
+  const liberados = signal(0);
+  let siguiente = 3;
+
+  const tareas = signal<Tarea[]>([
+    { id: 1, titulo: "Medir el bundle", hecha: signal(false) },
+    { id: 2, titulo: "Dormir", hecha: signal(true) },
+  ]);
+
+  const pendientes = memo(() => tareas().filter((tarea) => !tarea.hecha()).length);
+
+  const fila = (tarea: Tarea) => {
+    construidos.update((n) => n + 1);
+    onCleanup(() => liberados.update((n) => n + 1));
+
+    return view`
+      <li data-hecha=${() => tarea.hecha()}>
+        <button onclick=${() => tarea.hecha.set(!tarea.hecha())}>${() => tarea.titulo}</button>
+        <style>
+          li { display: flex; }
+          button {
+            font: inherit; font-size: .85rem; text-align: left; width: 100%; cursor: pointer;
+            padding: .4rem .7rem; border-radius: 8px; border: 1px solid var(--borde);
+            background: #ffffff08; color: inherit;
+          }
+          li[data-hecha] button { opacity: .45; text-decoration: line-through; }
+        </style>
+      </li>`;
+  };
+
+  return view`
+    <div class="demo-acceso">
+      <Show when=${() => sesion() !== null}>
+        <Ficha titulo=${() => `Hola, ${sesion()}`}>
+          <p class="cuenta-tareas">${() =>
+        pendientes() === 1 ? "1 pendiente" : `${pendientes()} pendientes`}</p>
+          <ul class="tareas">
+            <For each=${() => tareas()} key=${(tarea: Tarea) => tarea.id} render=${fila}/>
+          </ul>
+          <div class="botones">
+            <button onclick=${() => {
+              const id = siguiente++;
+              tareas.update((lista) => [
+                ...lista,
+                { id, titulo: `Tarea ${id}`, hecha: signal(false) },
+              ]);
+            }}>añadir</button>
+            <button onclick=${() => sesion.set(null)}>salir</button>
+          </div>
+        </Ficha>
+
+        <Else>
+          <form class="acceso" onsubmit=${(evento: Event) => {
+            evento.preventDefault();
+            if (nombre().trim() !== "") sesion.set(nombre().trim());
+          }}>
+            <input
+              placeholder="tu nombre"
+              prop:value=${() => nombre()}
+              oninput=${(evento: Event) => nombre.set((evento.target as HTMLInputElement).value)}>
+            <button class="principal" type="submit"
+                    disabled=${() => nombre().trim() === ""}>entrar</button>
+          </form>
+        </Else>
+      </Show>
+
+      <p class="cuenta">${() =>
+        `${construidos()} filas construidas · ${liberados()} liberadas al salir`}</p>
+
+      <style>
+        .demo-acceso {
+          border: 1px solid var(--borde); border-radius: 12px; padding: 1.5rem;
+          background: #131109; margin: 0 0 1rem;
+        }
+        .acceso { display: flex; gap: .5rem; flex-wrap: wrap; }
+        .acceso input {
+          font: inherit; font-size: .9rem; padding: .45rem .7rem; flex: 1 1 12rem;
+          border-radius: 8px; border: 1px solid var(--borde);
+          background: #ffffff08; color: inherit;
+        }
+        .cuenta-tareas {
+          margin: 0 0 .7rem; font-family: var(--mono); font-size: .72rem; opacity: .45;
+        }
+        .tareas { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .4rem; }
+        .botones { display: flex; gap: .4rem; flex-wrap: wrap; }
+        .cuenta {
+          margin: 1.25rem 0 0; font-family: var(--mono); font-size: .72rem; opacity: .45;
+          border-top: 1px solid var(--borde); padding-top: .75rem;
+        }
+      </style>
+    </div>`;
 }
