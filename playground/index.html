@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ascua — el compilador, en tu pestaña</title>
+    <meta name="description" content="El compilador de Ascua es un módulo WebAssembly de 91 KB. Aquí corre en tu navegador: escribe una plantilla y mira el JavaScript que genera." />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='%23e2703a'/></svg>" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --brasa: #e2703a;
+        --fondo: #0c0b09;
+        --texto: #f3eee7;
+        --tenue: #b8b0a5;
+        --borde: #ffffff14;
+        --mono: ui-monospace, "SF Mono", Menlo, monospace;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; padding: 0 1.25rem 3rem; background: var(--fondo); color: var(--texto);
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      a { color: var(--brasa); }
+      textarea, pre { font-family: var(--mono); font-size: .8rem; line-height: 1.6; }
+    </style>
+  </head>
+  <body>
+    <div id="raiz"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

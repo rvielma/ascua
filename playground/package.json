@@ -1,0 +1,14 @@
+{
+  "name": "ascua-playground",
+  "private": true,
+  "type": "module",
+  "description": "El compilador de Ascua corriendo en tu pestaña, sin servidor.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "terser": "^5.51.2"
+  }
+}

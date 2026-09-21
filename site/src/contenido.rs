@@ -157,6 +157,7 @@ pub fn Nav<B: Backend>(dom: &Dom<B>) -> B::Node {
         ("#servidor", "servidor"),
         ("#comparativa", "comparativa"),
         ("#empezar", "empezar"),
+        ("/playground/", "playground"),
     ] {
         let enlace = view! { dom, <EnlaceNav destino={destino} etiqueta={etiqueta}/> };
         dom.append(&nav, &enlace);

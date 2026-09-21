@@ -168,7 +168,8 @@ impl Parser<'_> {
             }
             self.posicion += 1;
         }
-        self.chars[inicio..self.posicion].iter().collect()
+        let crudo: String = self.chars[inicio..self.posicion].iter().collect();
+        decodificar(&crudo)
     }
 
     /// `\u{E000}N\u{E001}` — un hueco `${...}`.
@@ -377,7 +378,7 @@ impl Parser<'_> {
         }
         let valor: String = self.chars[inicio..self.posicion].iter().collect();
         self.consumir(comilla)?;
-        Ok(valor)
+        Ok(decodificar(&valor))
     }
 
     /// Nombre de etiqueta o atributo: admite `-` y `:` como el HTML.
@@ -391,6 +392,62 @@ impl Parser<'_> {
         }
         self.chars[inicio..self.posicion].iter().collect()
     }
+}
+
+/// Decodifica las entidades HTML del texto.
+///
+/// Esto es HTML, así que `&lt;` es un `<` que no abre una etiqueta. Sin esto,
+/// escribir sobre HTML *dentro* de una plantilla sería imposible.
+fn decodificar(texto: &str) -> String {
+    if !texto.contains('&') {
+        return texto.to_string();
+    }
+
+    let mut salida = String::with_capacity(texto.len());
+    let mut resto = texto;
+
+    while let Some(inicio) = resto.find('&') {
+        salida.push_str(&resto[..inicio]);
+        let tras_ampersand = &resto[inicio + 1..];
+
+        let Some(fin) = tras_ampersand.find(';').filter(|fin| *fin <= 8) else {
+            salida.push('&');
+            resto = tras_ampersand;
+            continue;
+        };
+
+        let entidad = &tras_ampersand[..fin];
+        let decodificada = match entidad {
+            "lt" => Some('<'),
+            "gt" => Some('>'),
+            "amp" => Some('&'),
+            "quot" => Some('"'),
+            "apos" | "#39" => Some('\''),
+            "nbsp" => Some('\u{a0}'),
+            numerica => numerica
+                .strip_prefix('#')
+                .and_then(|digitos| match digitos.strip_prefix(['x', 'X']) {
+                    Some(hex) => u32::from_str_radix(hex, 16).ok(),
+                    None => digitos.parse().ok(),
+                })
+                .and_then(char::from_u32),
+        };
+
+        match decodificada {
+            Some(c) => {
+                salida.push(c);
+                resto = &tras_ampersand[fin + 1..];
+            }
+            None => {
+                // No es una entidad conocida: el `&` es un `&` y ya está.
+                salida.push('&');
+                resto = tras_ampersand;
+            }
+        }
+    }
+
+    salida.push_str(resto);
+    salida
 }
 
 /// ¿La expresión es una función flecha?
@@ -514,6 +571,30 @@ mod tests {
             panic!("debería ser un elemento");
         };
         assert_eq!(elemento.hijos.len(), 2);
+    }
+
+    #[test]
+    fn decodifica_las_entidades_html() {
+        let nodo = parsear_simple("<p>El &lt;style&gt; no deja nada &amp; punto</p>", &[]);
+        let Nodo::Elemento(elemento) = nodo else {
+            panic!("debería ser un elemento");
+        };
+        assert_eq!(
+            elemento.hijos[0],
+            Nodo::Texto("El <style> no deja nada & punto".into())
+        );
+    }
+
+    #[test]
+    fn decodifica_entidades_numericas_y_deja_el_resto() {
+        let nodo = parsear_simple("<p>&#65;&#x42; 10 &amp 20 &desconocida;</p>", &[]);
+        let Nodo::Elemento(elemento) = nodo else {
+            panic!("debería ser un elemento");
+        };
+        assert_eq!(
+            elemento.hijos[0],
+            Nodo::Texto("AB 10 &amp 20 &desconocida;".into())
+        );
     }
 
     #[test]
