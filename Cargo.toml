@@ -9,7 +9,7 @@ members = [
     "crates/ascua-css",
     "crates/ascua",
 ]
-exclude = ["examples/demo", "site"]
+exclude = ["examples/demo", "examples/sitio-wasm"]
 
 [workspace.package]
 version = "0.1.0"

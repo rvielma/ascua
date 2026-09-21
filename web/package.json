@@ -1,0 +1,15 @@
+{
+  "name": "ascua-web",
+  "private": true,
+  "type": "module",
+  "description": "El sitio de Ascua: HTML estático con islas de Ascua para los demos.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "terser": "^5.51.2"
+  }
+}
