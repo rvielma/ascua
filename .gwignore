@@ -91,3 +91,9 @@ packages/*/dist-lib/**
 # El .wasm del compilador: lo produce cargo + wasm-bindgen
 packages/compilador/pkg
 packages/compilador/pkg/**
+
+# Playground: su dist y la copia que consume el sitio
+playground/dist
+playground/dist/**
+site/public
+site/public/**

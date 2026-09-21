@@ -21,6 +21,12 @@ cargo build --release --target wasm32-unknown-unknown --lib
 wasm-bindgen --target web --no-typescript --out-dir pkg \
     "$CARGO_TARGET_DIR/wasm32-unknown-unknown/release/sitio.wasm"
 
+echo "→ playground (compilador wasm en el navegador)"
+( cd ../playground && STIL_STORE="${STIL_STORE:-/Volumes/Working/.stil-store}" stil run build >/dev/null )
+rm -rf public/playground
+mkdir -p public
+cp -R ../playground/dist public/playground
+
 echo "→ html (servidor)"
 cargo run --quiet --bin generar
 
