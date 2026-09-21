@@ -5,7 +5,19 @@ WebAssembly. Sin React, sin Vue, sin Svelte, sin Virtual DOM y sin runtime de
 reactividad de terceros: el mecanismo completo se construye aquí para que pueda
 entenderse y repararse sin depender de nadie.
 
-![El demo corriendo en el navegador](docs/demo.png)
+Esto es lo que sirve el servidor del demo, sin que el navegador haya ejecutado
+todavía una sola línea de JavaScript:
+
+```html
+<ascua-island data-ascua-island="app">
+  <div class="app"><nav class="nav">…</nav>
+    <section class="panel"><h2>Tareas</h2>
+      <p class="resumen">2 tareas pendientes</p>
+      <ul class="lista"><li class="pendiente">…</li><li class="pendiente">…</li></ul>
+```
+
+Cuando el WASM arranca, **adopta** esos nodos en vez de rehacerlos: 37 adoptados,
+0 creados.
 
 ```rust
 #[component]
@@ -52,6 +64,8 @@ crates/
 examples/
   demo/             SSR + islas + router, con los componentes compartidos
                     entre servidor y cliente (src/app.rs).
+site/               El sitio del proyecto, construido con Ascua: el contenido
+                    se renderiza en servidor y los demos son islas.
 docs/
   reactividad.md    El mecanismo reactivo completo, explicado.
   templates.md      La macro view!, sus reglas y el CSS scoped.
@@ -138,6 +152,13 @@ cargo test                                   # 84 tests, sin navegador
 cargo clippy --all-targets                   # sin warnings
 cargo fmt --all
 cargo build --target wasm32-unknown-unknown  # el núcleo compila a WASM
+```
+
+El sitio (construido con el propio framework):
+
+```sh
+cd site
+./build.sh && stil run dev    # http://localhost:5178
 ```
 
 El demo completo (servidor + cliente):

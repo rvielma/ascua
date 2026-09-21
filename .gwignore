@@ -65,3 +65,14 @@ examples/demo/pkg/**
 examples/demo/index.html
 examples/demo/acerca
 examples/demo/acerca/**
+
+# Target compartido por el demo y el sitio
+.target-web
+.target-web/**
+site/index.html
+site/pkg
+site/pkg/**
+site/dist
+site/dist/**
+site/node_modules
+site/node_modules/**
