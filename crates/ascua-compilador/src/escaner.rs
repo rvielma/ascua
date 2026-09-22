@@ -8,6 +8,14 @@
 //! una cadena o de un comentario no es una plantilla. Por eso el escáner
 //! recorre el archivo entendiendo cadenas, comentarios y plantillas anidadas.
 
+/// Los nombres que etiquetan una plantilla.
+///
+/// `html` está porque las extensiones de editor que colorean marcado dentro de
+/// una plantilla —lit-html, es6-string-html— buscan ese nombre. Sin él se
+/// escribe HTML en gris, sin cierre de etiquetas ni autocompletado, que es una
+/// de esas cosas que no se notan hasta que se tienen.
+pub const ETIQUETAS: &[&str] = &["view", "html"];
+
 /// Una llamada `` view`...` `` localizada en el archivo.
 #[derive(Debug, PartialEq)]
 pub struct Ocurrencia {
@@ -60,8 +68,9 @@ pub fn buscar(fuente: &str) -> Vec<Ocurrencia> {
                     j += 1;
                 }
 
-                // `view` pegado a un backtick, y no como parte de otro nombre.
-                let es_plantilla = palabra == "view"
+                // La etiqueta, pegada a un backtick y no como parte de otro
+                // nombre: `miView` o `formatHtml` no son plantillas.
+                let es_plantilla = ETIQUETAS.contains(&palabra.as_str())
                     && j == i
                     && chars.get(j) == Some(&'`')
                     && !inicio
@@ -233,6 +242,34 @@ mod tests {
             encontradas[0].expresiones,
             vec!["() => { set({ a: `}`.length }); }"]
         );
+    }
+
+    #[test]
+    fn html_es_lo_mismo_que_view() {
+        // El alias existe para que el editor coloree el marcado; el compilador
+        // no distingue.
+        let fuente = "const a = html`<p>Hola ${nombre()}</p>`;";
+        let encontradas = buscar(fuente);
+
+        assert_eq!(encontradas.len(), 1);
+        assert_eq!(encontradas[0].partes, vec!["<p>Hola ", "</p>"]);
+        assert_eq!(encontradas[0].expresiones, vec!["nombre()"]);
+    }
+
+    #[test]
+    fn un_nombre_que_acaba_en_la_etiqueta_no_lo_es() {
+        let fuente = "const a = formatHtml`<p>x</p>`; const b = miView`<p>y</p>`;";
+        assert!(buscar(fuente).is_empty());
+    }
+
+    #[test]
+    fn el_comentario_de_las_extensiones_no_estorba() {
+        // `/* HTML */` delante es lo que buscan algunas extensiones de editor;
+        // para el escáner es un comentario y ya.
+        let fuente = "const a = /* HTML */ view`<b>sí</b>`;";
+        let encontradas = buscar(fuente);
+        assert_eq!(encontradas.len(), 1);
+        assert_eq!(encontradas[0].partes, vec!["<b>sí</b>"]);
     }
 
     #[test]

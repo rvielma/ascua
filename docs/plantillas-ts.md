@@ -196,6 +196,28 @@ nada que interpolar. Para estilos que cambian, un atributo reactivo.
   árboles, un componente. Distinguirlo por el tipo del valor sería adivinar la
   intención.
 
+## El editor
+
+Una plantilla es marcado dentro de una cadena, así que el editor no lo colorea
+por su cuenta. Las extensiones que sí lo hacen —lit-html, es6-string-html—
+buscan que la etiqueta se llame `html`, y por eso el compilador acepta los dos
+nombres:
+
+```ts
+const boton = html`<button class="grande">Hola</button>`;   // igual que view
+```
+
+Son la misma cosa: `view` deja claro de qué va, `html` enciende el color. Con
+cualquiera de las dos, dentro se cierran las etiquetas solas y el autocompletado
+de atributos funciona.
+
+Si prefieres quedarte con `view`, algunas extensiones también reconocen un
+comentario delante, que el compilador ignora:
+
+```ts
+const boton = /* HTML */ view`<button>Hola</button>`;
+```
+
 ## Cuando algo falla
 
 El compilador emite un **source map**, así que un error del navegador señala el
