@@ -1,0 +1,48 @@
+{
+  "name": "@ascua/router",
+  "version": "0.1.0",
+  "description": "El router de Ascua: la ruta es un signal. Sin contexto, sin componente que instalar.",
+  "keywords": [
+    "router",
+    "signals",
+    "ascua",
+    "spa",
+    "history"
+  ],
+  "homepage": "https://ascua.gitweave.run",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "size": "node ../../scripts/medir-router.mjs",
+    "prepublishOnly": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@ascua/runtime": "0.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.1",
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "terser": "^5.51.2"
+  }
+}
