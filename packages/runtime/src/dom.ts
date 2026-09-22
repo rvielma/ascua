@@ -143,7 +143,10 @@ export function show<T>(
   effect(() => {
     const valor = valorActual();
 
-    for (const nodo of actuales) padre.removeChild(nodo);
+    // `remove` y no `removeChild`: si algo de fuera ya se llevó el nodo —un
+    // test que vacía el documento, un script ajeno— quitarlo otra vez no debe
+    // tirar la aplicación.
+    for (const nodo of actuales) (nodo as ChildNode).remove();
     if (liberar) liberar();
     actuales = [];
     liberar = null;
@@ -199,7 +202,7 @@ export function list<T, K>(
       if (presentes.has(vieja)) continue;
       const entrada = entradas.get(vieja);
       if (!entrada) continue;
-      padre.removeChild(entrada.nodo);
+      (entrada.nodo as ChildNode).remove();
       entrada.liberar();
       entradas.delete(vieja);
     }
@@ -257,7 +260,7 @@ export function mount(padre: Node, construir: () => Node): () => void {
   padre.appendChild(nodo);
   return () => {
     liberar();
-    if (nodo.parentNode === padre) padre.removeChild(nodo);
+    (nodo as ChildNode).remove();
   };
 }
 
