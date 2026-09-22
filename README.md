@@ -42,8 +42,20 @@ view`
   </main>`;
 ```
 
-Hay un panel con acceso, tabla filtrable y componentes con props en
-[`examples/panel-ts`](examples/panel-ts): **4,7 kB** de JavaScript y 1,4 kB de
+Las rutas son signals, con [`@ascua/router`](packages/router):
+
+```ts
+enlaces();   // los <a href="/…"> navegan sin recargar
+
+enrutarEn(app.querySelector("main")!, [
+  { patron: "/pedidos", vista: Pedidos },
+  { patron: "/pedidos/:id", vista: ({ id }) => Pedido({ id }) },
+  { vista: NoEncontrado },
+]);
+```
+
+Hay un panel con acceso, rutas, tabla filtrable y componentes con props en
+[`examples/panel-ts`](examples/panel-ts): **5,6 kB** de JavaScript y 1,4 kB de
 CSS, gzip, la aplicación entera.
 
 ## Estado
@@ -53,6 +65,7 @@ CSS, gzip, la aplicación entera.
 | `@ascua/runtime` | Signals y DOM, 1,77 kB gzip, cero dependencias | ✅ |
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
 | `@ascua/vite-plugin` | Integración con Vite | ✅ |
+| `@ascua/router` | La ruta como signal, 0,98 kB gzip | ✅ |
 | CSS scoped en build time | `<style>` sin runtime de estilos | ✅ |
 | Componentes con props e hijos | `<Panel titulo=${t}>…</Panel>` | ✅ |
 | Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
@@ -60,7 +73,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
 
-**173 tests** (132 en Rust, 41 en TypeScript), sin warnings de `clippy`, todo
+**191 tests** (132 en Rust, 59 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -68,6 +81,7 @@ verificado en navegador real.
 | Una aplicación entera (runtime + contador + lista con clave) | **2,18 kB** |
 | Un panel con acceso, tabla filtrable y componentes | 4,72 kB + 1,39 kB de CSS |
 | Solo el runtime | 1,77 kB |
+| El router | 0,98 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
 ## Cómo está construido
@@ -77,6 +91,7 @@ packages/
   runtime/          @ascua/runtime — signals y operaciones de DOM (TypeScript)
   compilador/       @ascua/compilador — el compilador como .wasm
   vite-plugin/      @ascua/vite-plugin
+  router/           @ascua/router — la ruta como signal
 crates/
   ascua-compilador/ El compilador: escáner, parser de plantillas y codegen
   ascua-css/        Scoping de CSS, compartido por los dos compiladores
@@ -143,6 +158,7 @@ cargo test                   # 132 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
 cd packages/runtime && stil run test    # 41 tests del runtime
+cd packages/router && stil run test     # 18 tests del router
 cd web && ./build.sh                    # el sitio, con el playground dentro
 cd examples/panel-ts && stil run dev
 ```

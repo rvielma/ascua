@@ -25,9 +25,12 @@ echo "==> El compilador, a WebAssembly"
 echo "==> El runtime, a dist/"
 (cd packages/runtime && rm -rf dist && stil run build)
 
+echo "==> El router, a dist/"
+(cd packages/router && rm -rf dist && stil run build)
+
 # El orden importa: el plugin depende del compilador, así que el compilador
 # tiene que existir en el registro antes de que se resuelva el plugin.
-for paquete in compilador runtime vite-plugin; do
+for paquete in compilador runtime router vite-plugin; do
   echo "==> npm publish @ascua/$paquete"
   (cd "packages/$paquete" && npm publish --access public $seco)
 done

@@ -105,3 +105,9 @@ playground/dist/**
 # Ejemplos
 examples/panel-ts/dist
 examples/panel-ts/dist/**
+
+# El router
+packages/router/dist
+packages/router/dist/**
+packages/router/dist-lib
+packages/router/dist-lib/**
