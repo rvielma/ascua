@@ -25,12 +25,17 @@ fn main() -> ExitCode {
         return ExitCode::SUCCESS;
     }
 
-    // La ruta es el primer argumento que no sea una opción; si no hay, se lee
-    // de la entrada estándar.
+    // La ruta es el primer argumento que no sea una opción ni el valor de una;
+    // si no hay, se lee de la entrada estándar.
+    let valor_de_origen = argumentos
+        .iter()
+        .position(|a| a == "--origen")
+        .map(|i| i + 1);
     let ruta = argumentos
         .iter()
-        .find(|argumento| !argumento.starts_with('-'))
-        .map(String::as_str);
+        .enumerate()
+        .find(|(indice, argumento)| !argumento.starts_with('-') && Some(*indice) != valor_de_origen)
+        .map(|(_, argumento)| argumento.as_str());
 
     let fuente = match leer(ruta) {
         Ok(fuente) => fuente,
@@ -38,16 +43,29 @@ fn main() -> ExitCode {
     };
 
     let json = argumentos.iter().any(|a| a == "--json");
+    // El nombre que llevará el archivo dentro del source map.
+    let origen = argumentos
+        .iter()
+        .position(|a| a == "--origen")
+        .and_then(|i| argumentos.get(i + 1))
+        .map(String::as_str)
+        .or(ruta)
+        .unwrap_or("entrada.ts");
 
-    match ascua_compilador::compilar(&fuente) {
+    match ascua_compilador::compilar_con_origen(&fuente, origen) {
         Ok(salida) => {
             // Con --json salen el código y el CSS juntos, que es lo que
             // necesita un bundler para emitir la hoja de estilos.
             let texto = if json {
                 format!(
-                    "{{\"code\":{},\"css\":{}}}",
+                    "{{\"code\":{},\"css\":{},\"map\":{}}}",
                     json_cadena(&salida.codigo),
-                    json_cadena(&salida.css)
+                    json_cadena(&salida.css),
+                    if salida.mapa.is_empty() {
+                        "null".to_string()
+                    } else {
+                        salida.mapa
+                    }
                 )
             } else {
                 salida.codigo
@@ -105,6 +123,7 @@ USO:
     ascuac [ARCHIVO]      compila ARCHIVO (o la entrada estándar) a stdout
 
 OPCIONES:
-        --json            escribe {\"code\", \"css\"} en vez de solo el código
+        --json            escribe {\"code\", \"css\", \"map\"} en vez de solo el código
+        --origen RUTA     el nombre del archivo dentro del source map
     -h, --help            muestra esta ayuda
     -V, --version         muestra la versión";

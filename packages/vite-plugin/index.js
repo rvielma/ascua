@@ -27,8 +27,13 @@ const PREFIJO = "virtual:ascua/";
  */
 function elegirCompilador(opciones) {
   if (opciones.bin) {
-    return (codigo) =>
-      JSON.parse(execFileSync(opciones.bin, ["--json"], { input: codigo, encoding: "utf8" }));
+    return (codigo, archivo) =>
+      JSON.parse(
+        execFileSync(opciones.bin, ["--json", "--origen", archivo], {
+          input: codigo,
+          encoding: "utf8",
+        }),
+      );
   }
 
   // Se busca desde el proyecto y desde el propio plugin: en un monorepo el
@@ -36,15 +41,20 @@ function elegirCompilador(opciones) {
   for (const desde of [join(process.cwd(), "index.js"), import.meta.url]) {
     try {
       const wasm = createRequire(desde)("@ascua/compilador");
-      return (codigo) => JSON.parse(wasm.compilar_json(codigo));
+      return (codigo, archivo) => JSON.parse(wasm.compilar_json(codigo, archivo));
     } catch {
       // Se prueba el siguiente.
     }
   }
 
   // Sin el paquete WebAssembly, queda el binario del PATH.
-  return (codigo) =>
-    JSON.parse(execFileSync("ascuac", ["--json"], { input: codigo, encoding: "utf8" }));
+  return (codigo, archivo) =>
+    JSON.parse(
+      execFileSync("ascuac", ["--json", "--origen", archivo], {
+        input: codigo,
+        encoding: "utf8",
+      }),
+    );
 }
 
 /**
@@ -82,14 +92,17 @@ export default function ascua(opciones = {}) {
 
       let salida;
       try {
-        salida = compilar(codigo);
+        salida = compilar(codigo, archivo);
       } catch (error) {
         const detalle = error.stderr?.toString().trim() || error.message;
         this.error(`ascua: ${detalle}\n  en ${archivo}`);
         return null;
       }
 
-      if (!salida.css) return { code: salida.code, map: null };
+      // El source map viene del compilador, que es quien sabe de qué línea
+      // del archivo original salió cada línea de la suya. Sin esto, un error
+      // en el navegador señala `_$dtxt(...)` y no lo que alguien escribió.
+      if (!salida.css) return { code: salida.code, map: salida.map };
 
       // El CSS se entrega como un módulo aparte: Vite lo inyecta en dev y lo
       // extrae a un .css en el build. No queda nada de estilos en runtime.
@@ -111,9 +124,13 @@ export default function ascua(opciones = {}) {
       }
       hojas.set(idVirtual, salida.css);
 
+      // El import de la hoja empuja todo una línea hacia abajo, así que el
+      // mapa necesita una línea en blanco por delante para no descuadrarse.
+      const mapa = salida.map ? { ...salida.map, mappings: `;${salida.map.mappings}` } : null;
+
       return {
         code: `import ${JSON.stringify(idVirtual)};\n${salida.code}`,
-        map: null,
+        map: mapa,
       };
     },
   };

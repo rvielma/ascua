@@ -8,17 +8,26 @@
 
 use wasm_bindgen::prelude::*;
 
-/// Compila un archivo y devuelve `{"code": "...", "css": "..."}` como JSON.
+/// Compila un archivo y devuelve `{"code", "css", "map"}` como JSON.
+///
+/// `origen` es el nombre que llevará el archivo dentro del source map: la ruta
+/// que verá quien abra las herramientas del navegador. Se puede omitir.
 ///
 /// # Errors
 /// El mensaje del compilador, con la línea de la plantilla que falló.
 #[wasm_bindgen]
-pub fn compilar_json(fuente: &str) -> Result<String, String> {
-    let salida = crate::compilar(fuente).map_err(|error| error.to_string())?;
+pub fn compilar_json(fuente: &str, origen: Option<String>) -> Result<String, String> {
+    let nombre = origen.unwrap_or_else(|| "entrada.ts".to_string());
+    let salida = crate::compilar_con_origen(fuente, &nombre).map_err(|error| error.to_string())?;
     Ok(format!(
-        "{{\"code\":{},\"css\":{}}}",
+        "{{\"code\":{},\"css\":{},\"map\":{}}}",
         json_cadena(&salida.codigo),
-        json_cadena(&salida.css)
+        json_cadena(&salida.css),
+        if salida.mapa.is_empty() {
+            "null".to_string()
+        } else {
+            salida.mapa
+        }
     ))
 }
 
