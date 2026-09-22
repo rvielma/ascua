@@ -55,4 +55,10 @@ declare global {
    * Sin pasar por el compilador, `view` no está definida y el error es claro.
    */
   function view(plantilla: TemplateStringsArray, ...valores: unknown[]): HTMLElement;
+
+  /**
+   * Lo mismo que `view`, con el nombre que buscan las extensiones de editor
+   * para colorear el marcado. El compilador no distingue entre las dos.
+   */
+  function html(plantilla: TemplateStringsArray, ...valores: unknown[]): HTMLElement;
 }
