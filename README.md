@@ -70,10 +70,11 @@ CSS, gzip, la aplicación entera.
 | Componentes con props e hijos | `<Panel titulo=${t}>…</Panel>` | ✅ |
 | Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
 | Propiedades del DOM | `prop:value`, para formularios que mandan | ✅ |
+| Source maps | El error señala tu `.ts`, no el código generado | ✅ |
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
 
-**191 tests** (132 en Rust, 59 en TypeScript), sin warnings de `clippy`, todo
+**198 tests** (139 en Rust, 59 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -154,7 +155,7 @@ JavaScript.
 ## Desarrollo
 
 ```sh
-cargo test                   # 132 tests del compilador y la vía Rust
+cargo test                   # 139 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
 cd packages/runtime && stil run test    # 41 tests del runtime

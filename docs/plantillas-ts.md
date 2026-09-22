@@ -196,6 +196,31 @@ nada que interpolar. Para estilos que cambian, un atributo reactivo.
   árboles, un componente. Distinguirlo por el tipo del valor sería adivinar la
   intención.
 
+## Cuando algo falla
+
+El compilador emite un **source map**, así que un error del navegador señala el
+archivo que escribiste y no el que salió de aquí. Lo que se copia sin tocar
+—casi todo— apunta a su línea exacta; lo que genera una plantilla apunta a la
+línea del `view` que lo produjo, que es donde hay que mirar.
+
+El mapa lleva dentro el TypeScript original (`sourcesContent`), de modo que las
+herramientas del navegador lo enseñan aunque el archivo no esté servido en
+ninguna parte.
+
+Con el plugin de Vite no hay que hacer nada. A mano:
+
+```sh
+ascuac --json --origen src/panel.ts src/panel.ts
+# {"code": "...", "css": "...", "map": {"version": 3, ...}}
+```
+
+Los errores de compilación, en cambio, salen por la vía de siempre y con la
+línea de la plantilla que los causó:
+
+```text
+ascuac: línea 42: <For> necesita `render`: <For each=${() => items()} …/>
+```
+
 ## Cómo se compila
 
 ```mermaid
