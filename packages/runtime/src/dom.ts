@@ -91,6 +91,19 @@ export function property(nodo: Element, nombre: string, calcular: () => unknown)
   });
 }
 
+/**
+ * Una clase que aparece y desaparece, sin tocar las demás.
+ *
+ * Es lo que evita tener que construir el `class` entero en cada cambio: el
+ * scope del CSS, el estado y lo que ponga el usuario conviven en el mismo
+ * atributo sin pisarse.
+ */
+export function cssClass(nodo: Element, nombre: string, calcular: () => unknown): void {
+  effect(() => {
+    nodo.classList.toggle(nombre, Boolean(calcular()));
+  });
+}
+
 /** Atributo que no cambia nunca. */
 export function staticAttribute(nodo: Element, nombre: string, valor: ValorAtributo): void {
   if (valor === false || valor === null || valor === undefined) return;

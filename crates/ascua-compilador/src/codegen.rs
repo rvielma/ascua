@@ -19,6 +19,7 @@ const DYNAMIC_TEXT: (&str, &str) = ("dynamicText", "_$dtxt");
 const STATIC_ATTRIBUTE: (&str, &str) = ("staticAttribute", "_$sattr");
 const ATTRIBUTE: (&str, &str) = ("attribute", "_$attr");
 const PROPERTY: (&str, &str) = ("property", "_$prop");
+const CSS_CLASS: (&str, &str) = ("cssClass", "_$class");
 const ON: (&str, &str) = ("on", "_$on");
 const APPEND: (&str, &str) = ("append", "_$add");
 const SHOW_FN: (&str, &str) = ("show", "_$show");
@@ -178,6 +179,22 @@ impl Generador {
                     } else {
                         format!("{variable}[{nombre}] = {sangrada};")
                     }
+                }
+                Valor::Clase(expresion) => {
+                    let sangrada = self.sangrar(expresion);
+                    if crate::plantilla::es_closure(expresion) {
+                        let clase = self.usar(CSS_CLASS);
+                        format!("{clase}({variable}, {nombre}, {sangrada});")
+                    } else {
+                        // Sin closure se decide una vez, al construir, y no
+                        // hace falta nada del runtime.
+                        format!("{variable}.classList.toggle({nombre}, Boolean({sangrada}));")
+                    }
+                }
+                Valor::Referencia(expresion) => {
+                    // Quedarse con el nodo es una llamada y ya.
+                    let sangrada = self.sangrar(expresion);
+                    format!("({sangrada})({variable});")
                 }
                 Valor::Evento { evento, manejador } => {
                     let on = self.usar(ON);
@@ -356,9 +373,11 @@ fn particionar_ramas(hijos: &[Nodo]) -> (Vec<&Nodo>, Vec<&Nodo>) {
 fn expresion_de(valor: &Valor) -> String {
     match valor {
         Valor::Literal(texto) => cadena(texto),
-        Valor::Estatico(expresion) | Valor::Dinamico(expresion) | Valor::Propiedad(expresion) => {
-            expresion.clone()
-        }
+        Valor::Estatico(expresion)
+        | Valor::Dinamico(expresion)
+        | Valor::Propiedad(expresion)
+        | Valor::Clase(expresion)
+        | Valor::Referencia(expresion) => expresion.clone(),
         Valor::Evento { manejador, .. } => manejador.clone(),
     }
 }
@@ -635,6 +654,62 @@ mod tests {
             "{:?}",
             generado.importes
         );
+    }
+
+    #[test]
+    fn una_clase_reactiva_no_pisa_las_demas() {
+        let entrada = format!("<li class=\"fila\" class:activa={ABRE}0{CIERRA}>x</li>");
+        let generado = compilar(&entrada, &["() => seleccionada()"]);
+
+        assert!(
+            generado
+                .codigo
+                .contains("_$sattr(_n0, \"class\", \"fila\")"),
+            "{}",
+            generado.codigo
+        );
+        assert!(
+            generado
+                .codigo
+                .contains("_$class(_n0, \"activa\", () => seleccionada())"),
+            "{}",
+            generado.codigo
+        );
+    }
+
+    #[test]
+    fn una_clase_sin_closure_se_decide_al_construir() {
+        let entrada = format!("<li class:fija={ABRE}0{CIERRA}>x</li>");
+        let generado = compilar(&entrada, &["esFija"]);
+
+        assert!(
+            generado
+                .codigo
+                .contains("_n0.classList.toggle(\"fija\", Boolean(esFija));"),
+            "{}",
+            generado.codigo
+        );
+        assert!(
+            !generado
+                .importes
+                .iter()
+                .any(|(nombre, _)| *nombre == "cssClass"),
+            "{:?}",
+            generado.importes
+        );
+    }
+
+    #[test]
+    fn ref_entrega_el_nodo_sin_pasar_por_el_runtime() {
+        let entrada = format!("<div ref={ABRE}0{CIERRA}>x</div>");
+        let generado = compilar(&entrada, &["(nodo) => (caja = nodo)"]);
+
+        assert!(
+            generado.codigo.contains("((nodo) => (caja = nodo))(_n0);"),
+            "{}",
+            generado.codigo
+        );
+        assert!(!generado.codigo.contains("_$attr"), "{}", generado.codigo);
     }
 
     #[test]

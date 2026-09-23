@@ -214,7 +214,6 @@ fn linea_cero(fuente: &str, byte: usize) -> usize {
     fuente[..byte.min(fuente.len())].matches('\n').count()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -20,6 +20,8 @@ function Tarjeta(props: { titulo: string; children?: Children }) {
 
 export function Panel() {
   const entrado = signal(false);
+  /** El campo al que hay que devolver el foco: se guarda con `ref`. */
+  let campoUsuario: HTMLInputElement | null = null;
   const usuario = signal("");
   const filtro = signal("");
   let siguiente = 3;
@@ -44,7 +46,7 @@ export function Panel() {
                  oninput=${(e: Event) => filtro.set((e.target as HTMLInputElement).value)}>
           <ul class="tareas">
             <For each=${() => visibles()} key=${(t: Tarea) => t.id} render=${(t: Tarea) => view`
-              <li data-id=${t.id} class=${() => (t.hecha() ? "hecha" : "")}>
+              <li data-id=${t.id} class="tarea" class:hecha=${() => t.hecha()}>
                 <span class="titulo">${t.titulo}</span>
                 <button class="alternar" onclick=${() => t.hecha.set(!t.hecha())}>x</button>
               </li>`}/>
@@ -56,7 +58,11 @@ export function Panel() {
             const id = siguiente++;
             tareas.update((lista) => [...lista, { id, titulo: `Tarea ${id}`, hecha: signal(false) }]);
           }}>añadir</button>
-          <button class="salir" onclick=${() => entrado.set(false)}>salir</button>
+          <button class="salir" onclick=${() => {
+            entrado.set(false);
+            // El nodo que guardó `ref`: sigue siendo el mismo objeto.
+            campoUsuario?.setAttribute("data-recordado", "sí");
+          }}>salir</button>
         </Tarjeta>
 
         <Else>
@@ -65,6 +71,7 @@ export function Panel() {
             if (usuario().trim() !== "") entrado.set(true);
           }}>
             <input class="usuario" prop:value=${() => usuario()}
+                   ref=${(nodo: HTMLInputElement) => (campoUsuario = nodo)}
                    oninput=${(e: Event) => usuario.set((e.target as HTMLInputElement).value)}>
             <button class="entrar" type="submit" disabled=${() => usuario().trim() === ""}>entrar</button>
           </form>

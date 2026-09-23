@@ -37,6 +37,8 @@ interface Nodo {
   dueño: Nodo | null;
   hijos: Nodo[];
   limpiezas: Array<() => void>;
+  /** Quién se hace cargo si algo falla aquí dentro. */
+  manejadores: Array<(error: unknown) => void>;
 }
 
 /** Observador en ejecución: quien lea un signal ahora queda suscrito a él. */
@@ -62,6 +64,7 @@ function crearNodo(valor: unknown, estado: Estado = LIMPIO): Nodo {
     dueño,
     hijos: [],
     limpiezas: [],
+    manejadores: [],
   };
   if (dueño) dueño.hijos.push(nodo);
   return nodo;
@@ -140,6 +143,10 @@ function recomputar(nodo: Nodo): void {
   try {
     if (nodo.recomputar) cambió = nodo.recomputar(nodo);
     else if (nodo.ejecutar) nodo.ejecutar();
+  } catch (error) {
+    // Antes de relanzar, se busca quién se hace cargo: si nadie lo hace, el
+    // error sigue su camino y la aplicación se entera igual.
+    if (!manejar(nodo, error)) throw error;
   } finally {
     observador = observadorPrevio;
     dueño = dueñoPrevio;
@@ -148,6 +155,36 @@ function recomputar(nodo: Nodo): void {
   if (cambió) {
     for (const observadorDe of nodo.observadores.slice()) marcar(observadorDe, SUCIO);
   }
+}
+
+/**
+ * Busca hacia arriba quién se hace cargo de un error, y se lo entrega.
+ *
+ * El manejador corre en **su** scope, no en el del cómputo que falló: lo que
+ * cree allí —un signal para el mensaje, una limpieza— sobrevive a lo que se
+ * está derrumbando, que es justo para lo que sirve. Y sin observador activo,
+ * así que leer algo ahí no suscribe a nadie.
+ */
+function manejar(desde: Nodo, error: unknown): boolean {
+  let nodo: Nodo | null = desde;
+  while (nodo) {
+    const manejadores = nodo.manejadores;
+    if (manejadores.length > 0) {
+      const observadorPrevio = observador;
+      const dueñoPrevio = dueño;
+      observador = null;
+      dueño = nodo;
+      try {
+        for (const manejador of manejadores.slice()) manejador(error);
+      } finally {
+        observador = observadorPrevio;
+        dueño = dueñoPrevio;
+      }
+      return true;
+    }
+    nodo = nodo.dueño;
+  }
+  return false;
 }
 
 /** Deja el nodo listo para reejecutarse. El nodo en sí sobrevive. */
@@ -164,6 +201,7 @@ function limpiarNodo(nodo: Nodo): void {
 
   const limpiezas = nodo.limpiezas.slice();
   nodo.limpiezas.length = 0;
+  nodo.manejadores.length = 0;
   // En orden inverso de registro, como los destructores.
   for (let i = limpiezas.length - 1; i >= 0; i--) limpiezas[i]!();
 }
@@ -301,6 +339,20 @@ export function effect(fn: () => void): void {
  */
 export function onCleanup(fn: () => void): void {
   if (dueño) dueño.limpiezas.push(fn);
+}
+
+/**
+ * Se hace cargo de los errores que ocurran en este scope o por debajo.
+ *
+ * Es lo que evita que un fallo en una vista se lleve por delante la
+ * aplicación entera: el manejador recibe el error y decide —enseñar otra cosa,
+ * registrarlo—, y lo de fuera sigue funcionando. Sin ninguno registrado, el
+ * error se propaga como siempre.
+ *
+ * Fuera de todo scope se descarta: no habría nada a lo que atender.
+ */
+export function onError(manejador: (error: unknown) => void): void {
+  if (dueño) dueño.manejadores.push(manejador);
 }
 
 /** Crea una raíz reactiva y devuelve su resultado y cómo liberarla. */
