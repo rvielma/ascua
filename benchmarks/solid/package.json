@@ -1,0 +1,15 @@
+{
+  "name": "benchmark-solid",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "vite-plugin-solid": "^2.11.14"
+  },
+  "dependencies": {
+    "solid-js": "^1.9.15"
+  }
+}

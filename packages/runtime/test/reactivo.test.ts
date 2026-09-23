@@ -14,6 +14,7 @@ import {
   onCleanup,
   onError,
   root,
+  selector,
   signal,
   untrack,
 } from "../src/reactivo.js";
@@ -412,3 +413,68 @@ describe("onError", () => {
     expect(limpiezas).toEqual(["del manejador"]);
   });
 });
+
+describe("selector", () => {
+  it("un cambio despierta solo a la que se va y a la que llega", () => {
+    const elegida = signal(1);
+    const ejecuciones = new Map<number, number>();
+
+    const [, liberar] = root(() => {
+      const esLaElegida = selector(() => elegida());
+      for (let id = 1; id <= 1000; id++) {
+        effect(() => {
+          esLaElegida(id);
+          ejecuciones.set(id, (ejecuciones.get(id) ?? 0) + 1);
+        });
+      }
+    });
+
+    // Una vez cada una, al crearse.
+    expect([...ejecuciones.values()].every((n) => n === 1)).toBe(true);
+
+    elegida.set(500);
+    const despertadas = [...ejecuciones].filter(([, n]) => n > 1).map(([id]) => id);
+    expect(despertadas.sort((a, b) => a - b)).toEqual([1, 500]);
+
+    liberar();
+  });
+
+  it("responde lo que toca", () => {
+    const elegida = signal("b");
+    const vistas: string[] = [];
+
+    const [, liberar] = root(() => {
+      const es = selector(() => elegida());
+      for (const clave of ["a", "b", "c"]) {
+        effect(() => {
+          if (es(clave)) vistas.push(clave);
+        });
+      }
+    });
+
+    expect(vistas).toEqual(["b"]);
+    elegida.set("c");
+    expect(vistas).toEqual(["b", "c"]);
+    liberar();
+  });
+
+  it("una fila que desaparece suelta su suscripción", () => {
+    const elegida = signal(1);
+    let ejecuciones = 0;
+    const es = root(() => selector(() => elegida()))[0];
+
+    const [, soltarFila] = root(() => {
+      effect(() => {
+        es(2);
+        ejecuciones++;
+      });
+    });
+    expect(ejecuciones).toBe(1);
+
+    soltarFila();
+    elegida.set(2);
+    // Ya no está: pasar a elegirla no la despierta.
+    expect(ejecuciones).toBe(1);
+  });
+});
+

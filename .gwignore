@@ -115,3 +115,9 @@ packages/router/dist-lib/**
 # El paquete de testing
 packages/testing/dist
 packages/testing/dist/**
+
+# Benchmarks: dependencias y builds de cada contendiente
+benchmarks/*/node_modules
+benchmarks/*/node_modules/**
+benchmarks/*/dist
+benchmarks/*/dist/**
