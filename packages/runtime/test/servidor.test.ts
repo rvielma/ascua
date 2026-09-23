@@ -47,7 +47,7 @@ describe("renderToString", () => {
       on(p, "click", () => {});
       return p;
     });
-    expect(html).toBe('<p class="saludo activo" data-n="5">Hola, <!--/-->mundo</p>');
+    expect(html).toBe('<p class="saludo activo" data-n="5">Hola, mundo</p>');
   });
 
   it("escapa texto y atributos", () => {
@@ -76,40 +76,69 @@ describe("renderToString", () => {
     expect(html).toBe('<form><input value="escrito"><br><input type="checkbox" checked></form>');
   });
 
-  it("los textos vacíos no salen y los seguidos se separan", () => {
+  it("fuera de una isla no hay marcadores ni separadores: no se hidrata", () => {
     const html = renderToString(() => {
-      const p = element("p");
-      append(p, text("a"), dynamicText(() => ""), text("b"), element("br"), text("c"));
-      return p;
-    });
-    // «a» y «b» quedan juntos en el HTML: sin el separador, el navegador los
-    // leería como un solo texto.
-    expect(html).toBe("<p>a<!--/-->b<br>c</p>");
-  });
-
-  it("show y list renderizan su estado, con su marcador detrás", () => {
-    const html = renderToString(() => {
-      const ul = element("ul");
-      list(
-        ul,
-        () => ["x", "y"],
-        (s) => s,
-        (s) => {
-          const li = element("li");
-          append(li, text(s));
-          return li;
-        },
-      );
       const div = element("div");
+      append(div, text("a"), text("b"));
       show(
         div,
         () => true,
-        () => text("visible"),
+        () => text("c"),
       );
-      append(div, ul);
       return div;
     });
-    expect(html).toBe("<div>visible<!----><ul><li>x</li><li>y</li><!----></ul></div>");
+    expect(html).toBe("<div>abc</div>");
+  });
+
+  it("dentro de una isla, los textos vacíos no salen y los seguidos se separan", () => {
+    const html = renderToString(() =>
+      island("i", () => {
+        const p = element("p");
+        append(p, text("a"), dynamicText(() => ""), text("b"), element("br"), text("c"));
+        return p;
+      }),
+    );
+    // «a» y «b» quedan juntos en el HTML: sin el separador, el navegador los
+    // leería como un solo texto y la hidratación perdería la cuenta.
+    expect(html).toContain('<p data-ascua-h="0">a<!--/-->b<br data-ascua-h="1">c</p>');
+  });
+
+  it("show y list renderizan su estado, con su marcador detrás", () => {
+    const html = renderToString(() =>
+      island("i", () => {
+        const ul = element("ul");
+        list(
+          ul,
+          () => ["x", "y"],
+          (s) => s,
+          (s) => {
+            const li = element("li");
+            append(li, text(s));
+            return li;
+          },
+        );
+        const div = element("div");
+        show(
+          div,
+          () => true,
+          () => text("visible"),
+        );
+        append(div, ul);
+        return div;
+      }),
+    );
+    expect(html).toContain(
+      '<div data-ascua-h="4">visible<!--5--><ul data-ascua-h="0"><li data-ascua-h="2">x</li><li data-ascua-h="3">y</li><!--1--></ul></div>',
+    );
+  });
+
+  it("prop:innerHTML emite el HTML tal cual", () => {
+    const html = renderToString(() => {
+      const articulo = element("article");
+      property(articulo, "innerHTML", () => "<h2>Título</h2><p>a &amp; b</p>");
+      return articulo;
+    });
+    expect(html).toBe("<article><h2>Título</h2><p>a &amp; b</p></article>");
   });
 
   it("querySelector encuentra huecos en lo recién construido", () => {
