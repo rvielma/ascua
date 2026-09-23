@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ascua — HTML en TypeScript, compilado con WebAssembly</title>
-<meta name="description" content="Framework de UI sin Virtual DOM. El compilador es un .wasm de 83 KB y traduce tus plantillas a operaciones de DOM; al navegador llegan 2,23 kB de runtime. Una aplicación entera, 2,43 kB.">
+<meta name="description" content="Framework de UI sin Virtual DOM. El compilador es un .wasm de 87 KB y traduce tus plantillas a operaciones de DOM; al navegador llegan 2,23 kB de runtime. Una aplicación entera, 2,43 kB.">
 <meta property="og:title" content="Ascua">
 <meta property="og:description" content="Sin Virtual DOM: cada dato ya sabe qué nodo le toca. Runtime de 2,23 kB, compilador en WebAssembly.">
 <meta property="og:type" content="website">
@@ -240,7 +240,7 @@ footer .credito { font-family: var(--mono); }
     React manda 45 kB al navegador para averiguar en cada render qué cambió. Ascua lo
     resuelve antes, al compilar: la plantilla se convierte en las operaciones de DOM que
     le corresponden, y lo que viaja son <strong>2,23 kB</strong> de runtime sin
-    dependencias. El compilador es un <strong>.wasm de 83 KB</strong> —uno, no una decena
+    dependencias. El compilador es un <strong>.wasm de 87 KB</strong> —uno, no una decena
     de binarios por plataforma— y no descarga nada en el <code>postinstall</code>.
   </p>
 
@@ -258,9 +258,9 @@ footer .credito { font-family: var(--mono); }
   <div class="cifras">
     <div class="cifra"><div class="num">2,43 kB</div><div class="que">una app entera, gzip</div></div>
     <div class="cifra"><div class="num">2,23 kB</div><div class="que">solo el runtime</div></div>
-    <div class="cifra"><div class="num">83 KB</div><div class="que">el compilador, en wasm</div></div>
+    <div class="cifra"><div class="num">87 KB</div><div class="que">el compilador, en wasm</div></div>
     <div class="cifra"><div class="num">0</div><div class="que">dependencias</div></div>
-    <div class="cifra"><div class="num">271</div><div class="que">tests</div></div>
+    <div class="cifra"><div class="num">280</div><div class="que">tests</div></div>
   </div>
 </section>
 
@@ -443,7 +443,7 @@ p[data-ascua-98909ba2]:hover {
     <div class="rasgo">
       <span class="n">01</span>
       <div>
-        <h3>83 KB para todo</h3>
+        <h3>87 KB para todo</h3>
         <p>El mismo .wasm en Node, Bun, Deno y el navegador. SWC publica una decena de binarios por plataforma; esbuild, veinte.</p>
       </div>
     </div>

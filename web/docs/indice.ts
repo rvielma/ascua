@@ -34,6 +34,7 @@ export const INDICE: Grupo[] = [
       { slug: "estilos", rotulo: "Estilos" },
       { slug: "router", rotulo: "Rutas" },
       { slug: "ssr", rotulo: "SSR e islas" },
+      { slug: "tipos", rotulo: "Tipos" },
       { slug: "testing", rotulo: "Tests" },
       { slug: "errores", rotulo: "Errores y depuración" },
     ],

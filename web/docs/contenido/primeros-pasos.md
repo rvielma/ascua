@@ -95,6 +95,19 @@ stil exec vite build    # un .js y un .css en dist/
 editor las conoce sin importarlas. Si tu `tsconfig.json` no incluye los tipos
 del paquete por otra vía, basta con importar algo de él en cualquier archivo.
 
+## Comprobar los tipos
+
+Para TypeScript, lo que va dentro de una plantilla es texto: un prop de otro
+tipo no da error. `ascua-check` lo comprueba con el `tsc` del proyecto y señala
+cada error en su línea:
+
+```sh
+stil add -D @ascua/check
+stil exec ascua-check
+```
+
+Está en [Tipos](/docs/tipos/).
+
 ## Estructura de un proyecto
 
 No hay convención de carpetas que seguir: un componente es una función en un

@@ -48,7 +48,7 @@ pega tal cual, y un `<style>` dentro de la plantilla es CSS con scope que se
 extrae al compilar. Está en [Estilos](/docs/estilos/).
 
 **3. WebAssembly donde suma.** El compilador está escrito en Rust y se
-distribuye como un único `.wasm` de 83 KB que corre en Node, Bun, Deno y el
+distribuye como un único `.wasm` de 87 KB que corre en Node, Bun, Deno y el
 navegador —el [playground](/playground/) es ese mismo archivo—. En el
 navegador, en cambio, el DOM vive en JavaScript y cruzar la frontera cuesta más
 que la operación, así que el runtime es JavaScript. Está en
