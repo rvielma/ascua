@@ -148,10 +148,18 @@ fn compilar_en(
         }
 
         let marcada = marcar(&ocurrencia.partes);
-        let plantilla = plantilla::parsear(&marcada, &expresiones).map_err(|error| Error {
-            mensaje: error.mensaje,
-            linea: linea_plantilla + 1,
-        })?;
+        let saltos: Vec<usize> = ocurrencia
+            .expresiones
+            .iter()
+            .map(|expresion| expresion.matches('\n').count())
+            .collect();
+        let plantilla =
+            plantilla::parsear_con_saltos(&marcada, &expresiones, &saltos).map_err(|error| {
+                Error {
+                    mensaje: error.mensaje,
+                    linea: linea_plantilla + 1,
+                }
+            })?;
 
         let generado = codegen::generar(&plantilla);
         importes.extend(generado.importes);
@@ -160,13 +168,17 @@ fn compilar_en(
         }
         hojas.append(&mut hojas_internas);
 
-        // Lo generado no tiene líneas propias: todas señalan al `view` que las
-        // produjo, que es donde el programador tiene que mirar.
+        // Cada línea generada señala la línea de la plantilla que la produjo:
+        // el elemento, el atributo o el prop. Un error cae donde se escribió,
+        // no en el `view` de arriba.
         mapa::añadir(
             &mut codigo,
             &mut procedencia,
             &generado.codigo,
-            mapa::Origen::Generado(linea_plantilla),
+            mapa::Origen::Plantilla {
+                base: linea_plantilla,
+                lineas: &generado.lineas,
+            },
         );
         cursor = ocurrencia.fin;
     }
@@ -373,6 +385,60 @@ export function Contador() {
             lineas[5..5 + generadas].iter().all(|l| *l == 4),
             "{lineas:?}"
         );
+    }
+
+    /// La línea original (desde 0) de la primera línea generada que contiene `aguja`.
+    fn origen_de(salida: &Salida, aguja: &str) -> i64 {
+        let lineas = lineas_del_mapa(&salida.mapa);
+        let indice = salida
+            .codigo
+            .lines()
+            .position(|l| l.contains(aguja))
+            .unwrap_or_else(|| panic!("no está `{aguja}` en:\n{}", salida.codigo));
+        lineas[indice]
+    }
+
+    #[test]
+    fn cada_elemento_senala_su_linea_dentro_de_la_plantilla() {
+        // Un error de tipos en el prop de un componente tiene que caer en la
+        // línea del componente, no en la del `view`.
+        let fuente = "const a = view`\n\
+                      <section>\n\
+                      <h2>Título</h2>\n\
+                      <Metrica etiqueta=${42}/>\n\
+                      <button onclick=${() => x()}>ok</button>\n\
+                      </section>`;\n";
+        let salida = compilar(fuente).expect("debería compilar");
+
+        assert_eq!(origen_de(&salida, "_$el(\"section\")"), 1);
+        assert_eq!(origen_de(&salida, "_$el(\"h2\")"), 2);
+        assert_eq!(origen_de(&salida, "Metrica("), 3);
+        assert_eq!(origen_de(&salida, "_$on("), 4);
+    }
+
+    #[test]
+    fn los_huecos_de_varias_lineas_desplazan_lo_que_sigue() {
+        let fuente = "const a = view`<div>\n\
+                      <p onclick=${() => {\n\
+                      hacer();\n\
+                      }}>uno</p>\n\
+                      <b>dos</b>\n\
+                      </div>`;\n";
+        let salida = compilar(fuente).expect("debería compilar");
+        assert_eq!(origen_de(&salida, "_$el(\"b\")"), 4);
+    }
+
+    #[test]
+    fn un_componente_con_props_en_varias_lineas_las_conserva() {
+        let fuente = "const a = view`<div>\n\
+                      <Campo\n\
+                      etiqueta=\"Nombre\"\n\
+                      valor=${() => nombre()}/>\n\
+                      </div>`;\n";
+        let salida = compilar(fuente).expect("debería compilar");
+        assert_eq!(origen_de(&salida, "Campo("), 1);
+        assert_eq!(origen_de(&salida, "etiqueta: \"Nombre\""), 2);
+        assert_eq!(origen_de(&salida, "valor: () => nombre()"), 3);
     }
 
     #[test]

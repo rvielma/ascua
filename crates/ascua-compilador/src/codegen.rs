@@ -28,6 +28,10 @@ const LIST_FN: (&str, &str) = ("list", "_$list");
 pub struct Generado {
     /// La expresión JavaScript que construye el árbol.
     pub codigo: String,
+    /// Para cada línea de `codigo`, la línea de la plantilla (desde 0) que la
+    /// produjo. Es lo que lleva el source map hasta el elemento y no solo
+    /// hasta el `view`.
+    pub lineas: Vec<usize>,
     /// Las funciones del runtime que hacen falta, ya con su alias.
     pub importes: BTreeSet<(&'static str, &'static str)>,
     /// El CSS de la plantilla, ya reescrito para aplicar solo a sus elementos.
@@ -54,17 +58,52 @@ pub fn generar(plantilla: &Plantilla) -> Generado {
         contador: 0,
         nivel: 1,
         scope,
+        origen: 0,
     };
 
     let mut lineas = Vec::new();
     let variable = generador.nodo(&plantilla.raiz, &mut lineas);
     lineas.push(generador.linea(&format!("return {variable};")));
 
+    let (codigo, lineas) = separar_origenes(&format!("(() => {{\n{}\n}})()", lineas.join("\n")));
     Generado {
-        codigo: format!("(() => {{\n{}\n}})()", lineas.join("\n")),
+        codigo,
+        lineas,
         importes: generador.importes,
         css,
     }
+}
+
+/// Delimitan la línea de origen que `Generador::linea` pone delante de cada
+/// instrucción. Son del área de uso privado de Unicode, como los marcadores de
+/// hueco del parser: no pueden venir en el código de nadie.
+const ORIGEN_ABRE: char = '\u{E002}';
+const ORIGEN_CIERRA: char = '\u{E003}';
+
+/// Quita los marcadores de origen y devuelve, aparte, la línea de cada línea.
+///
+/// Una línea sin marcador —la continuación de una expresión que ocupaba
+/// varias— hereda el origen de la anterior.
+fn separar_origenes(crudo: &str) -> (String, Vec<usize>) {
+    let mut codigo = String::with_capacity(crudo.len());
+    let mut origenes = Vec::new();
+    let mut ultimo = 0usize;
+
+    for (indice, linea) in crudo.split('\n').enumerate() {
+        if indice > 0 {
+            codigo.push('\n');
+        }
+        let mut texto = linea;
+        if let Some(resto) = linea.strip_prefix(ORIGEN_ABRE) {
+            if let Some((numero, despues)) = resto.split_once(ORIGEN_CIERRA) {
+                ultimo = numero.parse().unwrap_or(ultimo);
+                texto = despues;
+            }
+        }
+        codigo.push_str(texto);
+        origenes.push(ultimo);
+    }
+    (codigo, origenes)
 }
 
 struct Generador {
@@ -74,6 +113,8 @@ struct Generador {
     nivel: usize,
     /// Atributo de scope, si la plantilla lleva estilos.
     scope: Option<String>,
+    /// La línea de la plantilla de lo que se está generando ahora.
+    origen: usize,
 }
 
 impl Generador {
@@ -82,8 +123,14 @@ impl Generador {
         funcion.1
     }
 
+    /// Una instrucción, sangrada y marcada con la línea de la plantilla que la
+    /// produce. `generar` quita la marca al terminar.
     fn linea(&self, texto: &str) -> String {
-        format!("{}{texto}", "  ".repeat(self.nivel))
+        format!(
+            "{ORIGEN_ABRE}{}{ORIGEN_CIERRA}{}{texto}",
+            self.origen,
+            "  ".repeat(self.nivel)
+        )
     }
 
     /// Una expresión del usuario, lista para incrustar.
@@ -140,6 +187,7 @@ impl Generador {
     }
 
     fn elemento(&mut self, elemento: &Elemento, lineas: &mut Vec<String>) -> String {
+        self.origen = elemento.linea;
         let variable = self.siguiente_variable();
         let el = self.usar(ELEMENT);
         let etiqueta = cadena(&elemento.etiqueta);
@@ -152,6 +200,7 @@ impl Generador {
         }
 
         for atributo in &elemento.atributos {
+            self.origen = atributo.linea;
             let nombre = cadena(&atributo.nombre);
             let texto = match &atributo.valor {
                 Valor::Literal(valor) => {
@@ -225,6 +274,11 @@ impl Generador {
                 }
                 _ => {
                     let variable = self.nodo(hijo, lineas);
+                    if let Nodo::Elemento(Elemento { linea, .. })
+                    | Nodo::Componente(Componente { linea, .. }) = hijo
+                    {
+                        self.origen = *linea;
+                    }
                     let add = self.usar(APPEND);
                     lineas.push(self.linea(&format!("{add}({padre}, {variable});")));
                 }
@@ -239,21 +293,53 @@ impl Generador {
     /// no esté ya al alcance de quien la escribe.
     fn componente(&mut self, componente: &Componente, lineas: &mut Vec<String>) -> String {
         let variable = self.siguiente_variable();
-        let mut campos: Vec<String> = componente
+
+        // Si los props están repartidos en varias líneas, la llamada también:
+        // cada prop en la suya, para que un error de tipos en uno señale su
+        // línea y no la de la etiqueta.
+        let en_varias = componente
             .props
             .iter()
-            .map(|prop| format!("{}: {}", clave(&prop.nombre), self.expresion(&prop.valor)))
-            .collect();
+            .any(|prop| prop.linea != componente.linea);
+
+        let mut campos: Vec<(String, usize)> = Vec::new();
+        self.nivel += usize::from(en_varias);
+        for prop in &componente.props {
+            campos.push((
+                format!("{}: {}", clave(&prop.nombre), self.expresion(&prop.valor)),
+                prop.linea,
+            ));
+        }
+        self.nivel -= usize::from(en_varias);
 
         if !componente.hijos.is_empty() {
             let receta = self.receta(&componente.hijos);
-            campos.push(format!("children: {receta}"));
+            campos.push((format!("children: {receta}"), componente.linea));
         }
 
+        self.origen = componente.linea;
         let props = if campos.is_empty() {
             "{}".to_string()
+        } else if en_varias {
+            self.nivel += 1;
+            let lineas_props: Vec<String> = campos
+                .iter()
+                .map(|(campo, linea)| {
+                    self.origen = *linea;
+                    self.linea(&format!("{campo},"))
+                })
+                .collect();
+            self.nivel -= 1;
+            self.origen = componente.linea;
+            format!(
+                "{{\n{}\n{ORIGEN_ABRE}{}{ORIGEN_CIERRA}{}}}",
+                lineas_props.join("\n"),
+                componente.linea,
+                "  ".repeat(self.nivel)
+            )
         } else {
-            format!("{{ {} }}", campos.join(", "))
+            let lista: Vec<&str> = campos.iter().map(|(campo, _)| campo.as_str()).collect();
+            format!("{{ {} }}", lista.join(", "))
         };
         lineas.push(self.linea(&format!(
             "const {variable} = {}({props});",
@@ -298,6 +384,7 @@ impl Generador {
         let rama_si = self.rama(&entonces);
         let rama_no = self.rama(&si_no);
 
+        self.origen = componente.linea;
         let show = self.usar(SHOW_FN);
         lineas.push(self.linea(&format!(
             "{show}({padre}, {when}, ({condicion}) => {condicion} ? {rama_si} : {rama_no});"
@@ -348,6 +435,7 @@ impl Generador {
             .prop("render")
             .map_or_else(|| "() => null".to_string(), |valor| self.expresion(valor));
 
+        self.origen = componente.linea;
         let list = self.usar(LIST_FN);
         lineas.push(self.linea(&format!("{list}({padre}, {each}, {key}, {render});")));
     }

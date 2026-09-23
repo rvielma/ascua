@@ -12,12 +12,15 @@
 //! mira.
 
 /// De dónde viene un trozo de la salida.
-pub enum Origen {
+pub enum Origen<'a> {
     /// Texto copiado del original: cada línea es la suya, contando desde
     /// `base`.
     Copiado(usize),
     /// Texto que produjo el compilador: todas sus líneas señalan a la misma.
     Generado(usize),
+    /// Lo que salió de una plantilla que empieza en la línea `base`: la línea
+    /// `n` del trozo viene de la línea `base + lineas[n]`.
+    Plantilla { base: usize, lineas: &'a [usize] },
 }
 
 /// Añade un trozo a la salida y anota de dónde viene cada línea suya.
@@ -27,7 +30,7 @@ pub enum Origen {
 pub fn añadir(salida: &mut String, procedencia: &mut Vec<usize>, trozo: &str, origen: Origen) {
     if procedencia.is_empty() {
         procedencia.push(match origen {
-            Origen::Copiado(base) | Origen::Generado(base) => base,
+            Origen::Copiado(base) | Origen::Generado(base) | Origen::Plantilla { base, .. } => base,
         });
     }
 
@@ -41,6 +44,9 @@ pub fn añadir(salida: &mut String, procedencia: &mut Vec<usize>, trozo: &str, o
         procedencia.push(match origen {
             Origen::Copiado(base) => base + saltos,
             Origen::Generado(linea) => linea,
+            Origen::Plantilla { base, lineas } => {
+                base + lineas.get(saltos).or(lineas.last()).copied().unwrap_or(0)
+            }
         });
     }
 }

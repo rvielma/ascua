@@ -49,6 +49,8 @@ pub struct Componente {
     pub nombre: String,
     pub props: Vec<Atributo>,
     pub hijos: Vec<Nodo>,
+    /// Línea de la plantilla, desde 0, donde abre la etiqueta. Ver [`Elemento::linea`].
+    pub linea: usize,
 }
 
 impl Componente {
@@ -67,12 +69,20 @@ pub struct Elemento {
     pub etiqueta: String,
     pub atributos: Vec<Atributo>,
     pub hijos: Vec<Nodo>,
+    /// Línea de la plantilla, desde 0, donde abre la etiqueta.
+    ///
+    /// Es lo que permite que el source map señale el elemento y no el `view`:
+    /// un error de tipos en el prop de un componente, en una plantilla de
+    /// cuarenta líneas, tiene que caer en su línea.
+    pub linea: usize,
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Atributo {
     pub nombre: String,
     pub valor: Valor,
+    /// Línea de la plantilla donde está: una etiqueta puede ocupar varias.
+    pub linea: usize,
 }
 
 #[derive(Debug, PartialEq)]
@@ -130,8 +140,33 @@ pub struct Plantilla {
 /// # Errors
 /// Si el marcado está mal formado.
 pub fn parsear(entrada: &str, expresiones: &[String]) -> Resultado<Plantilla> {
+    let saltos: Vec<usize> = expresiones
+        .iter()
+        .map(|e| e.matches('\n').count())
+        .collect();
+    parsear_con_saltos(entrada, expresiones, &saltos)
+}
+
+/// Como [`parsear`], pero sabiendo cuántos saltos de línea tenía cada hueco en
+/// el archivo original.
+///
+/// Hace falta porque las expresiones que llegan aquí pueden estar ya
+/// compiladas —el `render` de un `<For>` trae otra plantilla dentro— y tener
+/// otro número de líneas que las que escribió el programador. Para numerar las
+/// líneas de la plantilla cuentan las originales.
+///
+/// # Errors
+/// Si el marcado está mal formado.
+pub fn parsear_con_saltos(
+    entrada: &str,
+    expresiones: &[String],
+    saltos: &[usize],
+) -> Resultado<Plantilla> {
+    let chars: Vec<char> = entrada.chars().collect();
+    let lineas = numerar_lineas(&chars, saltos);
     let mut parser = Parser {
-        chars: entrada.chars().collect(),
+        chars,
+        lineas,
         posicion: 0,
         expresiones,
         css: String::new(),
@@ -163,8 +198,45 @@ pub fn parsear(entrada: &str, expresiones: &[String]) -> Resultado<Plantilla> {
     })
 }
 
+/// La línea de la plantilla en la que cae cada carácter de la entrada marcada.
+///
+/// Un marcador de hueco ocupa un solo sitio en la entrada, pero en el original
+/// era una expresión que podía tener varias líneas: lo que viene después se
+/// desplaza esas líneas.
+fn numerar_lineas(chars: &[char], saltos: &[usize]) -> Vec<usize> {
+    let mut lineas = Vec::with_capacity(chars.len() + 1);
+    let mut linea = 0usize;
+    let mut i = 0usize;
+    while i < chars.len() {
+        lineas.push(linea);
+        match chars[i] {
+            '\n' => linea += 1,
+            ABRE => {
+                let mut indice = 0usize;
+                let mut j = i + 1;
+                while j < chars.len() && chars[j] != CIERRA {
+                    lineas.push(linea);
+                    indice = indice * 10 + chars[j].to_digit(10).unwrap_or(0) as usize;
+                    j += 1;
+                }
+                if j < chars.len() {
+                    lineas.push(linea);
+                }
+                linea += saltos.get(indice).copied().unwrap_or(0);
+                i = j;
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+    lineas.push(linea);
+    lineas
+}
+
 struct Parser<'a> {
     chars: Vec<char>,
+    /// `lineas[i]`: la línea de la plantilla del carácter `i`.
+    lineas: Vec<usize>,
     posicion: usize,
     expresiones: &'a [String],
     css: String,
@@ -176,6 +248,10 @@ impl Parser<'_> {
             mensaje: mensaje.to_string(),
             posicion: self.posicion,
         }
+    }
+
+    fn linea(&self) -> usize {
+        self.lineas.get(self.posicion).copied().unwrap_or(0)
     }
 
     fn actual(&self) -> Option<char> {
@@ -259,6 +335,7 @@ impl Parser<'_> {
     /// la misma convención de la vía Rust, y la que ya usan React, Solid y
     /// Svelte, así que no hay nada nuevo que aprender.
     fn etiqueta(&mut self) -> Resultado<Nodo> {
+        let linea = self.linea();
         self.consumir('<')?;
         let etiqueta = self.nombre();
         if etiqueta.is_empty() {
@@ -279,7 +356,7 @@ impl Parser<'_> {
         if self.actual() == Some('/') {
             self.posicion += 1;
             self.consumir('>')?;
-            return self.terminar(etiqueta, atributos, Vec::new());
+            return self.terminar(etiqueta, atributos, Vec::new(), linea);
         }
         self.consumir('>')?;
 
@@ -291,11 +368,12 @@ impl Parser<'_> {
                 etiqueta: String::new(),
                 atributos: Vec::new(),
                 hijos: Vec::new(),
+                linea,
             }));
         }
 
         if !es_componente && SIN_CIERRE.contains(&etiqueta.to_ascii_lowercase().as_str()) {
-            return self.terminar(etiqueta, atributos, Vec::new());
+            return self.terminar(etiqueta, atributos, Vec::new(), linea);
         }
 
         let hijos = self.hijos(&etiqueta)?;
@@ -314,7 +392,7 @@ impl Parser<'_> {
             return Err(self.error(&format!("</{cierre}> no cierra <{etiqueta}>")));
         }
 
-        self.terminar(etiqueta, atributos, hijos)
+        self.terminar(etiqueta, atributos, hijos, linea)
     }
 
     /// Construye el nodo ya cerrado, y valida los componentes del compilador.
@@ -323,6 +401,7 @@ impl Parser<'_> {
         etiqueta: String,
         atributos: Vec<Atributo>,
         hijos: Vec<Nodo>,
+        linea: usize,
     ) -> Resultado<Nodo> {
         if etiqueta != SHOW {
             if let Some(Nodo::Componente(suelto)) = hijos
@@ -341,6 +420,7 @@ impl Parser<'_> {
                 etiqueta,
                 atributos,
                 hijos,
+                linea,
             }));
         }
 
@@ -348,6 +428,7 @@ impl Parser<'_> {
             nombre: etiqueta,
             props: atributos,
             hijos,
+            linea,
         };
         self.validar(&componente)?;
         Ok(Nodo::Componente(componente))
@@ -479,6 +560,7 @@ impl Parser<'_> {
     }
 
     fn atributo(&mut self, es_componente: bool) -> Resultado<Atributo> {
+        let linea = self.linea();
         let mut nombre = self.nombre();
         if nombre.is_empty() {
             return Err(self.error("se esperaba el nombre de un atributo"));
@@ -496,6 +578,7 @@ impl Parser<'_> {
             return Ok(Atributo {
                 nombre,
                 valor: Valor::Literal(String::new()),
+                linea,
             });
         }
         self.posicion += 1;
@@ -532,7 +615,11 @@ impl Parser<'_> {
             _ => return Err(self.error("el valor de un atributo va entre comillas o en ${}")),
         };
 
-        Ok(Atributo { nombre, valor })
+        Ok(Atributo {
+            nombre,
+            valor,
+            linea,
+        })
     }
 
     fn literal(&mut self) -> Resultado<String> {
@@ -691,6 +778,7 @@ mod tests {
                 etiqueta: "p".into(),
                 atributos: vec![],
                 hijos: vec![Nodo::Texto("Hola".into())],
+                linea: 0,
             })
         );
     }
