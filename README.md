@@ -1,8 +1,8 @@
 # Ascua
 
 Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
-compilador —un módulo **WebAssembly** de 81 KB— lo traduce a operaciones
-directas de DOM. Una aplicación entera pesa 2,18 kB.
+compilador —un módulo **WebAssembly** de 82 KB— lo traduce a operaciones
+directas de DOM. Una aplicación entera pesa 2,26 kB.
 
 **[ascua.gitweave.run](https://ascua.gitweave.run)** · el compilador corre en tu
 pestaña: **[playground](https://ascua.gitweave.run/playground/)**
@@ -62,7 +62,7 @@ CSS, gzip, la aplicación entera.
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| `@ascua/runtime` | Signals y DOM, 1,77 kB gzip, cero dependencias | ✅ |
+| `@ascua/runtime` | Signals y DOM, 1,88 kB gzip, cero dependencias | ✅ |
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
 | `@ascua/vite-plugin` | Integración con Vite | ✅ |
 | `@ascua/router` | La ruta como signal, 0,98 kB gzip | ✅ |
@@ -72,18 +72,20 @@ CSS, gzip, la aplicación entera.
 | Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
 | Propiedades del DOM | `prop:value`, para formularios que mandan | ✅ |
 | Source maps | El error señala tu `.ts`, no el código generado | ✅ |
+| `class:` y `ref` | Una clase que va y viene, y quedarse con un nodo | ✅ |
+| `onError` | Un fallo en una vista no se lleva la aplicación | ✅ |
 | Resaltado en el editor | `html` como alias de `view`, para lit-html y compañía | ✅ |
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
 
-**217 tests** (142 en Rust, 75 en TypeScript), sin warnings de `clippy`, todo
+**231 tests** (148 en Rust, 83 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
 |---|---|
-| Una aplicación entera (runtime + contador + lista con clave) | **2,18 kB** |
-| Un panel con acceso, tabla filtrable y componentes | 4,72 kB + 1,39 kB de CSS |
-| Solo el runtime | 1,77 kB |
+| Una aplicación entera (runtime + contador + lista con clave) | **2,26 kB** |
+| Un panel con acceso, rutas, tabla filtrable y componentes | 5,64 kB + 1,43 kB de CSS |
+| Solo el runtime | 1,88 kB |
 | El router | 0,98 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
@@ -145,23 +147,23 @@ cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 81 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 82 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
 un playground que compila en tu pestaña.
 
 En el navegador, en cambio, no aporta: el DOM vive en JavaScript y cruzar la
-frontera cuesta más que la operación. Por eso el runtime son 1,77 kB de
+frontera cuesta más que la operación. Por eso el runtime son 1,88 kB de
 JavaScript.
 
 ## Desarrollo
 
 ```sh
-cargo test                   # 142 tests del compilador y la vía Rust
+cargo test                   # 148 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 41 tests del runtime
+cd packages/runtime && stil run test    # 47 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
 cd packages/testing && stil run test    # 9 tests del paquete de testing
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
@@ -203,6 +205,13 @@ Publicar los paquetes (pide `npm login`; `stil` no cubre `publish`):
   árboles, un componente. Distinguirlo por tipo exigiría adivinar la intención.
 - **Server Components y compatibilidad con JSX o con la API de hooks.** Eran
   no-objetivos desde el principio.
+- **Delegación de eventos.** `on` pone un listener por nodo, y la alternativa
+  —uno en el padre que mira de dónde vino el click— se descartó con números:
+  construir 1.000 filas cuesta 1,7 ms con un listener cada una y 1,5 ms
+  delegando; con 5.000, 9,5 contra 7,2. Dos décimas de milisegundo en una tabla
+  grande no pagan los bytes del runtime ni la semántica prestada
+  (`stopPropagation` que ya no para nada, eventos que no existen en el nodo).
+  El banco de pruebas está en [`scripts/medir-eventos.html`](scripts/medir-eventos.html).
 
 ## Licencia
 

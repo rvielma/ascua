@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>eventos</title></head>
+<body><div id="raiz"></div>
+<script type="module">
+// Cómo se corre:
+//   python3 -m http.server 5190 --directory scripts
+//   abre http://localhost:5190/medir-eventos.html y ejecuta `await medirTodo()`
+//
+// Resultado en Chromium (mediana de 20 vueltas, 2026-09-22):
+//   100 filas    0,20 ms por nodo · 0,10 ms delegado
+//   1.000 filas  1,7 ms           · 1,5 ms
+//   5.000 filas  9,5 ms           · 7,2 ms
+//   20.000 filas 37,9 ms          · 29,9 ms
+
+// ¿Cuánto cuesta un listener por nodo frente a uno delegado en el padre?
+// Se mide lo que hace Ascua hoy (addEventListener por elemento) contra la
+// alternativa, con listas del tamaño de una tabla grande de verdad.
+const raiz = document.getElementById("raiz");
+
+function construir(cuantas, delegado) {
+  const lista = document.createElement("ul");
+  let golpes = 0;
+  if (delegado) {
+    lista.addEventListener("click", (e) => {
+      const fila = e.target.closest("li");
+      if (fila) golpes++;
+    });
+  }
+  for (let i = 0; i < cuantas; i++) {
+    const fila = document.createElement("li");
+    fila.textContent = `fila ${i}`;
+    const boton = document.createElement("button");
+    boton.textContent = "x";
+    if (!delegado) boton.addEventListener("click", () => golpes++);
+    fila.appendChild(boton);
+    lista.appendChild(fila);
+  }
+  return { lista, golpes: () => golpes };
+}
+
+function medir(cuantas, delegado, vueltas = 20) {
+  const tiempos = [];
+  for (let v = 0; v < vueltas; v++) {
+    raiz.textContent = "";
+    const inicio = performance.now();
+    const { lista } = construir(cuantas, delegado);
+    raiz.appendChild(lista);
+    tiempos.push(performance.now() - inicio);
+  }
+  tiempos.sort((a, b) => a - b);
+  return tiempos[Math.floor(tiempos.length / 2)];
+}
+
+window.medirTodo = async () => {
+  const salida = {};
+  for (const cuantas of [100, 1000, 5000, 20000]) {
+    // Una vuelta de calentamiento por tamaño.
+    medir(cuantas, false, 3);
+    medir(cuantas, true, 3);
+    salida[cuantas] = {
+      porNodo: +medir(cuantas, false).toFixed(2),
+      delegado: +medir(cuantas, true).toFixed(2),
+    };
+  }
+  if (performance.memory) salida.memoria = performance.memory.usedJSHeapSize;
+  return salida;
+};
+</script></body></html>

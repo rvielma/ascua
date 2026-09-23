@@ -30,6 +30,8 @@ signal. Los atributos son los del HTML —`class`, `onclick`, no `className` ni
 | `class=${() => ...}` | Atributo reactivo. Con `false`/`null` se quita. |
 | `onclick=${manejador}` | Listener del DOM. Se quita solo al desmontar. |
 | `prop:value=${() => ...}` | Escribe la **propiedad**, no el atributo. |
+| `class:activa=${() => ...}` | Pone y quita **esa** clase, sin tocar las demás. |
+| `ref=${(nodo) => ...}` | Le entrega el elemento recién creado a una función. |
 
 La distinción es **sintáctica**, no de tipos: mirando la plantilla se sabe qué
 puede cambiar, sin conocer los tipos ni confiar en ninguna regla implícita.
@@ -61,6 +63,30 @@ poder vaciar un formulario desde el código y no poder, así que `value`,
 
 Sigue valiendo la regla: con una closure es reactivo, y sin ella se escribe una
 vez y ya.
+
+## Clases que van y vienen
+
+`class` entero es un atributo como otro cualquiera, así que cambiarlo obliga a
+construir la lista a mano. Para una clase suelta está `class:`:
+
+```ts
+view`<li class="fila" class:hecha=${() => tarea.hecha()}>…</li>`;
+```
+
+`fila` se queda siempre; `hecha` aparece y desaparece. No se pisan, y el scope
+del CSS tampoco.
+
+## Quedarse con un nodo
+
+```ts
+let campo: HTMLInputElement | null = null;
+
+view`<input ref=${(nodo: HTMLInputElement) => (campo = nodo)}>`;
+```
+
+`ref` no pasa por el runtime: el compilador emite la llamada justo después de
+crear el elemento. Se ejecuta **en cada construcción**, así que tras un `<Show>`
+que reconstruye, la variable apunta al nodo nuevo.
 
 ## Componentes
 
@@ -157,6 +183,32 @@ render=${(fila: Fila) => view`
 
 Así, avanzar un pedido escribe en un nodo de texto y en un atributo, y ni la
 lista ni las demás filas se enteran.
+
+## Cuando una vista falla
+
+Un error dentro de un efecto se lleva por delante lo que lo rodea, a menos que
+alguien se haga cargo:
+
+```ts
+import { onError, signal } from "@ascua/runtime";
+
+function Seccion() {
+  const fallo = signal<string | null>(null);
+  onError((error) => fallo.set(String(error)));
+
+  return view`
+    <section>
+      <Show when=${() => fallo() === null}>
+        <Contenido/>
+        <Else><p class="error">${() => fallo()}</p></Else>
+      </Show>
+    </section>`;
+}
+```
+
+El manejador corre en **su** scope, no en el que falló, así que lo que escriba
+sobrevive a lo que se está derrumbando. Sin ninguno registrado, el error se
+propaga como siempre: nada se traga en silencio.
 
 ## Estilos
 
