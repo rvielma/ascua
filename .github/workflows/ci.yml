@@ -69,7 +69,7 @@ jobs:
       - name: dependencias
         run: |
           bash scripts/instalar-dependencias.sh \
-            packages/runtime packages/router packages/testing packages/check \
+            packages/runtime packages/router packages/testing packages/check packages/ts-plugin \
             examples/panel-ts examples/ssr-ts playground web
 
       - name: tipos del runtime
@@ -78,7 +78,7 @@ jobs:
 
       - name: tests
         run: |
-          for dir in packages/runtime packages/router packages/testing packages/check \
+          for dir in packages/runtime packages/router packages/testing packages/check packages/ts-plugin \
                      examples/panel-ts examples/ssr-ts; do
             echo "::group::$dir"
             (cd "$dir" && npx --no-install vitest run)

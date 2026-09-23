@@ -1,0 +1,20 @@
+{
+  // Con comentarios, como los de verdad: ascua-check no lee este archivo,
+  // se lo pide resuelto a tsc.
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022", "DOM"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "types": [],
+    "plugins": [{ "name": "@ascua/ts-plugin" }],
+    "paths": {
+      "@ascua/runtime": ["../../../../runtime/src/index.ts"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src"]
+}

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publica los seis paquetes de Ascua en npm, en el orden en que dependen.
+# Publica los siete paquetes de Ascua en npm, en el orden en que dependen.
 #
 # Antes de correrlo, una sola vez:
 #
@@ -36,7 +36,7 @@ echo "==> El paquete de testing, a dist/"
 
 # El orden importa: el plugin depende del compilador, así que el compilador
 # tiene que existir en el registro antes de que se resuelva el plugin.
-for paquete in compilador runtime router testing vite-plugin check; do
+for paquete in compilador runtime router testing vite-plugin check ts-plugin; do
   echo "==> npm publish @ascua/$paquete"
   (cd "packages/$paquete" && npm publish --access public $seco)
 done
