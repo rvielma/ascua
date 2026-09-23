@@ -5,10 +5,13 @@
   "description": "Panel con acceso: componentes con props, regiones, lista con clave y formularios.",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "test": "vitest run"
   },
   "devDependencies": {
     "vite": "^8.3.0",
-    "terser": "^5.51.2"
+    "terser": "^5.51.2",
+    "vitest": "^5.0.1",
+    "happy-dom": "^20.14.5"
   }
 }
