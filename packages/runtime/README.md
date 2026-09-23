@@ -1,6 +1,6 @@
 # @ascua/runtime
 
-Reactividad fine-grained y operaciones directas de DOM, en **1,7 kB gzip** y sin
+Reactividad fine-grained y operaciones directas de DOM, en **2,23 kB gzip** y sin
 dependencias. Es el runtime de [Ascua](https://ascua.gitweave.run), y también
 una librería de signals que se puede usar sola.
 
@@ -51,6 +51,31 @@ mount(document.body, Contador);
 `show` sustituye una región, `list` reconcilia por clave —conservando el nodo
 de cada clave, y con él el foco y el scroll—, `attribute` y `property` atan un
 atributo o una propiedad a una expresión.
+
+## SSR e islas
+
+El mismo código renderiza en el servidor, sin navegador ni dependencias, y el
+cliente **adopta** los nodos en vez de rehacerlos:
+
+```ts
+// servidor
+import { island } from "@ascua/runtime";
+import { renderToString } from "@ascua/runtime/servidor";
+
+const html = renderToString(() => island("contador", () => Contador(3), "3"));
+
+// cliente
+import { hydrate } from "@ascua/runtime";
+
+hydrate({ contador: (props) => Contador(Number(props)) });
+// { adoptados: 4, creados: 0 }
+```
+
+`hydrate` e `island` suben el runtime a 2,99 kB; si no se importan, el
+tree-shaking se los lleva. Está explicado en la
+[documentación](https://ascua.gitweave.run/docs/ssr/).
+
+## Con plantillas
 
 Lo normal, de todas formas, es no escribir esto: con
 [`@ascua/vite-plugin`](https://www.npmjs.com/package/@ascua/vite-plugin) se
