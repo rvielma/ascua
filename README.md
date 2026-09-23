@@ -2,7 +2,7 @@
 
 Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
 compilador —un módulo **WebAssembly** de 82 KB— lo traduce a operaciones
-directas de DOM. Una aplicación entera pesa 2,26 kB.
+directas de DOM. Una aplicación entera pesa 2,43 kB.
 
 **[ascua.gitweave.run](https://ascua.gitweave.run)** · el compilador corre en tu
 pestaña: **[playground](https://ascua.gitweave.run/playground/)**
@@ -55,14 +55,14 @@ enrutarEn(app.querySelector("main")!, [
 ```
 
 Hay un panel con acceso, rutas, tabla filtrable y componentes con props en
-[`examples/panel-ts`](examples/panel-ts): **5,6 kB** de JavaScript y 1,4 kB de
+[`examples/panel-ts`](examples/panel-ts): **5,7 kB** de JavaScript y 1,4 kB de
 CSS, gzip, la aplicación entera.
 
 ## Estado
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| `@ascua/runtime` | Signals y DOM, 1,88 kB gzip, cero dependencias | ✅ |
+| `@ascua/runtime` | Signals y DOM, 2,23 kB gzip, cero dependencias | ✅ |
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
 | `@ascua/vite-plugin` | Integración con Vite | ✅ |
 | `@ascua/router` | La ruta como signal, 0,98 kB gzip | ✅ |
@@ -78,14 +78,15 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
-**229 tests** (148 en Rust, 81 en TypeScript), sin warnings de `clippy`, todo
+**262 tests** (148 en Rust, 114 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
 |---|---|
-| Una aplicación entera (runtime + contador + lista con clave) | **2,26 kB** |
-| Un panel con acceso, rutas, tabla filtrable y componentes | 5,64 kB + 1,43 kB de CSS |
-| Solo el runtime | 1,88 kB |
+| Una aplicación entera (runtime + contador + lista con clave) | **2,43 kB** |
+| Un panel con acceso, rutas, tabla filtrable y componentes | 5,69 kB + 1,39 kB de CSS |
+| Solo el runtime | 2,23 kB |
+| El runtime con `hydrate` e `island` | 2,99 kB |
 | El router | 0,98 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
@@ -155,7 +156,7 @@ binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
 un playground que compila en tu pestaña.
 
 En el navegador, en cambio, no aporta: el DOM vive en JavaScript y cruzar la
-frontera cuesta más que la operación. Por eso el runtime son 1,88 kB de
+frontera cuesta más que la operación. Por eso el runtime son 2,23 kB de
 JavaScript.
 
 ## Desarrollo
@@ -164,7 +165,7 @@ JavaScript.
 cargo test                   # 148 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 47 tests del runtime
+cd packages/runtime && stil run test    # 80 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
 cd packages/testing && stil run test    # 9 tests del paquete de testing
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
