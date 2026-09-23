@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Ascua · benchmark</title>
+<style>
+  body { font: 14px system-ui, sans-serif; margin: 1.5rem; }
+  iframe { width: 1200px; height: 800px; border: 1px solid #ccc; display: block; }
+  pre { background: #f6f6f6; padding: 1rem; }
+</style>
+</head>
+<body>
+<h1>Ascua frente a vanilla, Solid y React</h1>
+<p>
+  Abre esta página servida (<code>python3 -m http.server 5191 --directory benchmarks</code>)
+  y ejecuta <code>await correr()</code> en la consola, o pulsa el botón.
+</p>
+<button id="correr">correr</button>
+<pre id="salida">—</pre>
+<iframe id="marco" title="contendiente"></iframe>
+
+<script type="module">
+// La orquesta: los cuatro contendientes, intercalados, en la misma sesión.
+//
+// La máquina cambia de velocidad mientras se mide —temperatura, lo que tenga
+// abierto—, y en esta máquina la diferencia entre dos pasadas seguidas llegó
+// al 30 %. Comparar pasadas distintas no vale. Por eso cada ronda mide a los
+// cuatro seguidos, rotando el orden, y cada tiempo se expresa como factor
+// sobre vanilla **de esa misma ronda**. La deriva afecta a todos por igual y
+// se cancela en el cociente.
+
+const CONTENDIENTES = ["vanilla", "ascua", "solid", "react"];
+const marco = document.getElementById("marco");
+const salida = document.getElementById("salida");
+
+function cargar(nombre) {
+  return new Promise((listo) => {
+    marco.onload = async () => {
+      // React monta de forma asíncrona: en el `load` sus botones aún no
+      // existen. Se espera a que la interfaz esté, sea quien sea.
+      const ventana = marco.contentWindow;
+      while (!ventana.document.getElementById("run")) {
+        await new Promise((r) => setTimeout(r, 20));
+      }
+      listo(ventana);
+    };
+    marco.src = `./${nombre}/dist/index.html?t=${Date.now()}`;
+  });
+}
+
+const mediana = (valores) => {
+  const orden = [...valores].sort((a, b) => a - b);
+  return orden[Math.floor(orden.length / 2)];
+};
+
+window.correr = async function correr({ rondas = 3, vueltas = 15, calentamiento = 5 } = {}) {
+  // tiempos[contendiente][operacion] = [ms por ronda]
+  const tiempos = {};
+  for (const nombre of CONTENDIENTES) tiempos[nombre] = {};
+
+  for (let ronda = 0; ronda < rondas; ronda++) {
+    const orden = CONTENDIENTES.map((_, i) => CONTENDIENTES[(i + ronda) % CONTENDIENTES.length]);
+    for (const nombre of orden) {
+      salida.textContent = `ronda ${ronda + 1} de ${rondas}: ${nombre}…`;
+      const ventana = await cargar(nombre);
+      const resultado = await ventana.medir({ vueltas, calentamiento });
+      for (const [operacion, ms] of Object.entries(resultado)) {
+        (tiempos[nombre][operacion] ??= []).push(ms);
+      }
+    }
+  }
+
+  const operaciones = Object.keys(tiempos.vanilla);
+  const informe = { rondas, ms: {}, factor: {} };
+  for (const nombre of CONTENDIENTES) {
+    informe.ms[nombre] = {};
+    informe.factor[nombre] = {};
+    for (const operacion of operaciones) {
+      const propios = tiempos[nombre][operacion];
+      const base = tiempos.vanilla[operacion];
+      informe.ms[nombre][operacion] = mediana(propios);
+      informe.factor[nombre][operacion] = Number(
+        mediana(propios.map((ms, ronda) => ms / base[ronda])).toFixed(2),
+      );
+    }
+    const factores = Object.values(informe.factor[nombre]);
+    // La media geométrica, que es la que usa js-framework-benchmark para
+    // resumir: una operación diez veces más lenta no se compensa con diez
+    // que van un poco más rápido.
+    informe.factor[nombre]["media geométrica"] = Number(
+      Math.exp(factores.reduce((suma, f) => suma + Math.log(f), 0) / factores.length).toFixed(2),
+    );
+  }
+
+  salida.textContent = JSON.stringify(informe, null, 2);
+  return informe;
+};
+
+document.getElementById("correr").onclick = () => window.correr();
+</script>
+</body>
+</html>

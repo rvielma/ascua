@@ -355,6 +355,60 @@ export function onError(manejador: (error: unknown) => void): void {
   if (dueño) dueño.manejadores.push(manejador);
 }
 
+/**
+ * Pregunta «¿es esta la clave elegida?» sin despertar a todas las demás.
+ *
+ * El caso es la fila seleccionada de una tabla. Si cada fila lee el signal de
+ * la selección, cambiarla despierta mil efectos para repintar dos. Con un
+ * selector, cada fila se suscribe solo a **su** clave, y un cambio avisa
+ * únicamente a la que deja de estar elegida y a la que pasa a estarlo.
+ *
+ * ```ts
+ * const esLaElegida = selector(() => seleccionada());
+ * view`<tr class:danger=${() => esLaElegida(fila.id)}>…</tr>`;
+ * ```
+ */
+export function selector<T>(fuente: () => T): (clave: T) => boolean {
+  const suscriptores = new Map<T, Set<Nodo>>();
+  let actual: T;
+  let listo = false;
+
+  effect(() => {
+    const nuevo = fuente();
+    if (listo && !Object.is(nuevo, actual)) {
+      const antes = suscriptores.get(actual);
+      const despues = suscriptores.get(nuevo);
+      actual = nuevo;
+      // Solo los dos implicados. El resto ni se entera.
+      if (antes) for (const nodo of antes) marcar(nodo, SUCIO);
+      if (despues) for (const nodo of despues) marcar(nodo, SUCIO);
+    } else {
+      actual = nuevo;
+      listo = true;
+    }
+  });
+
+  return (clave: T) => {
+    const quien = observador;
+    if (quien) {
+      let lista = suscriptores.get(clave);
+      if (!lista) suscriptores.set(clave, (lista = new Set()));
+      if (!lista.has(quien)) {
+        lista.add(quien);
+        // Dentro de un cómputo, su dueño es él mismo: la limpieza corre antes
+        // de cada reejecución y al liberarlo, así que una fila que desaparece
+        // no deja su suscripción colgada del selector.
+        const suya = lista;
+        onCleanup(() => {
+          suya.delete(quien);
+          if (suya.size === 0) suscriptores.delete(clave);
+        });
+      }
+    }
+    return Object.is(clave, actual);
+  };
+}
+
 /** Crea una raíz reactiva y devuelve su resultado y cómo liberarla. */
 export function root<T>(fn: () => T): [T, () => void] {
   const nodo = crearNodo(undefined);
