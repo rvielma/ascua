@@ -56,6 +56,7 @@ pub fn buscar(fuente: &str) -> Vec<Ocurrencia> {
             }
             '"' | '\'' => i = saltar_cadena(&chars, i),
             '`' => i = saltar_plantilla(&chars, i),
+            '/' if empieza_regex(&chars, i) => i = saltar_regex(&chars, i),
             c if es_inicio_identificador(c) => {
                 let inicio = i;
                 while i < chars.len() && es_identificador(chars[i]) {
@@ -156,10 +157,87 @@ fn saltar_hueco(chars: &[char], llave: usize) -> usize {
                     i += 1;
                 }
             }
+            '/' if chars.get(i + 1) == Some(&'*') => {
+                i += 2;
+                while i < chars.len() && !(chars[i] == '*' && chars.get(i + 1) == Some(&'/')) {
+                    i += 1;
+                }
+                i = (i + 2).min(chars.len());
+            }
+            '/' if empieza_regex(chars, i) => i = saltar_regex(chars, i),
             _ => i += 1,
         }
     }
     i
+}
+
+/// Palabras tras las que una `/` abre una expresión regular y no divide.
+const ANTES_DE_REGEX: &[&str] = &[
+    "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw", "case", "do",
+    "else", "yield", "await",
+];
+
+/// `true` si la `/` de `i` abre una expresión regular.
+///
+/// JavaScript no se deja partir en tokens sin saber qué vino antes: `a / b`
+/// divide y `(/"/g)` es una regex con una comilla dentro. Si el escáner las
+/// confunde, toma esa comilla por el principio de una cadena y deja de ver
+/// todas las plantillas que siguen. La regla es la de siempre: tras algo que
+/// termina una expresión —un nombre, un número, `)` o `]`— es una división; en
+/// cualquier otro caso, una regex.
+fn empieza_regex(chars: &[char], i: usize) -> bool {
+    if matches!(chars.get(i + 1), Some('/' | '*')) {
+        return false;
+    }
+    let mut k = i;
+    while k > 0 && chars[k - 1].is_whitespace() {
+        k -= 1;
+    }
+    let Some(&anterior) = k.checked_sub(1).and_then(|k| chars.get(k)) else {
+        return true;
+    };
+    if anterior == ')' || anterior == ']' {
+        return false;
+    }
+    if es_identificador(anterior) {
+        let fin = k;
+        while k > 0 && es_identificador(chars[k - 1]) {
+            k -= 1;
+        }
+        let palabra: String = chars[k..fin].iter().collect();
+        return ANTES_DE_REGEX.contains(&palabra.as_str());
+    }
+    true
+}
+
+/// Salta `/.../flags`, con escapes y clases `[...]`, donde una `/` no cierra.
+fn saltar_regex(chars: &[char], inicio: usize) -> usize {
+    let mut i = inicio + 1;
+    let mut en_clase = false;
+    while i < chars.len() {
+        match chars[i] {
+            '\\' => i += 2,
+            '[' => {
+                en_clase = true;
+                i += 1;
+            }
+            ']' => {
+                en_clase = false;
+                i += 1;
+            }
+            '/' if !en_clase => {
+                i += 1;
+                while i < chars.len() && chars[i].is_alphabetic() {
+                    i += 1;
+                }
+                return i;
+            }
+            // Una regex no cruza líneas: si llega aquí, no lo era.
+            '\n' => return inicio + 1,
+            _ => i += 1,
+        }
+    }
+    inicio + 1
 }
 
 /// Parte la plantilla en marcado y huecos.
@@ -270,6 +348,25 @@ mod tests {
         let encontradas = buscar(fuente);
         assert_eq!(encontradas.len(), 1);
         assert_eq!(encontradas[0].partes, vec!["<b>sí</b>"]);
+    }
+
+    #[test]
+    fn una_regex_con_comillas_no_se_toma_por_cadena() {
+        let fuente = r#"const a = s.replace(/"/g, "&quot;").replace(/'/g, "x");
+const b = total / 2 / 3;
+const c = /[/`]/.test(d) ? view`<p>1</p>` : null;
+function f() { return /`/g; }
+const e = view`<p>2</p>`;"#;
+        let encontradas = buscar(fuente);
+        assert_eq!(encontradas.len(), 2);
+        assert_eq!(encontradas[0].partes, vec!["<p>1</p>"]);
+        assert_eq!(encontradas[1].partes, vec!["<p>2</p>"]);
+    }
+
+    #[test]
+    fn una_division_no_es_una_regex() {
+        let fuente = "const x = (a) / 2; const y = z[0] / w / 4; const v = view`<b>ok</b>`;";
+        assert_eq!(buscar(fuente).len(), 1);
     }
 
     #[test]
