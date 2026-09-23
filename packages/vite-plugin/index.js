@@ -16,6 +16,7 @@ import { join } from "node:path";
 
 const EXTENSIONES = /\.[jt]sx?$/;
 const PREFIJO = "virtual:ascua/";
+const PLANTILLA = /\b(?:view|html)`/;
 
 /**
  * Elige con qué compilar.
@@ -88,7 +89,8 @@ export default function ascua(opciones = {}) {
       const archivo = id.split("?")[0];
       if (!EXTENSIONES.test(archivo)) return null;
       // Sin plantillas no hay nada que compilar, y el archivo ni se toca.
-      if (!codigo.includes("view`")) return null;
+      // `html` es el alias de `view` que colorean los editores.
+      if (!PLANTILLA.test(codigo)) return null;
 
       let salida;
       try {

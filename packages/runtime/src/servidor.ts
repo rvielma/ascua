@@ -12,7 +12,7 @@
  * falta, el error lo dice.
  */
 
-import { SEPARADOR, usarDocumento } from "./dom.js";
+import { ISLAND_ATTR, SEPARADOR, usarDocumento } from "./dom.js";
 import { root } from "./reactivo.js";
 
 export { island } from "./dom.js";
@@ -195,6 +195,24 @@ class ElementoServidor extends NodoServidor {
   checked: unknown = undefined;
   selected: unknown = undefined;
 
+  // HTML ya hecho, que se emite tal cual. Es `prop:innerHTML`: para contenido
+  // de confianza —Markdown propio, un SVG—, nunca para lo que escribe un
+  // usuario. El servidor no lo parsea, así que `querySelector` no lo ve.
+  private crudo: string | null = null;
+  innerHTMLCrudo(): string | null {
+    return this.crudo;
+  }
+  get innerHTML(): string {
+    if (this.crudo !== null) return this.crudo;
+    let salida = "";
+    for (const hijo of this.childNodes) escribir(hijo, (trozo) => (salida += trozo));
+    return salida;
+  }
+  set innerHTML(valor: string) {
+    for (const hijo of [...this.childNodes]) hijo.remove();
+    this.crudo = String(valor ?? "");
+  }
+
   constructor(etiqueta: string) {
     super();
     this.localName = etiqueta.toLowerCase();
@@ -230,7 +248,13 @@ class ElementoServidor extends NodoServidor {
   }
   set textContent(valor: string) {
     for (const hijo of [...this.childNodes]) hijo.remove();
+    this.crudo = null;
     if (valor !== "") this.appendChild(new TextoServidor(valor));
+  }
+
+  override insertBefore<T extends NodoServidor>(hijo: T, antes: NodoServidor | null): T {
+    this.crudo = null;
+    return super.insertBefore(hijo, antes);
   }
 
   getAttribute(nombre: string): string | null {
@@ -335,22 +359,31 @@ function serializar(nodo: NodoServidor): string {
   return salida;
 }
 
-function escribir(nodo: NodoServidor, emitir: (trozo: string) => void): void {
+/**
+ * `enIsla`: dentro de una isla hace falta todo lo que la hidratación usa para
+ * orientarse —marcadores, separadores—. Fuera no se hidrata nada, y eso solo
+ * sería ruido en el HTML.
+ */
+function escribir(nodo: NodoServidor, emitir: (trozo: string) => void, enIsla = false): void {
   if (nodo.nodeType === TEXTO) {
     emitir(escaparTexto((nodo as TextoServidor).data));
     return;
   }
   if (nodo.nodeType === COMENTARIO) {
-    emitir(`<!--${(nodo as ComentarioServidor).data.replace(/--/g, "- -")}-->`);
+    if (enIsla) emitir(`<!--${(nodo as ComentarioServidor).data.replace(/--/g, "- -")}-->`);
     return;
   }
 
   const elemento = nodo as ElementoServidor;
   const etiqueta = elemento.localName;
+  enIsla ||= elemento.hasAttribute(ISLAND_ATTR);
   emitir(`<${etiqueta}${atributos(elemento)}>`);
   if (VACIOS.has(etiqueta)) return;
 
-  if (TEXTO_CRUDO.has(etiqueta)) {
+  const crudo = elemento.innerHTMLCrudo();
+  if (crudo !== null) {
+    emitir(crudo);
+  } else if (TEXTO_CRUDO.has(etiqueta)) {
     emitir(elemento.textContent);
   } else if (etiqueta === "textarea" && elemento.value !== undefined) {
     emitir(escaparTexto(String(elemento.value ?? "")));
@@ -361,8 +394,8 @@ function escribir(nodo: NodoServidor, emitir: (trozo: string) => void): void {
     for (const hijo of elemento.childNodes) {
       const esTexto = hijo.nodeType === TEXTO;
       if (esTexto && (hijo as TextoServidor).data === "") continue;
-      if (esTexto && anteriorEraTexto) emitir(`<!--${SEPARADOR}-->`);
-      escribir(hijo, emitir);
+      if (esTexto && anteriorEraTexto && enIsla) emitir(`<!--${SEPARADOR}-->`);
+      escribir(hijo, emitir, enIsla);
       anteriorEraTexto = esTexto;
     }
   }
