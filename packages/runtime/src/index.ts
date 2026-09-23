@@ -16,6 +16,7 @@ export {
   effect,
   memo,
   onCleanup,
+  onError,
   root,
   signal,
   untrack,
@@ -28,6 +29,7 @@ export {
 export {
   append,
   attribute,
+  cssClass,
   dynamicText,
   element,
   insert,

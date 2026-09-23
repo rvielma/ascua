@@ -7,7 +7,16 @@
 
 import { describe, expect, it } from "vitest";
 
-import { batch, effect, memo, onCleanup, root, signal, untrack } from "../src/reactivo.js";
+import {
+  batch,
+  effect,
+  memo,
+  onCleanup,
+  onError,
+  root,
+  signal,
+  untrack,
+} from "../src/reactivo.js";
 
 describe("signal", () => {
   it("guarda, lee y deriva", () => {
@@ -315,5 +324,91 @@ describe("cascadas", () => {
         effect(() => a.set(a() + 1));
       });
     }).toThrow(/ciclo reactivo/);
+  });
+});
+
+describe("onError", () => {
+  it("se hace cargo de lo que falla dentro de su scope", () => {
+    const recibidos: unknown[] = [];
+    const paso = signal(0);
+
+    const [, liberar] = root(() => {
+      onError((error) => recibidos.push(error));
+      effect(() => {
+        if (paso() === 1) throw new Error("falló");
+      });
+    });
+
+    // Sin manejador, esto habría salido por `set` y roto la cola.
+    expect(() => paso.set(1)).not.toThrow();
+    expect(recibidos).toHaveLength(1);
+    expect((recibidos[0] as Error).message).toBe("falló");
+
+    liberar();
+  });
+
+  it("sube hasta el primero que se ofrezca", () => {
+    const fuera: unknown[] = [];
+    const paso = signal(0);
+
+    const [, liberar] = root(() => {
+      onError((error) => fuera.push(error));
+      // Un scope intermedio sin manejador: el error lo atiende el de arriba.
+      effect(() => {
+        effect(() => {
+          if (paso() === 1) throw new Error("desde dentro");
+        });
+      });
+    });
+
+    paso.set(1);
+    expect(fuera).toHaveLength(1);
+    liberar();
+  });
+
+  it("sin nadie que se haga cargo, el error sigue su camino", () => {
+    const paso = signal(0);
+    const [, liberar] = root(() => {
+      effect(() => {
+        if (paso() === 1) throw new Error("sin red");
+      });
+    });
+
+    expect(() => paso.set(1)).toThrow(/sin red/);
+    liberar();
+  });
+
+  it("lo que falla al crear el efecto también se atiende", () => {
+    const recibidos: unknown[] = [];
+    const [, liberar] = root(() => {
+      onError((error) => recibidos.push(error));
+      effect(() => {
+        throw new Error("al nacer");
+      });
+    });
+
+    expect(recibidos).toHaveLength(1);
+    liberar();
+  });
+
+  it("el manejador no queda enganchado al scope que se derrumbó", () => {
+    const limpiezas: string[] = [];
+    const paso = signal(0);
+
+    const [, liberar] = root(() => {
+      onError(() => {
+        // Registrar una limpieza aquí no debe colgar del efecto que falló.
+        onCleanup(() => limpiezas.push("del manejador"));
+      });
+      effect(() => {
+        if (paso() === 1) throw new Error("x");
+      });
+    });
+
+    paso.set(1);
+    expect(limpiezas).toEqual([]);
+
+    liberar();
+    expect(limpiezas).toEqual(["del manejador"]);
   });
 });

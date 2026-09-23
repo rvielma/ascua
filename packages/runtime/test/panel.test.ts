@@ -126,6 +126,23 @@ describe("el formulario", () => {
   });
 });
 
+describe("ref", () => {
+  it("entrega el nodo recién creado, y el de cada reconstrucción", () => {
+    const primero = elemento<HTMLInputElement>(".usuario");
+    expect(primero.hasAttribute("data-recordado")).toBe(false);
+
+    entrar("Ana");
+    pulsar(".salir");
+
+    // Salir reconstruye el formulario, así que `ref` volvió a correr con el
+    // input nuevo: es ese el que queda guardado, no el de antes.
+    const segundo = elemento<HTMLInputElement>(".usuario");
+    expect(segundo).not.toBe(primero);
+    expect(segundo.getAttribute("data-recordado")).toBe("sí");
+    expect(primero.hasAttribute("data-recordado")).toBe(false);
+  });
+});
+
 describe("los hijos de un componente", () => {
   it("van donde el componente decide", () => {
     entrar();
@@ -153,7 +170,9 @@ describe("la lista con clave", () => {
     expect(elemento(".cuenta").textContent).toBe("1 pendientes");
     (fila.querySelector(".alternar") as HTMLElement).click();
 
-    expect(fila.getAttribute("class")).toBe("hecha");
+    expect(fila.classList.contains("hecha")).toBe(true);
+    // Y sin llevarse por delante la clase que ya tenía.
+    expect(fila.classList.contains("tarea")).toBe(true);
     expect(document.querySelector('[data-id="1"]')).toBe(fila);
     expect(fila.querySelector(".titulo")!.firstChild).toBe(titulo);
     // Y la cifra derivada se ha enterado.

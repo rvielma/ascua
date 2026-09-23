@@ -87,6 +87,13 @@ pub enum Valor {
     /// atributo. Es lo que hace falta para `value` y `checked`, que en el DOM
     /// dejan de seguir a su atributo en cuanto el usuario los toca.
     Propiedad(String),
+    /// `class:activa=${() => ...}` — pone y quita **esa** clase, sin tocar las
+    /// demás. Escribir `class` entero obligaría a construir la lista a mano en
+    /// cada cambio.
+    Clase(String),
+    /// `ref=${(nodo) => ...}` — le pasa el elemento recién creado a una
+    /// función. Es la forma de quedarse con un nodo sin buscarlo después.
+    Referencia(String),
     /// `onclick=${manejador}`
     Evento { evento: String, manejador: String },
 }
@@ -478,10 +485,10 @@ impl Parser<'_> {
         }
         self.saltar_espacios();
 
-        if nombre.starts_with("prop:") && self.actual() != Some('=') {
-            return Err(self.error(
-                "`prop:` escribe una propiedad del nodo, así que necesita un valor en ${}",
-            ));
+        if (nombre.starts_with("prop:") || nombre.starts_with("class:") || nombre == "ref")
+            && self.actual() != Some('=')
+        {
+            return Err(self.error(&format!("`{nombre}` necesita un valor en ${{}}")));
         }
 
         // Atributo sin valor: `disabled`.
@@ -502,6 +509,11 @@ impl Parser<'_> {
                 // un prop suyo, no un listener del DOM.
                 if es_componente {
                     Valor::Estatico(expresion)
+                } else if let Some(clase) = nombre.strip_prefix("class:") {
+                    nombre = clase.to_string();
+                    Valor::Clase(expresion)
+                } else if nombre == "ref" {
+                    Valor::Referencia(expresion)
                 } else if let Some(propiedad) = nombre.strip_prefix("prop:") {
                     nombre = propiedad.to_string();
                     Valor::Propiedad(expresion)
@@ -833,6 +845,50 @@ mod tests {
         assert_eq!(
             elemento.atributos[0].valor,
             Valor::Propiedad("() => texto()".into())
+        );
+    }
+
+    #[test]
+    fn class_y_ref_se_distinguen_de_un_atributo() {
+        let entrada = format!("<li class:activa={ABRE}0{CIERRA} ref={ABRE}1{CIERRA}>x</li>");
+        let plantilla =
+            parsear(&entrada, &["() => x()".into(), "(n) => n".into()]).expect("debería parsear");
+        let Nodo::Elemento(elemento) = plantilla.raiz else {
+            panic!("debería ser un elemento");
+        };
+
+        assert_eq!(elemento.atributos[0].nombre, "activa");
+        assert_eq!(
+            elemento.atributos[0].valor,
+            Valor::Clase("() => x()".into())
+        );
+        assert_eq!(elemento.atributos[1].nombre, "ref");
+        assert_eq!(
+            elemento.atributos[1].valor,
+            Valor::Referencia("(n) => n".into())
+        );
+    }
+
+    #[test]
+    fn una_clase_sin_valor_lo_dice() {
+        let error = parsear("<li class:activa>x</li>", &[]).expect_err("debería fallar");
+        assert!(error.mensaje.contains("necesita un valor"), "{error}");
+    }
+
+    #[test]
+    fn en_un_componente_class_y_ref_son_props_suyos() {
+        let entrada = format!("<div><Fila ref={ABRE}0{CIERRA}/></div>");
+        let plantilla = parsear(&entrada, &["(n) => n".into()]).expect("debería parsear");
+        let Nodo::Elemento(elemento) = plantilla.raiz else {
+            panic!("debería ser un elemento");
+        };
+        let Nodo::Componente(componente) = &elemento.hijos[0] else {
+            panic!("debería ser un componente");
+        };
+        assert_eq!(
+            componente.prop("ref"),
+            Some(&Valor::Estatico("(n) => n".into())),
+            "un componente no tiene nodo propio al que referirse"
         );
     }
 
