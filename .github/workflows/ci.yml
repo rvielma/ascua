@@ -1,0 +1,92 @@
+# Todo lo que hoy se comprueba a mano antes de registrar un parche.
+#
+# Tres trabajos: Rust (tests, clippy, formato), la versión mínima de Rust que
+# declara Cargo.toml, y TypeScript (el compilador en WebAssembly, las suites de
+# vitest y el build del sitio con su documentación).
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: -D warnings
+
+jobs:
+  rust:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --workspace --all-targets
+      - run: cargo test --workspace
+
+  msrv:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.82
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --workspace --all-targets
+
+  typescript:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      # La misma versión que fija Cargo.lock: wasm-bindgen se niega a trabajar
+      # con un .wasm generado por otra.
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen-cli@0.2.128
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ascuac nativo para los tests e2e del runtime, y el WebAssembly que usan
+      # el plugin de Vite y el playground.
+      - run: cargo build --bin ascuac
+      - run: ./scripts/compilar-wasm.sh
+
+      # stil no está en el CI: npm, sin scripts de instalación de terceros,
+      # que es lo mismo que haría stil.
+      - name: dependencias
+        run: |
+          for dir in packages/runtime packages/router packages/testing \
+                     examples/panel-ts examples/ssr-ts playground web; do
+            (cd "$dir" && npm install --no-audit --no-fund --ignore-scripts --no-package-lock)
+          done
+          ./scripts/enlazar-paquetes.sh
+
+      - name: tipos del runtime
+        working-directory: packages/runtime
+        run: npx --no-install tsc --noEmit -p tsconfig.build.json
+
+      - name: tests
+        run: |
+          for dir in packages/runtime packages/router packages/testing \
+                     examples/panel-ts examples/ssr-ts; do
+            echo "::group::$dir"
+            (cd "$dir" && npx --no-install vitest run)
+            echo "::endgroup::"
+          done
+
+      - name: build del ejemplo SSR
+        working-directory: examples/ssr-ts
+        run: npm run build
+
+      - name: sitio y documentación
+        run: ./web/build.sh
