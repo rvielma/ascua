@@ -1,7 +1,7 @@
 # Ascua
 
 Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
-compilador —un módulo **WebAssembly** de 83 KB— lo traduce a operaciones
+compilador —un módulo **WebAssembly** de 87 KB— lo traduce a operaciones
 directas de DOM. Una aplicación entera pesa 2,43 kB.
 
 [![ci](https://github.com/rvielma/ascua/actions/workflows/ci.yml/badge.svg)](https://github.com/rvielma/ascua/actions/workflows/ci.yml)
@@ -70,6 +70,7 @@ CSS, gzip, la aplicación entera.
 | `@ascua/vite-plugin` | Integración con Vite | ✅ |
 | `@ascua/router` | La ruta como signal, 0,98 kB gzip | ✅ |
 | `@ascua/testing` | Montar, tocar y desmontar en un test | ✅ |
+| `@ascua/check` | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | ✅ |
 | CSS scoped en build time | `<style>` sin runtime de estilos | ✅ |
 | Componentes con props e hijos | `<Panel titulo=${t}>…</Panel>` | ✅ |
 | Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
@@ -81,7 +82,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
-**271 tests** (150 en Rust, 121 en TypeScript), sin warnings de `clippy`, todo
+**280 tests** (153 en Rust, 127 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -102,6 +103,7 @@ packages/
   vite-plugin/      @ascua/vite-plugin
   router/           @ascua/router — la ruta como signal
   testing/          @ascua/testing — montar y tocar componentes en un test
+  check/            @ascua/check — ascua-check, los tipos de dentro de las plantillas
 crates/
   ascua-compilador/ El compilador: escáner, parser de plantillas y codegen
   ascua-css/        Scoping de CSS, compartido por los dos compiladores
@@ -153,7 +155,7 @@ cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 83 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 87 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
@@ -166,12 +168,14 @@ JavaScript.
 ## Desarrollo
 
 ```sh
-cargo test                   # 150 tests del compilador y la vía Rust
+cargo test                   # 153 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
 cd packages/runtime && stil run test    # 82 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
 cd packages/testing && stil run test    # 9 tests del paquete de testing
+cd packages/check && stil run test      # 6 tests de ascua-check
+cd examples/panel-ts && stil run check  # ascua-check sobre el panel
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
 cd examples/ssr-ts && stil run test     # 5 tests del ejemplo con SSR
 cd web && ./build.sh                    # el sitio, con el playground dentro

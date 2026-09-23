@@ -33,7 +33,7 @@ Cada punto dinámico es **una llamada que crea un efecto** y captura el nodo
 concreto que debe actualizar. No queda plantilla en tiempo de ejecución, ni
 árbol que recorrer, ni nada que comparar.
 
-Está escrito en Rust y se distribuye como un único `.wasm` de 83 KB: el mismo
+Está escrito en Rust y se distribuye como un único `.wasm` de 87 KB: el mismo
 archivo corre en Node, Bun, Deno y el navegador. Sin binarios por plataforma
 —SWC publica una decena, esbuild veinte— y sin `postinstall` que descargue
 nada al instalar.

@@ -42,7 +42,7 @@ descargar al instalar.
 
 ## @ascua/compilador
 
-El compilador, como módulo WebAssembly de 83 KB. Lo usa el plugin; se puede
+El compilador, como módulo WebAssembly de 87 KB. Lo usa el plugin; se puede
 llamar a mano:
 
 ```ts
@@ -98,3 +98,9 @@ toca.
 
 Una plantilla puede contener otras en sus huecos —el `render` de un `<For>`—, y
 cada una se compila por su cuenta, con su propio scope de CSS.
+
+## @ascua/check
+
+`ascua-check` comprueba los tipos de dentro de las plantillas con el `tsc` del
+proyecto. Está en [Tipos](/docs/tipos/).
+
