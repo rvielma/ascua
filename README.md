@@ -1,10 +1,11 @@
 # Ascua
 
 Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
-compilador —un módulo **WebAssembly** de 82 KB— lo traduce a operaciones
+compilador —un módulo **WebAssembly** de 83 KB— lo traduce a operaciones
 directas de DOM. Una aplicación entera pesa 2,43 kB.
 
-**[ascua.gitweave.run](https://ascua.gitweave.run)** · el compilador corre en tu
+**[ascua.gitweave.run](https://ascua.gitweave.run)** ·
+**[documentación](https://ascua.gitweave.run/docs/)** · el compilador corre en tu
 pestaña: **[playground](https://ascua.gitweave.run/playground/)**
 
 ```ts
@@ -78,7 +79,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
-**262 tests** (148 en Rust, 114 en TypeScript), sin warnings de `clippy`, todo
+**271 tests** (150 en Rust, 121 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -106,11 +107,12 @@ crates/
   ascua-dom/        Runtime DOM en Rust: SSR, islas e hidratación
   ascua-macro/      La macro view! y #[component] de la vía Rust
   ascua-router/     La ruta como signal
-web/                El sitio, con los demos como islas
+web/                El sitio y la documentación (web/docs, generada con el SSR de Ascua)
 playground/         El compilador corriendo en el navegador
 examples/
   contador-ts/      Una aplicación en la vía TypeScript
   panel-ts/         Un panel con acceso: componentes, regiones y lista con clave
+  ssr-ts/           Páginas en el servidor con islas que se hidratan (Vite SSR)
   demo/             SSR + islas + router + hidratación (vía Rust)
   sitio-wasm/       El sitio anterior, en la vía Rust
 docs/               reactividad · plantillas-ts · templates · meta-framework
@@ -149,7 +151,7 @@ cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 82 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 83 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
@@ -162,13 +164,14 @@ JavaScript.
 ## Desarrollo
 
 ```sh
-cargo test                   # 148 tests del compilador y la vía Rust
+cargo test                   # 150 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 80 tests del runtime
+cd packages/runtime && stil run test    # 82 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
 cd packages/testing && stil run test    # 9 tests del paquete de testing
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
+cd examples/ssr-ts && stil run test     # 5 tests del ejemplo con SSR
 cd web && ./build.sh                    # el sitio, con el playground dentro
 cd examples/panel-ts && stil run dev
 ```

@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Ascua — HTML en TypeScript, compilado con WebAssembly</title>
-<meta name="description" content="Framework de UI sin Virtual DOM. El compilador es un .wasm de 82 KB y traduce tus plantillas a operaciones de DOM; al navegador llegan 1,88 kB de runtime. Una aplicación entera, 2,26 kB.">
+<meta name="description" content="Framework de UI sin Virtual DOM. El compilador es un .wasm de 83 KB y traduce tus plantillas a operaciones de DOM; al navegador llegan 2,23 kB de runtime. Una aplicación entera, 2,43 kB.">
 <meta property="og:title" content="Ascua">
-<meta property="og:description" content="Sin Virtual DOM: cada dato ya sabe qué nodo le toca. Runtime de 1,88 kB, compilador en WebAssembly.">
+<meta property="og:description" content="Sin Virtual DOM: cada dato ya sabe qué nodo le toca. Runtime de 2,23 kB, compilador en WebAssembly.">
 <meta property="og:type" content="website">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='5' fill='%23e2703a'/></svg>">
 <style>
@@ -212,6 +212,7 @@ footer .credito { font-family: var(--mono); }
     <a href="#componentes">componentes</a>
     <a href="#estilos">estilos</a>
     <a href="#compilador">compilador</a>
+    <a href="/docs/">docs</a>
     <a href="/playground/">playground</a>
   </div>
   <span class="version">v0.1.0</span>
@@ -235,13 +236,14 @@ footer .credito { font-family: var(--mono); }
   <p class="entrada">
     React manda 45 kB al navegador para averiguar en cada render qué cambió. Ascua lo
     resuelve antes, al compilar: la plantilla se convierte en las operaciones de DOM que
-    le corresponden, y lo que viaja son <strong>1,88 kB</strong> de runtime sin
-    dependencias. El compilador es un <strong>.wasm de 82 KB</strong> —uno, no una decena
+    le corresponden, y lo que viaja son <strong>2,23 kB</strong> de runtime sin
+    dependencias. El compilador es un <strong>.wasm de 83 KB</strong> —uno, no una decena
     de binarios por plataforma— y no descarga nada en el <code>postinstall</code>.
   </p>
 
   <div class="acciones">
     <a class="accion-primaria" href="#empezar">$ stil add @ascua/runtime →</a>
+    <a class="accion-secundaria" href="/docs/">leer la documentación</a>
     <a class="accion-secundaria" href="/playground/">abrir el playground</a>
   </div>
 
@@ -251,11 +253,11 @@ footer .credito { font-family: var(--mono); }
   </p>
 
   <div class="cifras">
-    <div class="cifra"><div class="num">2,26 kB</div><div class="que">una app entera, gzip</div></div>
-    <div class="cifra"><div class="num">1,88 kB</div><div class="que">solo el runtime</div></div>
-    <div class="cifra"><div class="num">82 KB</div><div class="que">el compilador, en wasm</div></div>
+    <div class="cifra"><div class="num">2,43 kB</div><div class="que">una app entera, gzip</div></div>
+    <div class="cifra"><div class="num">2,23 kB</div><div class="que">solo el runtime</div></div>
+    <div class="cifra"><div class="num">83 KB</div><div class="que">el compilador, en wasm</div></div>
     <div class="cifra"><div class="num">0</div><div class="que">dependencias</div></div>
-    <div class="cifra"><div class="num">229</div><div class="que">tests</div></div>
+    <div class="cifra"><div class="num">271</div><div class="que">tests</div></div>
   </div>
 </section>
 
@@ -438,7 +440,7 @@ p[data-ascua-98909ba2]:hover {
     <div class="rasgo">
       <span class="n">01</span>
       <div>
-        <h3>82 KB para todo</h3>
+        <h3>83 KB para todo</h3>
         <p>El mismo .wasm en Node, Bun, Deno y el navegador. SWC publica una decena de binarios por plataforma; esbuild, veinte.</p>
       </div>
     </div>
@@ -460,7 +462,7 @@ p[data-ascua-98909ba2]:hover {
       <span class="n">04</span>
       <div>
         <h3>Y no baja al cliente</h3>
-        <p>En el navegador el DOM vive en JavaScript: cruzar la frontera cuesta más que la operación. Por eso el runtime son 1,88 kB de JS.</p>
+        <p>En el navegador el DOM vive en JavaScript: cruzar la frontera cuesta más que la operación. Por eso el runtime son 2,23 kB de JS.</p>
       </div>
     </div>
   </div>
@@ -477,7 +479,7 @@ p[data-ascua-98909ba2]:hover {
       <tbody>
         <tr><td>Actualiza el DOM</td><td class="nuestra">directo</td><td>diff</td><td>directo</td><td>directo</td></tr>
         <tr><td>Virtual DOM</td><td class="nuestra">no</td><td>sí</td><td>no</td><td>no</td></tr>
-        <tr><td>Runtime, gzip</td><td class="nuestra">1,88 kB</td><td>~45 kB</td><td>~2 kB</td><td>~7 kB</td></tr>
+        <tr><td>Runtime, gzip</td><td class="nuestra">2,23 kB</td><td>~45 kB</td><td>~2 kB</td><td>~7 kB</td></tr>
         <tr><td>Compilador</td><td class="nuestra">wasm</td><td>—</td><td>js</td><td>js</td></tr>
         <tr><td>Binarios por plataforma</td><td class="nuestra">0</td><td>—</td><td>0</td><td>0</td></tr>
         <tr><td>CSS scoped</td><td class="nuestra">al compilar</td><td>no</td><td>al compilar</td><td>no</td></tr>
