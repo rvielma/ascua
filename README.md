@@ -66,6 +66,7 @@ CSS, gzip, la aplicación entera.
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
 | `@ascua/vite-plugin` | Integración con Vite | ✅ |
 | `@ascua/router` | La ruta como signal, 0,98 kB gzip | ✅ |
+| `@ascua/testing` | Montar, tocar y desmontar en un test | ✅ |
 | CSS scoped en build time | `<style>` sin runtime de estilos | ✅ |
 | Componentes con props e hijos | `<Panel titulo=${t}>…</Panel>` | ✅ |
 | Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
@@ -75,7 +76,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
 
-**201 tests** (142 en Rust, 59 en TypeScript), sin warnings de `clippy`, todo
+**217 tests** (142 en Rust, 75 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -94,6 +95,7 @@ packages/
   compilador/       @ascua/compilador — el compilador como .wasm
   vite-plugin/      @ascua/vite-plugin
   router/           @ascua/router — la ruta como signal
+  testing/          @ascua/testing — montar y tocar componentes en un test
 crates/
   ascua-compilador/ El compilador: escáner, parser de plantillas y codegen
   ascua-css/        Scoping de CSS, compartido por los dos compiladores
@@ -161,6 +163,8 @@ cargo clippy --all-targets   # sin warnings
 
 cd packages/runtime && stil run test    # 41 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
+cd packages/testing && stil run test    # 9 tests del paquete de testing
+cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
 cd web && ./build.sh                    # el sitio, con el playground dentro
 cd examples/panel-ts && stil run dev
 ```
