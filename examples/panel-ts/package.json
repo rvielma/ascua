@@ -6,12 +6,14 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "check": "node ../../packages/check/bin/ascua-check.js"
   },
   "devDependencies": {
     "vite": "^8.3.0",
     "terser": "^5.51.2",
     "vitest": "^5.0.1",
-    "happy-dom": "^20.14.5"
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2"
   }
 }
