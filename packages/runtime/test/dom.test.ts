@@ -6,7 +6,7 @@
  * reconstruir, y que desmontar no deje listeners vivos.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { append, attribute, dynamicText, element, list, mount, on, show, text } from "../src/dom.js";
 import { onCleanup, signal } from "../src/reactivo.js";
@@ -245,3 +245,139 @@ describe("list", () => {
     expect([...limpiados].sort()).toEqual([1, 2, 3]); // y al desmontar, el resto
   });
 });
+
+describe("list: lo que cuesta reordenar", () => {
+  /** Monta una lista de números y devuelve cómo cambiarla y qué mirar. */
+  function montarLista(inicial: number[]) {
+    const padre = element("ul");
+    const items = signal(inicial);
+    mount(document.body, () => {
+      list(
+        padre,
+        () => items(),
+        (n) => n,
+        (n) => {
+          const li = element("li");
+          append(li, text(String(n)));
+          return li;
+        },
+      );
+      return padre;
+    });
+    const movimientos = vi.spyOn(padre, "insertBefore");
+    const contenido = () => [...padre.children].map((li) => Number(li.textContent));
+    const nodo = (n: number) => [...padre.children].find((li) => li.textContent === String(n));
+    return { items, movimientos, contenido, nodo, padre };
+  }
+
+  const mil = Array.from({ length: 1000 }, (_, i) => i);
+
+  it("intercambiar dos de mil son dos movimientos", () => {
+    const { items, movimientos, contenido } = montarLista(mil);
+    movimientos.mockClear();
+
+    const nueva = mil.slice();
+    [nueva[1], nueva[998]] = [nueva[998]!, nueva[1]!];
+    items.set(nueva);
+
+    expect(contenido()).toEqual(nueva);
+    expect(movimientos).toHaveBeenCalledTimes(2);
+  });
+
+  it("mover uno al final es un movimiento", () => {
+    const { items, movimientos, contenido } = montarLista(mil);
+    movimientos.mockClear();
+
+    const nueva = [...mil.slice(1), 0];
+    items.set(nueva);
+
+    expect(contenido()).toEqual(nueva);
+    expect(movimientos).toHaveBeenCalledTimes(1);
+  });
+
+  it("invertir mueve todo menos uno", () => {
+    const { items, movimientos, contenido } = montarLista([1, 2, 3, 4, 5]);
+    movimientos.mockClear();
+
+    items.set([5, 4, 3, 2, 1]);
+    expect(contenido()).toEqual([5, 4, 3, 2, 1]);
+    // La subsecuencia creciente más larga de una lista invertida mide uno.
+    expect(movimientos).toHaveBeenCalledTimes(4);
+  });
+
+  it("barajar al azar deja el orden bien y conserva cada nodo", () => {
+    const { items, contenido, nodo } = montarLista(mil);
+    const antes = new Map(mil.map((n) => [n, nodo(n)]));
+
+    // Un generador con semilla: si falla, falla siempre igual.
+    let semilla = 42;
+    const azar = () => (semilla = (semilla * 1103515245 + 12345) % 2 ** 31) / 2 ** 31;
+
+    for (let vuelta = 0; vuelta < 20; vuelta++) {
+      const nueva = mil.slice().sort(() => azar() - 0.5);
+      items.set(nueva);
+      expect(contenido()).toEqual(nueva);
+    }
+    for (const n of mil) expect(nodo(n)).toBe(antes.get(n));
+  });
+
+  it("mezclar altas, bajas y movimientos a la vez", () => {
+    const { items, contenido } = montarLista([1, 2, 3, 4, 5, 6]);
+    items.set([6, 10, 3, 1, 11, 5]);
+    expect(contenido()).toEqual([6, 10, 3, 1, 11, 5]);
+  });
+
+  it("vaciar es una sola operación cuando la lista está sola", () => {
+    const { items, padre, contenido } = montarLista(mil);
+    // Se espía el setter y no `removeChild`: happy-dom implementa
+    // `textContent = ""` quitando los hijos de uno en uno por dentro, y eso
+    // contaría como mil llamadas lo que en el código es una.
+    const vaciado = vi.spyOn(padre, "textContent", "set");
+
+    items.set([]);
+    expect(contenido()).toEqual([]);
+    expect(vaciado).toHaveBeenCalledTimes(1);
+    vaciado.mockRestore();
+
+    // Y la lista sigue viva después.
+    items.set([7, 8]);
+    expect(contenido()).toEqual([7, 8]);
+  });
+
+  it("con hermanos en el padre, vaciar no se los lleva", () => {
+    const padre = element("ul");
+    const antes = element("li");
+    append(antes, text("cabecera"));
+    append(padre, antes);
+
+    const items = signal([1, 2, 3]);
+    mount(document.body, () => {
+      list(padre, () => items(), (n) => n, (n) => {
+        const li = element("li");
+        append(li, text(String(n)));
+        return li;
+      });
+      return padre;
+    });
+
+    items.set([]);
+    expect([...padre.children].map((li) => li.textContent)).toEqual(["cabecera"]);
+  });
+
+  it("reemplazarlo todo libera los scopes viejos", () => {
+    const soltados: number[] = [];
+    const padre = element("ul");
+    const items = signal([1, 2, 3]);
+    mount(document.body, () => {
+      list(padre, () => items(), (n) => n, (n) => {
+        onCleanup(() => soltados.push(n));
+        return element("li");
+      });
+      return padre;
+    });
+
+    items.set([4, 5]);
+    expect(soltados.sort()).toEqual([1, 2, 3]);
+  });
+});
+

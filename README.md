@@ -76,7 +76,7 @@ CSS, gzip, la aplicación entera.
 | `onError` | Un fallo en una vista no se lleva la aplicación | ✅ |
 | Resaltado en el editor | `html` como alias de `view`, para lit-html y compañía | ✅ |
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
-| SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
+| SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
 **229 tests** (148 en Rust, 81 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
@@ -118,8 +118,9 @@ docs/               reactividad · plantillas-ts · templates · meta-framework
 ### Dos vías
 
 Ascua empezó como un framework en Rust compilado a WebAssembly. Ese trabajo
-sigue aquí, funciona y tiene cosas que la vía nueva todavía no: SSR con
-hidratación que adopta los nodos del servidor sin recrear ninguno.
+sigue aquí y funciona. El SSR con hidratación nació en ella y la vía nueva lo
+hereda con el mismo diseño: numerar lo que se construye y adoptarlo en el
+cliente.
 
 La vía que se recomienda hoy es la de **TypeScript**: el desarrollador escribe
 HTML y TypeScript, y el WebAssembly se queda donde de verdad aporta —el

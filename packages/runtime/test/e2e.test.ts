@@ -12,6 +12,9 @@ import { join, resolve } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { hydrate, island } from "../src/index.js";
+import { renderToString } from "../src/servidor.js";
+
 const RAIZ = resolve(__dirname, "../../..");
 const ASCUAC = join(RAIZ, "target/debug/ascuac");
 
@@ -96,5 +99,27 @@ describe("el componente compilado", () => {
     (document.querySelector(".mas") as HTMLElement).click();
     expect(document.querySelector(".fijo")!.textContent).toBe("Empezó en 5");
     expect(document.querySelector("output")!.textContent).toBe("6");
+  });
+});
+
+describe("el componente compilado, del servidor al cliente", () => {
+  it("se renderiza sin navegador y se hidrata sin crear nada", () => {
+    const html = renderToString(() => island("contador", () => modulo.Contador(2), "2"));
+    expect(html).toContain('<output data-ascua-h="2" class="bajo">2</output>');
+
+    document.body.innerHTML = html;
+    const salida = document.querySelector("output")!;
+    const mas = document.querySelector(".mas") as HTMLElement;
+
+    const { adoptados, creados } = hydrate({ contador: (props) => modulo.Contador(Number(props)) });
+    expect(creados).toBe(0);
+    expect(adoptados).toBe(document.querySelectorAll(".caja, .caja *").length);
+
+    mas.click();
+    expect(document.querySelector("output")).toBe(salida);
+    expect(salida.textContent).toBe("3");
+    expect(salida.getAttribute("class")).toBe("alto");
+    expect(document.querySelector(".fijo")!.textContent).toBe("Empezó en 2");
+    expect(document.body.innerHTML).not.toContain("data-ascua-h");
   });
 });
