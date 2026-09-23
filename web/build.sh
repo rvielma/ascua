@@ -12,3 +12,6 @@ cp -R ../playground/dist public/playground
 
 echo "→ sitio"
 stil exec vite build
+
+echo "→ documentación"
+node scripts/docs.mjs
