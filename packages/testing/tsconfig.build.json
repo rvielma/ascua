@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    // Para publicar, `@ascua/runtime` es la dependencia instalada, no las
+    // fuentes del monorepo: sus tipos salen de su `dist`, igual que le pasará
+    // a quien instale el paquete.
+    "paths": {}
+  },
+  "include": ["src"]
+}

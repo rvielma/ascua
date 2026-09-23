@@ -1,0 +1,45 @@
+{
+  "name": "@ascua/testing",
+  "version": "0.1.0",
+  "description": "Montar, tocar y desmontar un componente de Ascua en un test.",
+  "keywords": [
+    "testing",
+    "ascua",
+    "dom",
+    "vitest"
+  ],
+  "homepage": "https://ascua.gitweave.run",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "prepublishOnly": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "@ascua/runtime": "0.1.0"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.1",
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2"
+  }
+}
