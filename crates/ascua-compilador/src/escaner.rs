@@ -173,8 +173,20 @@ fn saltar_hueco(chars: &[char], llave: usize) -> usize {
 
 /// Palabras tras las que una `/` abre una expresión regular y no divide.
 const ANTES_DE_REGEX: &[&str] = &[
-    "return", "typeof", "instanceof", "in", "of", "new", "delete", "void", "throw", "case", "do",
-    "else", "yield", "await",
+    "return",
+    "typeof",
+    "instanceof",
+    "in",
+    "of",
+    "new",
+    "delete",
+    "void",
+    "throw",
+    "case",
+    "do",
+    "else",
+    "yield",
+    "await",
 ];
 
 /// `true` si la `/` de `i` abre una expresión regular.
