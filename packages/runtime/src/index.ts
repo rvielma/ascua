@@ -18,6 +18,7 @@ export {
   onCleanup,
   onError,
   root,
+  selector,
   signal,
   untrack,
   withScope,
