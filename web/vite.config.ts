@@ -15,13 +15,13 @@ function documentacion(): Plugin {
       servidor.middlewares.use(async (peticion, respuesta, seguir) => {
         const camino = new URL(peticion.url ?? "/", "http://x").pathname;
         const esPagina = camino === "/docs" || (camino.startsWith("/docs/") && !/\.[a-z0-9]+$/i.test(camino));
-        const esIndice = camino === "/docs/busqueda.json";
+        const esIndice = camino === "/docs/busqueda.js";
         if (!esPagina && !esIndice) return seguir();
         try {
           const docs = await servidor.ssrLoadModule("/docs/generar.ts");
           const cuerpo = esIndice ? await docs.busqueda() : await docs.renderizar(camino);
           if (cuerpo === null) return seguir();
-          respuesta.setHeader("content-type", esIndice ? "application/json" : "text/html; charset=utf-8");
+          respuesta.setHeader("content-type", esIndice ? "text/javascript; charset=utf-8" : "text/html; charset=utf-8");
           respuesta.end(cuerpo);
         } catch (error) {
           servidor.ssrFixStacktrace(error as Error);
