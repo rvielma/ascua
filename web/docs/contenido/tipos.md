@@ -85,9 +85,42 @@ resuelta y genera otra que la extiende y apunta a la copia compilada.
    source map; la columna, buscando en tu línea lo mismo que señalaba el error.
 5. La copia se borra. Con `--conservar` se queda, para ver qué comprobó `tsc`.
 
+## En el editor
+
+`@ascua/ts-plugin` lleva lo mismo al editor, mientras escribes:
+
+- los errores de tipos de las plantillas, **subrayados donde están**;
+- **autocompletado de props** dentro de la etiqueta de un componente, con los
+  obligatorios primero y sin los que ya escribiste;
+- **ir a la definición** desde `<Tarjeta` hasta la función;
+- la **firma del componente** al pasar por encima de su etiqueta;
+- los errores de sintaxis de una plantilla, en su línea.
+
+```sh
+stil add -D @ascua/ts-plugin
+```
+
+```json
+{
+  "compilerOptions": {
+    "plugins": [{ "name": "@ascua/ts-plugin" }]
+  }
+}
+```
+
+> **Cuidado:** el editor tiene que usar **la versión de TypeScript del
+> proyecto**. `tsserver` busca los plugins junto al TypeScript que ejecuta; con
+> el que trae el editor no lo encuentra. En VS Code: *TypeScript: Select
+> TypeScript Version → Use Workspace Version*.
+
+Funciona con TypeScript 5 y 6, que son los que tienen `tsserver`. TypeScript 7,
+el nativo, todavía no admite plugins: un proyecto que compila con él necesita
+además `typescript@6` para el editor. `ascua-check` sirve con los tres.
+
 ## Lo que falta
 
-**El editor.** Hoy, los errores de dentro de las plantillas se ven al ejecutar
-`ascua-check`, no mientras escribes, y no hay autocompletado de props. Llevar
-esto al editor es un plugin del language service de TypeScript, y está
-pendiente.
+- **Los atributos del HTML** no se autocompletan: los props de los
+  componentes, sí.
+- **La columna de un error** se encuentra buscando en tu línea el nombre que
+  señala TypeScript: casi siempre es el prop exacto, y si no aparece, el
+  subrayado empieza donde empieza la etiqueta.
