@@ -4,6 +4,8 @@ Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
 compilador —un módulo **WebAssembly** de 83 KB— lo traduce a operaciones
 directas de DOM. Una aplicación entera pesa 2,43 kB.
 
+[![ci](https://github.com/rvielma/ascua/actions/workflows/ci.yml/badge.svg)](https://github.com/rvielma/ascua/actions/workflows/ci.yml)
+
 **[ascua.gitweave.run](https://ascua.gitweave.run)** ·
 **[documentación](https://ascua.gitweave.run/docs/)** · el compilador corre en tu
 pestaña: **[playground](https://ascua.gitweave.run/playground/)**

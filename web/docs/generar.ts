@@ -171,6 +171,7 @@ function Barra() {
         <a href="/docs/" class="actual">docs</a>
         <a href="/docs/api-runtime/">api</a>
         <a href="/playground/">playground</a>
+        <a href="https://github.com/rvielma/ascua">github</a>
         <button class="buscar" type="button" aria-label="Buscar en la documentación">buscar <kbd>/</kbd></button>
       </div>
       <span class="version">${VERSION}</span>
