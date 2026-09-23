@@ -67,6 +67,13 @@ interface Hidratacion {
   creados: number;
 }
 
+/**
+ * Un elemento. Con una etiqueta conocida devuelve su tipo concreto
+ * —`element("input")` es un `HTMLInputElement`—, así que un `ref` o un
+ * manejador que espera ese tipo lo recibe sin conversiones.
+ */
+export function element<K extends keyof HTMLElementTagNameMap>(etiqueta: K): HTMLElementTagNameMap[K];
+export function element(etiqueta: string): HTMLElement;
 export function element(etiqueta: string): HTMLElement {
   if (hidratando) {
     // El elemento número N del cliente es el número N del servidor: los dos
@@ -241,9 +248,11 @@ export function staticAttribute(nodo: Element, nombre: string, valor: ValorAtrib
  */
 export function on<K extends keyof HTMLElementEventMap>(
   nodo: Element,
-  evento: K | string,
-  manejador: (evento: Event) => void,
-): void {
+  evento: K,
+  manejador: (evento: HTMLElementEventMap[K]) => void,
+): void;
+export function on(nodo: Element, evento: string, manejador: (evento: Event) => void): void;
+export function on(nodo: Element, evento: string, manejador: (evento: Event) => void): void {
   nodo.addEventListener(evento, manejador);
   onCleanup(() => nodo.removeEventListener(evento, manejador));
 }
