@@ -4,9 +4,9 @@ descripcion: De un directorio vacío a un componente montado en el navegador, co
 ---
 
 > **Cuidado:** los paquetes están listos para npm, pero todavía no se han
-> publicado. Hasta entonces, se usan desde el repositorio: los ejemplos de
-> `examples/` enlazan `packages/` con un alias de Vite, y es la forma más
-> rápida de probar.
+> publicado. Hasta entonces, se usan desde el
+> [repositorio](https://github.com/rvielma/ascua): los ejemplos de `examples/`
+> enlazan `packages/` con un alias de Vite, y es la forma más rápida de probar.
 
 ## Instalar
 

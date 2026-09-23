@@ -75,7 +75,7 @@ el cliente se pueden desplegar por separado sin que la página se rompa.
 ## Con Vite
 
 El repositorio tiene un ejemplo completo en
-`examples/ssr-ts`: un servidor de Node sin dependencias, Vite como middleware
+[`examples/ssr-ts`](https://github.com/rvielma/ascua/tree/main/examples/ssr-ts): un servidor de Node sin dependencias, Vite como middleware
 en desarrollo y `dist/` en producción. Las piezas:
 
 ```text
