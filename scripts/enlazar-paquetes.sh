@@ -22,6 +22,7 @@ enlazar() {
 
 enlazar packages/router     runtime
 enlazar packages/testing    runtime
+enlazar packages/check      compilador
 enlazar examples/contador-ts compilador vite-plugin
 enlazar examples/panel-ts   compilador vite-plugin router testing
 enlazar examples/ssr-ts     compilador vite-plugin

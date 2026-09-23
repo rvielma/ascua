@@ -1,0 +1,49 @@
+{
+  "name": "@ascua/check",
+  "version": "0.1.0",
+  "description": "Comprueba los tipos dentro de las plantillas de Ascua: props de componentes, manejadores y refs, con los errores en tu archivo.",
+  "keywords": [
+    "typescript",
+    "tipos",
+    "ascua",
+    "plantillas",
+    "check"
+  ],
+  "homepage": "https://ascua.gitweave.run/docs/tipos/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rvielma/ascua.git",
+    "directory": "packages/check"
+  },
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "bin": {
+    "ascua-check": "./bin/ascua-check.js"
+  },
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@ascua/compilador": "^0.1.0"
+  },
+  "peerDependencies": {
+    "typescript": ">=5"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "typescript": "^7.0.2"
+  }
+}

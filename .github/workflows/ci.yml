@@ -63,17 +63,14 @@ jobs:
       - run: cargo build --bin ascuac
       - run: bash scripts/compilar-wasm.sh
 
-      # stil no está en el CI: npm, sin scripts de instalación de terceros,
-      # que es lo mismo que haría stil. `--legacy-peer-deps` porque el peer
-      # de router y testing es @ascua/runtime, que todavía no está en npm: lo
-      # pone el script de enlaces a partir de packages/.
+      # Las dependencias de terceros de cada directorio, con npm porque stil
+      # no está en el CI. Las @ascua/* las enlaza el script desde packages/:
+      # dentro del repositorio se prueba el código de ahora, no el publicado.
       - name: dependencias
         run: |
-          for dir in packages/runtime packages/router packages/testing \
-                     examples/panel-ts examples/ssr-ts playground web; do
-            (cd "$dir" && npm install --no-audit --no-fund --ignore-scripts --no-package-lock --legacy-peer-deps)
-          done
-          bash scripts/enlazar-paquetes.sh
+          bash scripts/instalar-dependencias.sh \
+            packages/runtime packages/router packages/testing packages/check \
+            examples/panel-ts examples/ssr-ts playground web
 
       - name: tipos del runtime
         working-directory: packages/runtime
@@ -81,12 +78,19 @@ jobs:
 
       - name: tests
         run: |
-          for dir in packages/runtime packages/router packages/testing \
+          for dir in packages/runtime packages/router packages/testing packages/check \
                      examples/panel-ts examples/ssr-ts; do
             echo "::group::$dir"
             (cd "$dir" && npx --no-install vitest run)
             echo "::endgroup::"
           done
+
+      # Los tipos de dentro de las plantillas, con la herramienta que se
+      # publica: si los ejemplos dejan de pasar, algo se rompió.
+      - name: ascua-check en los ejemplos
+        run: |
+          (cd examples/panel-ts && npm run check)
+          (cd examples/ssr-ts && npm run check)
 
       - name: build del ejemplo SSR
         working-directory: examples/ssr-ts
