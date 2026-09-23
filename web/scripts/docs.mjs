@@ -20,7 +20,7 @@ try {
     await mkdir(carpeta, { recursive: true });
     await writeFile(join(carpeta, "index.html"), html);
   }
-  await writeFile(join(raiz, "dist/docs/busqueda.json"), await docs.busqueda());
+  await writeFile(join(raiz, "dist/docs/busqueda.js"), await docs.busqueda());
   console.log(`  ${paginas.size} páginas de documentación`);
 } finally {
   await vite.close();

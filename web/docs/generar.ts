@@ -85,7 +85,9 @@ function cabecera(fuente: string): { datos: Record<string, string>; cuerpo: stri
   const datos: Record<string, string> = {};
   for (const linea of partes[1]!.split("\n")) {
     const [clave, ...resto] = linea.split(":");
-    if (clave && resto.length) datos[clave.trim()] = resto.join(":").trim();
+    // Las comillas son opcionales, y hacen falta cuando el valor empieza por
+    // algo que YAML leería de otra forma, como `@`.
+    if (clave && resto.length) datos[clave.trim()] = resto.join(":").trim().replace(/^"(.*)"$/, "$1");
   }
   return { datos, cuerpo: fuente.slice(partes[0].length) };
 }
@@ -316,5 +318,7 @@ export async function busqueda(): Promise<string> {
       });
     }
   }
-  return JSON.stringify(entradas);
+  // Un módulo y no un .json: se carga con `import()` y cualquier servidor lo
+  // entrega con su tipo, sin depender de que conozca `.json`.
+  return `export default ${JSON.stringify(entradas)};\n`;
 }

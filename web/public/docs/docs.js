@@ -60,7 +60,7 @@ async function abrirBusqueda() {
   campo.select();
   if (!indice) {
     try {
-      indice = await (await fetch("/docs/busqueda.json")).json();
+      indice = (await import("/docs/busqueda.js")).default;
     } catch {
       indice = [];
     }
@@ -73,7 +73,7 @@ function cerrarBusqueda() {
 }
 
 const normalizar = (texto) =>
-  texto.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 
 const escapar = (texto) =>
   texto.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -95,6 +95,12 @@ function extracto(texto, termino) {
   return (desde > 0 ? "…" : "") + texto.slice(desde, desde + 130) + "…";
 }
 
+function contar(texto, termino) {
+  let veces = 0;
+  for (let i = texto.indexOf(termino); i !== -1; i = texto.indexOf(termino, i + termino.length)) veces++;
+  return veces;
+}
+
 function buscar() {
   const consulta = normalizar(campo.value.trim());
   const terminos = consulta.split(/\s+/).filter(Boolean);
@@ -102,8 +108,13 @@ function buscar() {
   elegido = 0;
   if (!indice || terminos.length === 0) return;
 
-  // Puntuación sencilla: el título pesa más que la sección, y la sección más
-  // que el texto. Todos los términos tienen que aparecer en algún sitio.
+  // Puntuación sencilla: la sección pesa más que la página, y las dos más que
+  // el texto. Todos los términos tienen que aparecer en algún sitio.
+  //
+  // Un término como `prop:value` se parte además en sus palabras: la sección
+  // «Formularios: prop:» no lo contiene entero en el título, pero es la que
+  // habla de él, y tiene que ganar a otra que solo lo menciona de pasada.
+  // Por eso cuentan también las veces que aparece en el texto.
   const encontrados = [];
   for (const entrada of indice) {
     const pagina = normalizar(entrada.p);
@@ -112,10 +123,15 @@ function buscar() {
     let puntos = 0;
     let todos = true;
     for (const termino of terminos) {
-      const aqui =
-        (pagina.includes(termino) ? 6 : 0) + (seccion.includes(termino) ? 10 : 0) + (texto.includes(termino) ? 1 : 0);
-      if (aqui === 0) todos = false;
-      puntos += aqui;
+      const veces = contar(texto, termino);
+      const enTitulo = (pagina.includes(termino) ? 6 : 0) + (seccion.includes(termino) ? 10 : 0);
+      if (enTitulo === 0 && veces === 0) {
+        todos = false;
+        continue;
+      }
+      const palabras = termino.split(/[^a-z0-9]+/).filter((p) => p.length > 2);
+      const partes = palabras.length > 1 ? palabras.filter((p) => seccion.includes(p)).length * 4 : 0;
+      puntos += enTitulo + partes + Math.min(veces, 6);
     }
     if (todos) encontrados.push({ entrada, puntos });
   }
