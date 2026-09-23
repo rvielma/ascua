@@ -25,25 +25,147 @@ export type Children = (padre: Node) => void;
 /** Lo que puede acabar dentro de un atributo. */
 export type ValorAtributo = string | number | boolean | null | undefined;
 
+/** Atributo con el número de orden de un elemento, para hidratarlo. */
+export const HYDRATION_ATTR = "data-ascua-h";
+/** Atributo que marca una isla y guarda su nombre. */
+export const ISLAND_ATTR = "data-ascua-island";
+/** Atributo con los props de una isla, tal como los dejó el servidor. */
+export const ISLAND_PROPS_ATTR = "data-ascua-props";
+
+// El documento donde se construye. En el navegador es el de siempre; en el
+// servidor, `renderToString` lo cambia por uno en memoria durante el render.
+let documento: Document | null = null;
+
+/** @internal Lo usa el renderizado en servidor. */
+export function usarDocumento(nuevo: Document | null): Document | null {
+  const anterior = documento;
+  documento = nuevo;
+  return anterior;
+}
+
+function doc(): Document {
+  return documento ?? document;
+}
+
+// En el servidor, dentro de una isla: el contador que numera elementos y
+// marcadores. Fuera de las islas no se numera nada, porque no hay nada que
+// hidratar.
+let numeracion: { contador: number } | null = null;
+
+// En el cliente, mientras se hidrata una isla. Ver `hydrate`.
+let hidratando: Hidratacion | null = null;
+
+interface Hidratacion {
+  /** Elementos y marcadores del servidor, por su número. */
+  candidatos: Map<number, Node>;
+  contador: number;
+  /** Último hijo colocado en cada padre: de ahí sigue la búsqueda de textos. */
+  cursores: WeakMap<Node, Node>;
+  /** Textos del servidor que todavía nadie ha reclamado. */
+  textos: Set<Text>;
+  adoptados: number;
+  creados: number;
+}
+
 export function element(etiqueta: string): HTMLElement {
-  return document.createElement(etiqueta);
+  if (hidratando) {
+    // El elemento número N del cliente es el número N del servidor: los dos
+    // ejecutan el mismo código de construcción, en el mismo orden.
+    const numero = hidratando.contador++;
+    const candidato = hidratando.candidatos.get(numero) as HTMLElement | undefined;
+    if (candidato && candidato.nodeType === 1 && candidato.localName === etiqueta.toLowerCase()) {
+      hidratando.candidatos.delete(numero);
+      candidato.removeAttribute(HYDRATION_ATTR);
+      hidratando.adoptados++;
+      return candidato;
+    }
+    hidratando.creados++;
+  }
+  const nodo = doc().createElement(etiqueta);
+  if (numeracion) nodo.setAttribute(HYDRATION_ATTR, String(numeracion.contador++));
+  return nodo;
 }
 
 export function text(contenido = ""): Text {
-  return document.createTextNode(contenido);
+  return doc().createTextNode(contenido);
 }
 
 /** Nodo invisible que marca una posición: el ancla de las regiones dinámicas. */
 export function marker(): Comment {
-  return document.createComment("");
+  if (hidratando) {
+    // Los comentarios no admiten atributos: el servidor escribe el número
+    // dentro, `<!--5-->`, y comparte contador con los elementos.
+    const numero = hidratando.contador++;
+    const candidato = hidratando.candidatos.get(numero) as Comment | undefined;
+    if (candidato && candidato.nodeType === 8) {
+      hidratando.candidatos.delete(numero);
+      candidato.data = "";
+      hidratando.adoptados++;
+      return candidato;
+    }
+    hidratando.creados++;
+  }
+  return doc().createComment(numeracion ? String(numeracion.contador++) : "");
 }
 
 export function append(padre: Node, ...hijos: Node[]): void {
-  for (const hijo of hijos) padre.appendChild(hijo);
+  for (const hijo of hijos) colocar(padre, hijo, null);
 }
 
 export function insert(padre: Node, hijo: Node, antes: Node | null): void {
-  padre.insertBefore(hijo, antes);
+  colocar(padre, hijo, antes);
+}
+
+/**
+ * `insertBefore`, salvo mientras se hidrata: entonces lo adoptado ya está
+ * donde debe y no se mueve, y los textos se buscan en el HTML del servidor.
+ */
+function colocar(padre: Node, nodo: Node, antes: Node | null): void {
+  if (!hidratando) {
+    padre.insertBefore(nodo, antes);
+    return;
+  }
+
+  if (nodo.parentNode === padre) {
+    // Adoptado: el servidor ya lo dejó en su sitio. Los marcadores no
+    // avanzan el cursor, porque en el HTML van *después* del contenido de su
+    // región, que el cliente todavía no ha colocado.
+    if (nodo.nodeType !== 8) avanzar(hidratando, padre, nodo);
+    return;
+  }
+
+  // El texto que le toca es el siguiente del servidor en ese padre, saltando
+  // marcadores: los textos no llevan número, se resuelven por posición.
+  const cursor = hidratando.cursores.get(padre);
+  let siguiente: Node | null = cursor ? cursor.nextSibling : padre.firstChild;
+  if (nodo.nodeType === 3) {
+    let candidato = siguiente;
+    while (candidato && candidato !== antes && candidato.nodeType === 8) {
+      candidato = candidato.nextSibling;
+    }
+    if (candidato && candidato !== antes && candidato.nodeType === 3) {
+      // No se puede adoptar: el nodo nuevo ya está capturado por su efecto.
+      // Se pone en el lugar del viejo, que tiene el mismo contenido, así que
+      // no se nota.
+      padre.replaceChild(nodo, candidato);
+      hidratando.textos.delete(candidato as Text);
+      avanzar(hidratando, padre, nodo);
+      return;
+    }
+    hidratando.creados++;
+  }
+
+  // Lo que no estaba en el servidor se inserta donde toca: antes de `antes`
+  // si lo hay, y si no, detrás del último colocado.
+  if (antes && siguiente !== antes) siguiente = antes;
+  padre.insertBefore(nodo, siguiente);
+  if (nodo.nodeType !== 8) avanzar(hidratando, padre, nodo);
+}
+
+function avanzar(estado: Hidratacion, padre: Node, nodo: Node): void {
+  const cursor = estado.cursores.get(padre);
+  // Solo hacia delante: una lista coloca sus items de derecha a izquierda.
+  if (!cursor || cursor.compareDocumentPosition(nodo) & 4) estado.cursores.set(padre, nodo);
 }
 
 /**
@@ -140,7 +262,7 @@ export function show<T>(
   construir: (valor: T) => Node | readonly Node[] | null,
 ): void {
   const ancla = marker();
-  padre.appendChild(ancla);
+  colocar(padre, ancla, null);
 
   // El scope se captura fuera del efecto: lo que se construya dentro debe
   // pertenecer a quien contiene esta región, no al efecto que la actualiza.
@@ -175,7 +297,7 @@ export function show<T>(
         dispose();
         return;
       }
-      for (const nodo of nodos) padre.insertBefore(nodo, ancla);
+      for (const nodo of nodos) colocar(padre, nodo, ancla);
       actuales = nodos;
       liberar = dispose;
     });
@@ -196,7 +318,7 @@ export function list<T, K>(
   construir: (item: T) => Node,
 ): void {
   const ancla = marker();
-  padre.appendChild(ancla);
+  colocar(padre, ancla, null);
 
   // Igual que en `show`: los scopes de los items no pueden colgar del efecto
   // que reconcilia, o cada reordenación los liberaría todos.
@@ -211,15 +333,28 @@ export function list<T, K>(
     const presentes = new Set(claves);
 
     // 1. Fuera los que ya no están: del árbol y del grafo reactivo.
-    for (const vieja of orden) {
-      if (presentes.has(vieja)) continue;
-      const entrada = entradas.get(vieja);
-      if (!entrada) continue;
-      (entrada.nodo as ChildNode).remove();
-      entrada.liberar();
-      entradas.delete(vieja);
+    //
+    // Si no sobrevive ninguno y la lista es lo único que hay en el padre —el
+    // caso de vaciar una tabla o reemplazarla entera—, se borra de un golpe
+    // en vez de nodo a nodo: una sola operación de DOM en lugar de mil.
+    const sobreviven = orden.some((k) => presentes.has(k));
+    if (!sobreviven && entradas.size > 0 && padre.childNodes.length === entradas.size + 1) {
+      padre.textContent = "";
+      padre.appendChild(ancla);
+      for (const entrada of entradas.values()) entrada.liberar();
+      entradas.clear();
+      orden = [];
+    } else {
+      for (const vieja of orden) {
+        if (presentes.has(vieja)) continue;
+        const entrada = entradas.get(vieja);
+        if (!entrada) continue;
+        (entrada.nodo as ChildNode).remove();
+        entrada.liberar();
+        entradas.delete(vieja);
+      }
+      orden = orden.filter((k) => presentes.has(k));
     }
-    orden = orden.filter((k) => presentes.has(k));
 
     // 2. Construir los nuevos, cada uno en su propio scope.
     withScope(scope, () => {
@@ -231,30 +366,22 @@ export function list<T, K>(
       });
     });
 
-    // 3. Colocar, de derecha a izquierda.
+    // 3. Colocar moviendo lo mínimo.
     //
-    // Se recorre desde el final porque así siempre se conoce el nodo que debe
-    // quedar a la derecha. Si la cola ya coincide con lo esperado, esos nodos
-    // no se tocan: reordenar una lista que no cambió no produce ni una sola
-    // operación de DOM.
+    // Las filas que ya estaban, y que siguen en el mismo orden relativo, se
+    // quedan quietas: son la subsecuencia creciente más larga de sus
+    // posiciones anteriores. Solo se mueve lo demás. Intercambiar dos filas de
+    // mil son dos movimientos, no novecientos noventa y siete —que es lo que
+    // hacía el recorrido ingenuo, y lo que medía el benchmark.
+    const anterior = new Map<K, number>();
+    orden.forEach((k, i) => anterior.set(k, i));
+    const quietas = subsecuenciaCreciente(claves.map((k) => anterior.get(k) ?? -1));
+
     let siguiente: Node = ancla;
-    let cola = orden.length;
-    const movidas = new Set<K>();
-
     for (let i = claves.length - 1; i >= 0; i--) {
-      const k = claves[i]!;
-      while (cola > 0 && movidas.has(orden[cola - 1]!)) cola--;
-
-      const enSuSitio = cola > 0 && orden[cola - 1] === k;
-      const entrada = entradas.get(k);
+      const entrada = entradas.get(claves[i]!);
       if (!entrada) continue;
-
-      if (enSuSitio) {
-        cola--;
-      } else {
-        padre.insertBefore(entrada.nodo, siguiente);
-        movidas.add(k);
-      }
+      if (!quietas.has(i)) colocar(padre, entrada.nodo, siguiente);
       siguiente = entrada.nodo;
     }
 
@@ -275,6 +402,184 @@ export function mount(padre: Node, construir: () => Node): () => void {
     liberar();
     (nodo as ChildNode).remove();
   };
+}
+
+/**
+ * Una isla: la región de una página servida que se activa en el cliente.
+ *
+ * En el servidor, envuelve el contenido en `<ascua-island>` con su nombre y
+ * numera cada elemento y marcador de dentro, para que el cliente pueda
+ * adoptarlos. En el cliente, construye el contenido; si se está hidratando,
+ * lo adopta del HTML en vez de crearlo.
+ *
+ * `props` viaja como texto en un atributo. No hay serializador: el formato lo
+ * elige quien usa la isla, y así el framework no arrastra uno que no todo el
+ * mundo necesita.
+ */
+export function island(nombre: string, construir: () => Node, props = ""): HTMLElement {
+  const contenedor = element("ascua-island");
+  staticAttribute(contenedor, ISLAND_ATTR, nombre);
+  if (props) staticAttribute(contenedor, ISLAND_PROPS_ATTR, props);
+
+  const numeracionFuera = numeracion;
+  const hidratacionFuera = hidratando;
+  // La numeración empieza de cero en cada isla: el cliente construirá
+  // exactamente este contenido y nada de lo que hay fuera.
+  if (documento) numeracion = { contador: 0 };
+  let contenido: Node;
+  try {
+    if (hidratacionFuera && contenedor.parentNode !== null) {
+      // Adoptada dentro de otra isla: su contenido tiene su propia numeración.
+      const estado = hidratarEn(contenedor, construir);
+      hidratacionFuera.adoptados += estado.adoptados;
+      hidratacionFuera.creados += estado.creados;
+      return contenedor;
+    }
+    contenido = construir();
+  } finally {
+    numeracion = numeracionFuera;
+  }
+  append(contenedor, contenido);
+  return contenedor;
+}
+
+/** Lo que dejó la hidratación: cuántos nodos se adoptaron y cuántos se crearon. */
+export interface Hydrated {
+  adoptados: number;
+  creados: number;
+  /** Apaga las islas: libera sus efectos y listeners, y deja el HTML. */
+  desmontar: () => void;
+}
+
+/**
+ * Activa las islas del documento **adoptando** el HTML del servidor.
+ *
+ * El `<li>` que escribió el servidor es el mismo `<li>` al que queda atado el
+ * efecto: no se reemplaza nada, así que no hay parpadeo ni se pierde lo que
+ * el navegador ya tenía —el foco, el scroll, un `<input>` a medio escribir—.
+ * Los textos son la excepción: se sustituyen por nodos idénticos, porque el
+ * efecto que los actualiza ya capturó el suyo.
+ *
+ * Si algo no encaja —el servidor renderizó otro estado, falta un nodo— ese
+ * nodo se crea y la aplicación sigue. Lo que sobra del servidor se quita.
+ *
+ * Las islas cuyo nombre no esté registrado se dejan intactas: servidor y
+ * cliente se pueden desplegar por separado sin que la página se rompa.
+ */
+export function hydrate(
+  islas: Record<string, (props: string) => Node>,
+  raiz: ParentNode = document,
+): Hydrated {
+  const resultado: Hydrated = { adoptados: 0, creados: 0, desmontar: () => {} };
+  const liberaciones: (() => void)[] = [];
+
+  for (const contenedor of Array.from(raiz.querySelectorAll(`[${ISLAND_ATTR}]`))) {
+    // Las anidadas las hidrata la isla que las contiene, al construirse.
+    if (contenedor.parentElement?.closest(`[${ISLAND_ATTR}]`)) continue;
+    const construir = islas[contenedor.getAttribute(ISLAND_ATTR) ?? ""];
+    if (!construir) continue;
+    const props = contenedor.getAttribute(ISLAND_PROPS_ATTR) ?? "";
+
+    const [estado, liberar] = root(() => hidratarEn(contenedor, () => construir(props)));
+    resultado.adoptados += estado.adoptados;
+    resultado.creados += estado.creados;
+    liberaciones.push(liberar);
+  }
+
+  resultado.desmontar = () => {
+    for (const liberar of liberaciones) liberar();
+  };
+  return resultado;
+}
+
+function hidratarEn(contenedor: Element, construir: () => Node): Hidratacion {
+  const estado: Hidratacion = {
+    candidatos: new Map(),
+    contador: 0,
+    cursores: new WeakMap(),
+    textos: new Set(),
+    adoptados: 0,
+    creados: 0,
+  };
+  // Se escanea una sola vez: buscar en el documento por cada elemento sería
+  // cuadrático.
+  escanear(contenedor, estado);
+
+  const fuera = hidratando;
+  hidratando = estado;
+  try {
+    colocar(contenedor, construir(), null);
+  } finally {
+    hidratando = fuera;
+  }
+
+  // Lo que el servidor escribió y el cliente no reclamó no corresponde al
+  // estado actual: se quita, para no dejarlo duplicado.
+  for (const sobrante of estado.candidatos.values()) (sobrante as ChildNode).remove();
+  for (const texto of estado.textos) texto.remove();
+  return estado;
+}
+
+function escanear(padre: Node, estado: Hidratacion): void {
+  let nodo = padre.firstChild;
+  while (nodo) {
+    const siguiente = nodo.nextSibling;
+    if (nodo.nodeType === 1) {
+      const numero = (nodo as Element).getAttribute(HYDRATION_ATTR);
+      if (numero !== null) estado.candidatos.set(Number(numero), nodo);
+      // Dentro de una isla anidada, la numeración es la suya.
+      if (!(nodo as Element).hasAttribute(ISLAND_ATTR)) escanear(nodo, estado);
+    } else if (nodo.nodeType === 8) {
+      const dato = (nodo as Comment).data;
+      if (dato === SEPARADOR) nodo.remove();
+      else if (dato !== "") estado.candidatos.set(Number(dato), nodo);
+    } else if (nodo.nodeType === 3) {
+      estado.textos.add(nodo as Text);
+    }
+    nodo = siguiente;
+  }
+}
+
+/**
+ * Lo que el servidor pone entre dos textos seguidos, para que el navegador no
+ * los funda en uno al leer el HTML. Hidratar lo quita.
+ */
+export const SEPARADOR = "/";
+
+/**
+ * Las posiciones que forman la subsecuencia creciente más larga, ignorando
+ * los `-1` (lo nuevo, que no tenía posición anterior).
+ *
+ * Es el algoritmo de la paciencia: O(n log n). Mantiene, para cada longitud,
+ * el final más pequeño posible, y recuerda de dónde venía cada elemento para
+ * reconstruir la cadena al terminar.
+ */
+function subsecuenciaCreciente(valores: readonly number[]): Set<number> {
+  const finales: number[] = [];
+  const previos: number[] = new Array(valores.length);
+
+  for (let i = 0; i < valores.length; i++) {
+    const valor = valores[i]!;
+    if (valor < 0) continue;
+
+    let bajo = 0;
+    let alto = finales.length;
+    while (bajo < alto) {
+      const medio = (bajo + alto) >> 1;
+      if (valores[finales[medio]!]! < valor) bajo = medio + 1;
+      else alto = medio;
+    }
+    previos[i] = bajo > 0 ? finales[bajo - 1]! : -1;
+    finales[bajo] = i;
+  }
+
+  const resultado = new Set<number>();
+  let i = finales.length > 0 ? finales[finales.length - 1]! : -1;
+  while (i >= 0) {
+    resultado.add(i);
+    i = previos[i]!;
+  }
+  return resultado;
 }
 
 function formatear(valor: unknown): string {

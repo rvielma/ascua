@@ -33,7 +33,9 @@ export {
   cssClass,
   dynamicText,
   element,
+  hydrate,
   insert,
+  island,
   list,
   marker,
   mount,
@@ -43,6 +45,7 @@ export {
   staticAttribute,
   text,
   type Children,
+  type Hydrated,
   type ValorAtributo,
 } from "./dom.js";
 

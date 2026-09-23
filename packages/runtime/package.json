@@ -20,6 +20,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./servidor": {
+      "types": "./dist/servidor.d.ts",
+      "import": "./dist/servidor.js"
     }
   },
   "files": [

@@ -199,3 +199,58 @@ let (montajes, estadisticas) = hydrate_islands(backend, &islas);
 En el demo, esas son las cifras reales medidas en el navegador: **37 nodos
 adoptados, cero creados**, y los 21 elementos de la isla siguen siendo los
 mismos objetos que marcó un script antes de que arrancara el WASM.
+
+---
+
+## En la vía TypeScript
+
+El diseño es el mismo; cambia quién hace de backend. En el servidor,
+`renderToString` construye sobre un documento en memoria que trae el propio
+runtime —sin navegador, sin happy-dom ni jsdom— y lo serializa:
+
+```ts
+import { renderToString, island } from "@ascua/runtime/servidor";
+
+const html = renderToString(() => island("contador", () => Contador(2), "2"));
+```
+
+En el cliente, `hydrate` recorre las islas y adopta lo que encuentra:
+
+```ts
+import { hydrate } from "@ascua/runtime";
+
+const { adoptados, creados } = hydrate({
+  contador: (props) => Contador(Number(props)),
+});
+// { adoptados: 5, creados: 0 }
+```
+
+Los componentes son los que ya se compilan con `view`: el compilador no sabe
+nada de servidores. `element` y `marker` numeran cuando están dentro de una
+isla en el servidor, y adoptan cuando se hidrata.
+
+Tres diferencias con la vía Rust, por cómo funciona JavaScript:
+
+- **Los textos se sustituyen, no se adoptan.** `dynamicText` crea su nodo y su
+  efecto lo captura antes de saber dónde irá, así que no puede quedarse con el
+  del servidor. Se pone en su lugar un nodo con el mismo contenido: no se ve,
+  pero no es el mismo objeto. Elementos y marcadores sí son los del servidor.
+- **Dos textos seguidos llevan un separador**, `<!--/-->`, porque el navegador
+  los fundiría en uno al leer el HTML y la cuenta dejaría de cuadrar. La
+  hidratación lo quita.
+- **Lo que sobra se quita.** Si el servidor escribió algo que el cliente no
+  reclama —otro estado, un nodo editado—, se retira al terminar, en vez de
+  dejarlo duplicado junto al que se creó.
+
+Una isla dentro de otra se hidrata con la de fuera, cada una con su propia
+numeración. Las que no tienen constructor registrado se dejan intactas.
+
+El DOM del servidor implementa lo que usan el runtime y el código generado, más
+`querySelector` con selectores simples (`.clase`, `#id`, `[attr]`, `div`), que
+es lo que un componente usa para encontrar un hueco en lo que construyó. Un
+selector con combinadores da un error que lo dice.
+
+Lo que cuesta: una aplicación que no usa SSR paga 28 bytes gzip por las
+comprobaciones de `element`, `marker` y `append`; `hydrate` e `island` se van
+con el tree-shaking si no se importan.
+
