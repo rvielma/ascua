@@ -78,7 +78,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
 | SSR e hidratación | Hecho en la vía Rust; pendiente de portar | ⬜ |
 
-**231 tests** (148 en Rust, 83 en TypeScript), sin warnings de `clippy`, todo
+**229 tests** (148 en Rust, 81 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
