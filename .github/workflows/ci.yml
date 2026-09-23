@@ -58,18 +58,22 @@ jobs:
 
       # ascuac nativo para los tests e2e del runtime, y el WebAssembly que usan
       # el plugin de Vite y el playground.
+      # Con `bash` delante: gw no guarda el bit de ejecución, así que en un
+      # checkout los scripts no son ejecutables.
       - run: cargo build --bin ascuac
-      - run: ./scripts/compilar-wasm.sh
+      - run: bash scripts/compilar-wasm.sh
 
       # stil no está en el CI: npm, sin scripts de instalación de terceros,
-      # que es lo mismo que haría stil.
+      # que es lo mismo que haría stil. `--legacy-peer-deps` porque el peer
+      # de router y testing es @ascua/runtime, que todavía no está en npm: lo
+      # pone el script de enlaces a partir de packages/.
       - name: dependencias
         run: |
           for dir in packages/runtime packages/router packages/testing \
                      examples/panel-ts examples/ssr-ts playground web; do
-            (cd "$dir" && npm install --no-audit --no-fund --ignore-scripts --no-package-lock)
+            (cd "$dir" && npm install --no-audit --no-fund --ignore-scripts --no-package-lock --legacy-peer-deps)
           done
-          ./scripts/enlazar-paquetes.sh
+          bash scripts/enlazar-paquetes.sh
 
       - name: tipos del runtime
         working-directory: packages/runtime
@@ -89,4 +93,4 @@ jobs:
         run: npm run build
 
       - name: sitio y documentación
-        run: ./web/build.sh
+        run: sh web/build.sh
