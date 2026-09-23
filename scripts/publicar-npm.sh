@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Publica los tres paquetes de Ascua en npm, en el orden en que dependen.
+# Publica los cinco paquetes de Ascua en npm, en el orden en que dependen.
 #
 # Antes de correrlo, una sola vez:
 #
 #   npm login                      # stil no cubre `publish`; esto es de npm
-#   npm access ...                 # si el scope @ascua es de una organización
+#
+# y el scope `@ascua` tiene que ser tuyo: o tu usuario de npm se llama
+# `ascua`, o creas la organización `ascua` en npmjs.com (gratis para paquetes
+# públicos) y publicas como miembro de ella.
 #
 # Con `--dry-run` no publica nada: enseña exactamente qué archivos iría a
 # subir cada paquete. Conviene mirarlo antes de la primera vez, porque lo que
