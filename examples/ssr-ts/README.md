@@ -25,6 +25,14 @@ Las páginas no se importan desde el cliente, así que su código no viaja. El
 bundle es el runtime más los componentes de las islas: **3,1 kB gzip** para
 el contador y el buscador juntos.
 
+## Los estilos de las páginas
+
+El marco de las páginas lleva su propio `<style>`, con scope. Como las páginas
+no llegan al cliente, sus estilos tampoco van en el bundle: en el servidor, el
+plugin los registra y `collectStyles(html)` devuelve los que usa cada página,
+que `servidor.js` pone en un `<style>` en el `<head>`. En `src/estilos.css`
+queda lo global: las variables y la tipografía.
+
 ## Una isla, paso a paso
 
 En el servidor, el componente se envuelve y sus props viajan en JSON:
@@ -50,8 +58,5 @@ funcionando, pero conviene mirar por qué.
 
 ## Lo que no hace, todavía
 
-- **El CSS con scope de componentes que solo existen en el servidor** no llega
-  al navegador: Vite solo lo extrae de lo que importa el cliente. Aquí los
-  estilos van en `src/estilos.css`, enlazado desde `index.html`.
 - **Navegar entre páginas recarga**: es una aplicación de varias páginas, cada
   una con sus islas.

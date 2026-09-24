@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-ascua",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Plugin de Vite que compila las plantillas de Ascua con el compilador en WebAssembly.",
   "keywords": [
     "vite",
@@ -28,6 +28,7 @@
     "ascua-compilador": "0.1.0"
   },
   "peerDependencies": {
-    "vite": ">=6"
+    "vite": ">=6",
+    "ascua": ">=0.1.1"
   }
 }

@@ -41,6 +41,102 @@ export function renderToString(construir: () => Node): string {
 }
 
 // ---------------------------------------------------------------------------
+// Estilos.
+
+/**
+ * Las hojas de los componentes que se han cargado en el servidor, con los
+ * scopes que contiene cada una.
+ *
+ * En el cliente, el CSS de una plantilla llega a Vite como un módulo de
+ * estilos. En el servidor eso no sirve —una página que solo existe aquí
+ * nunca entra en el bundle del cliente—, así que el plugin registra cada hoja
+ * con `registerStyle` al cargar el módulo, y `collectStyles` devuelve las que
+ * usa una página.
+ */
+const hojas = new Map<string, readonly Bloque[]>();
+
+/** Una regla de nivel superior de una hoja —o un `@media` entero— y sus scopes. */
+interface Bloque {
+  css: string;
+  scopes: readonly string[];
+}
+
+const SCOPE = /data-ascua-([0-9a-f]{6,})\b/g;
+
+/** Los scopes que nombra un trozo de CSS. */
+const scopesDe = (css: string) => [...new Set([...css.matchAll(SCOPE)].map((m) => m[1]!))];
+
+/**
+ * Parte una hoja en sus bloques de nivel superior.
+ *
+ * Un archivo con varias plantillas entrega una sola hoja con el CSS de todas;
+ * si se registrara entera, una página que usa una traería el de las demás.
+ * Partida en reglas, cada una va solo donde aparece su scope.
+ */
+function partir(css: string): Bloque[] {
+  const bloques: Bloque[] = [];
+  let profundidad = 0;
+  let inicio = 0;
+  let comillas: string | null = null;
+  for (let i = 0; i < css.length; i++) {
+    const c = css[i]!;
+    if (comillas) {
+      if (c === "\\") i++;
+      else if (c === comillas) comillas = null;
+    } else if (c === '"' || c === "'") {
+      comillas = c;
+    } else if (c === "{") {
+      profundidad++;
+    } else if (c === "}" && --profundidad === 0) {
+      const texto = css.slice(inicio, i + 1).trim();
+      if (texto) bloques.push({ css: texto, scopes: scopesDe(texto) });
+      inicio = i + 1;
+    }
+  }
+  return bloques;
+}
+
+/**
+ * Registra una hoja de estilos con scope. La llama el código que genera el
+ * plugin de Vite en el servidor; no hace falta llamarla a mano.
+ */
+export function registerStyle(css: string): void {
+  if (!css || hojas.has(css)) return;
+  hojas.set(css, partir(css));
+}
+
+/**
+ * El CSS que necesita un HTML ya renderizado: el de los componentes que
+ * aparecen en él, y nada más.
+ *
+ * Va en un `<style>` en el `<head>`: los estilos llegan con la página, sin
+ * parpadeo y sin otra petición.
+ *
+ * ```ts
+ * const html = renderToString(() => Pagina());
+ * const css = collectStyles(html);
+ * // `<style>${css}</style>` en el head, `html` en el body.
+ * ```
+ *
+ * Lo que no lleva scope —un `@keyframes`, un `@font-face`— se incluye cuando
+ * se usa algo de su hoja: su nombre es global y alguna regla de al lado lo
+ * puede estar usando.
+ */
+export function collectStyles(html: string): string {
+  const usados = new Set(scopesDe(html));
+  const salida: string[] = [];
+  for (const bloques of hojas.values()) {
+    if (!bloques.some((b) => b.scopes.some((scope) => usados.has(scope)))) continue;
+    for (const bloque of bloques) {
+      if (bloque.scopes.length === 0 || bloque.scopes.some((scope) => usados.has(scope))) {
+        salida.push(bloque.css);
+      }
+    }
+  }
+  return salida.join("\n");
+}
+
+// ---------------------------------------------------------------------------
 // El documento en memoria.
 
 const ELEMENTO = 1;

@@ -9,7 +9,8 @@ import { renderToString } from "ascua/servidor";
 ```
 
 2,23 kB gzip, sin dependencias. Con `hydrate` e `island`, 2,99 kB; si no se
-importan, el tree-shaking se los lleva.
+importan, el tree-shaking se los lleva. `ascua/servidor` no cuenta: no llega
+al navegador.
 
 ## Reactividad
 
@@ -194,6 +195,18 @@ function renderToString(construir: () => Node): string;
 
 Renderiza a HTML sobre un documento en memoria, sin navegador. Los efectos
 corren una vez y se liberan al terminar.
+
+### collectStyles
+
+```ts
+import { collectStyles } from "ascua/servidor";
+
+function collectStyles(html: string): string;
+```
+
+El CSS con scope de los componentes que aparecen en un HTML ya renderizado. Las
+hojas las registra el plugin de Vite al cargar cada módulo en el servidor, con
+`registerStyle`, que no hace falta llamar a mano.
 
 ## Tipos
 

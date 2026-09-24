@@ -60,9 +60,10 @@ cliente **adopta** los nodos en vez de rehacerlos:
 ```ts
 // servidor
 import { island } from "ascua";
-import { renderToString } from "ascua/servidor";
+import { collectStyles, renderToString } from "ascua/servidor";
 
 const html = renderToString(() => island("contador", () => Contador(3), "3"));
+const css = collectStyles(html);   // el CSS con scope de lo que aparece
 
 // cliente
 import { hydrate } from "ascua";

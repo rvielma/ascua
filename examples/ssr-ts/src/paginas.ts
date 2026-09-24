@@ -1,6 +1,10 @@
 /**
  * Las páginas. Se renderizan **solo en el servidor**: son HTML y nada más, y
  * su código no llega al navegador. Lo interactivo va en islas.
+ *
+ * Sus estilos tampoco viajan en el bundle: el `<style>` del marco se registra
+ * en el servidor y `collectStyles` lo pone en el `<head>` de cada página que
+ * lo usa.
  */
 
 import type { Children } from "ascua";
@@ -27,6 +31,14 @@ function Marco(props: { ruta: string; children?: Children }) {
       </header>
       <main></main>
       <footer>Renderizado en el servidor con renderToString; las islas se hidratan con hydrate.</footer>
+      <style>
+        header, main, footer { max-width: 44rem; margin: 0 auto; padding: 1rem; }
+        header { display: flex; gap: 1rem; align-items: baseline; border-bottom: 1px solid var(--borde); }
+        header strong { margin-right: auto; }
+        nav a { color: var(--tenue); text-decoration: none; margin-left: 1rem; }
+        nav a[aria-current="page"] { color: var(--acento); }
+        footer { color: var(--tenue); font-size: .85rem; border-top: 1px solid var(--borde); }
+      </style>
     </div>`;
   props.children?.(pagina.querySelector("main")!);
   return pagina;
