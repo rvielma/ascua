@@ -4,8 +4,6 @@ Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
 compilador —un módulo **WebAssembly** de 87 KB— lo traduce a operaciones
 directas de DOM. Una aplicación entera pesa 2,43 kB.
 
-[![ci](https://github.com/rvielma/ascua/actions/workflows/ci.yml/badge.svg)](https://github.com/rvielma/ascua/actions/workflows/ci.yml)
-
 **[ascua.gitweave.run](https://ascua.gitweave.run)** ·
 **[documentación](https://ascua.gitweave.run/docs/)** · el compilador corre en tu
 pestaña: **[playground](https://ascua.gitweave.run/playground/)**
@@ -168,6 +166,17 @@ frontera cuesta más que la operación. Por eso el runtime son 2,23 kB de
 JavaScript.
 
 ## Desarrollo
+
+Todo lo que hay que comprobar antes de registrar un cambio, en un comando:
+
+```sh
+bash scripts/verificar.sh            # Rust, MSRV, WASM, TypeScript, ascua-check y el sitio
+bash scripts/verificar.sh --rapido   # sin MSRV ni el build del sitio
+```
+
+Las dependencias de cada directorio se instalan con
+`bash scripts/instalar-dependencias.sh <dir>…`, que enlaza los paquetes
+`@ascua/*` desde `packages/`. Por partes:
 
 ```sh
 cargo test                   # 153 tests del compilador y la vía Rust
