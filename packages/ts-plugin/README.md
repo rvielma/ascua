@@ -8,6 +8,10 @@ editor:
   está, no en el `view`.
 - **Autocompletado de props** dentro de la etiqueta de un componente: los que
   faltan primero, sin los que ya escribiste.
+- **Autocompletado del HTML**: después de `<`, las etiquetas y tus componentes;
+  dentro de una etiqueta, sus atributos, los eventos (`oninput`, `onkeydown`…),
+  `prop:` con las propiedades que se pueden escribir en ese elemento, `class:` y
+  `ref`, con el valor ya puesto.
 - **Ir a la definición** desde `<Tarjeta` hasta la función `Tarjeta`.
 - **La firma del componente** al pasar por encima de su etiqueta.
 - **Los errores de sintaxis** de una plantilla —una etiqueta sin cerrar—, en su

@@ -69,7 +69,7 @@ CSS, gzip, la aplicación entera.
 | `ascua-router` | La ruta como signal, 0,98 kB gzip | ✅ |
 | `ascua-testing` | Montar, tocar y desmontar en un test | ✅ |
 | `ascua-check` | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | ✅ |
-| `ascua-ts-plugin` | Lo mismo en el editor: errores, autocompletado de props, ir a la definición | ✅ |
+| `ascua-ts-plugin` | Lo mismo en el editor: errores, autocompletado de props y del HTML, ir a la definición | ✅ |
 | CSS scoped en build time | `<style>` sin runtime de estilos | ✅ |
 | Componentes con props e hijos | `<Panel titulo=${t}>…</Panel>` | ✅ |
 | Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
@@ -81,7 +81,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | `ascua`, `vite-plugin-ascua` y el resto, en la 0.1.0 | ✅ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
-**291 tests** (153 en Rust, 138 en TypeScript), sin warnings de `clippy`, todo
+**297 tests** (153 en Rust, 144 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -186,7 +186,7 @@ cd packages/runtime && stil run test    # 82 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
 cd packages/testing && stil run test    # 9 tests del paquete de testing
 cd packages/check && stil run test      # 6 tests de ascua-check
-cd packages/ts-plugin && stil run test  # 11 tests del plugin del editor, con tsserver
+cd packages/ts-plugin && stil run test  # 17 tests del plugin del editor, con tsserver
 cd examples/panel-ts && stil run check  # ascua-check sobre el panel
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
 cd examples/ssr-ts && stil run test     # 5 tests del ejemplo con SSR

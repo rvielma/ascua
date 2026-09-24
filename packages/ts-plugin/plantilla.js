@@ -60,19 +60,32 @@ function etiquetaEn(texto, relativa) {
   const antes = texto.slice(0, relativa);
   const abre = antes.lastIndexOf("<");
   if (abre < 0 || antes.indexOf(">", abre) >= 0) return undefined;
+  // `</div>` es un cierre: ahí no hay nada que completar.
+  if (texto[abre + 1] === "/") return undefined;
 
-  const nombre = /^[A-Za-z][\w.-]*/.exec(texto.slice(abre + 1))?.[0];
-  if (!nombre) return undefined;
+  // El nombre puede estar vacío si el cursor está justo después de `<`: es
+  // cuando se completan etiquetas.
+  const nombre = /^[A-Za-z][\w.-]*/.exec(texto.slice(abre + 1))?.[0] ?? "";
   const finNombre = abre + 1 + nombre.length;
+  if (!nombre && relativa !== abre + 1) return undefined;
 
   const dentro = texto.slice(finNombre, relativa);
-  // Dentro de un valor entre comillas no se completan props.
+  // Dentro de un valor entre comillas no se completa nada.
   const comillas = (dentro.match(/"/g)?.length ?? 0) + (dentro.match(/'/g)?.length ?? 0);
+  const prefijo = /[\w:-]*$/.exec(dentro)?.[0] ?? "";
 
   // Lo ya escrito es la etiqueta entera, también lo que hay después del
-  // cursor: en `<Tarjeta | titulo="x">`, `titulo` no se vuelve a ofrecer.
+  // cursor —en `<Tarjeta | titulo="x">`, `titulo` no se vuelve a ofrecer—,
+  // pero no la palabra que se está escribiendo.
   const cierra = texto.indexOf(">", relativa);
-  const etiquetaEntera = texto.slice(finNombre, cierra < 0 ? texto.length : cierra);
+  let despues = texto.slice(relativa, cierra < 0 ? texto.length : cierra);
+  // Si el cursor está a mitad de una palabra, su final es parte de lo que se
+  // escribe; si está delante de una, esa ya estaba.
+  if (prefijo) despues = despues.replace(/^[\w:-]*/, "");
+  const sinValores = `${texto.slice(finNombre, relativa - prefijo.length)} ${despues}`
+    .replace(/"[^"]*"|'[^']*'/g, "")
+    .replace(/_+/g, "");
+  const escritos = new Set([...sinValores.matchAll(/[\w:.-]+/g)].map((m) => m[0]));
 
   return {
     nombre,
@@ -80,8 +93,8 @@ function etiquetaEn(texto, relativa) {
     inicioNombre: abre + 1,
     enNombre: relativa <= finNombre,
     enValor: comillas % 2 === 1 || /=\s*$/.test(dentro),
-    escritos: new Set([...etiquetaEntera.matchAll(/([\w:.-]+)\s*=/g)].map((m) => m[1])),
-    prefijo: /[\w:-]*$/.exec(dentro)?.[0] ?? "",
+    escritos,
+    prefijo,
   };
 }
 
