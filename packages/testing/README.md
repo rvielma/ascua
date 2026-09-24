@@ -1,15 +1,15 @@
-# @ascua/testing
+# ascua-testing
 
 Lo justo para probar un componente de [Ascua](https://ascua.gitweave.run):
 montarlo, tocarlo y desmontarlo.
 
 ```sh
-stil add -D @ascua/testing      # o npm install -D @ascua/testing
+stil add -D ascua-testing      # o npm install -D ascua-testing
 ```
 
 ```ts
 import { afterEach, expect, it } from "vitest";
-import { escribir, limpiar, pulsar, render } from "@ascua/testing";
+import { escribir, limpiar, pulsar, render } from "ascua-testing";
 
 import { Acceso } from "./acceso.js";
 
@@ -57,7 +57,7 @@ plantillas, igual que la aplicación. En Vitest, el plugin:
 
 ```ts
 // vitest.config.ts
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 export default {
   plugins: [ascua()],

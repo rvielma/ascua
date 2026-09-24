@@ -8,7 +8,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { onCleanup } from "@ascua/runtime";
+import { onCleanup } from "ascua";
 import { coincide, enlaces, enrutarEn, navegar, query, ruta, sinQuery } from "../src/index.js";
 
 function elemento(texto: string): HTMLElement {

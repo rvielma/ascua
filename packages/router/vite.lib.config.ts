@@ -6,6 +6,6 @@ export default {
     emptyOutDir: true,
     minify: "terser",
     target: "es2022",
-    rollupOptions: { external: ["@ascua/runtime"] },
+    rollupOptions: { external: ["ascua"] },
   },
 };

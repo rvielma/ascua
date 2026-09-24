@@ -6,7 +6,7 @@
  * archivos.
  */
 
-import { renderToString } from "@ascua/runtime/servidor";
+import { renderToString } from "ascua/servidor";
 
 import { paginaPara } from "./paginas.js";
 

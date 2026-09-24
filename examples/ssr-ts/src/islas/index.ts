@@ -7,7 +7,7 @@
  * JSON porque es lo cómodo.
  */
 
-import { island } from "@ascua/runtime";
+import { island } from "ascua";
 
 import type { Lenguaje } from "../datos.js";
 import { Buscador } from "./buscador.js";

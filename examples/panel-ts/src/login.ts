@@ -6,7 +6,7 @@
  * y un error que aparece y desaparece.
  */
 
-import { batch, memo, signal } from "@ascua/runtime";
+import { batch, memo, signal } from "ascua";
 
 import { Campo } from "./componentes.js";
 import { iniciarSesion, type Sesion } from "./sesion.js";

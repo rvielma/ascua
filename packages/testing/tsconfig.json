@@ -12,7 +12,7 @@
     "skipLibCheck": true,
     "declaration": true,
     "outDir": "dist",
-    "paths": { "@ascua/runtime": ["../runtime/src/index.ts"] }
+    "paths": { "ascua": ["../runtime/src/index.ts"] }
   },
   "include": ["src", "test"]
 }

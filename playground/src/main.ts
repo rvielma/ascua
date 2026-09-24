@@ -3,10 +3,10 @@
 // El compilador que traduce las plantillas es un módulo WebAssembly de 82 KB,
 // y aquí corre en la pestaña: no hay servidor que compile nada.
 
-import init, { compilar_json, version } from "@ascua/compilador/web";
-import { effect, memo, mount, on, signal } from "@ascua/runtime";
+import init, { compilar_json, version } from "ascua-compilador/web";
+import { effect, memo, mount, on, signal } from "ascua";
 
-const EJEMPLO = `import { signal } from "@ascua/runtime";
+const EJEMPLO = `import { signal } from "ascua";
 
 export function Contador() {
   const count = signal(0);

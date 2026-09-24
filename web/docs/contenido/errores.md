@@ -9,7 +9,7 @@ Un error dentro de un efecto se lleva por delante lo que lo rodea, a menos que
 alguien se haga cargo. `onError` registra quién:
 
 ```ts
-import { onError, signal } from "@ascua/runtime";
+import { onError, signal } from "ascua";
 
 function Seccion() {
   const fallo = signal<string | null>(null);

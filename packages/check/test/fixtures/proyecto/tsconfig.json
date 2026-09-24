@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "types": [],
     "paths": {
-      "@ascua/runtime": ["../../../../runtime/src/index.ts"],
+      "ascua": ["../../../../runtime/src/index.ts"],
       "@/*": ["./src/*"]
     }
   },

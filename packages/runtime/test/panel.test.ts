@@ -51,7 +51,7 @@ beforeAll(async () => {
   const destino = join(carpeta, "panel.ts");
   writeFileSync(
     destino,
-    compilado.replaceAll('"@ascua/runtime"', `"${resolve(__dirname, "../src/index.ts")}"`),
+    compilado.replaceAll('"ascua"', `"${resolve(__dirname, "../src/index.ts")}"`),
   );
   modulo = (await import(/* @vite-ignore */ destino)) as typeof modulo;
 });

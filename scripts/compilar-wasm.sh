@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # El compilador como módulo WebAssembly.
 #
-# Genera los dos destinos de `@ascua/compilador`: `pkg/` para Node (lo que usa
+# Genera los dos destinos de `ascua-compilador`: `pkg/` para Node (lo que usa
 # el plugin de Vite) y `web/` para el navegador (lo que usa el playground). Es
 # el mismo .wasm en los dos sitios; lo que cambia es el envoltorio que genera
 # wasm-bindgen.

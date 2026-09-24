@@ -1,4 +1,4 @@
-# @ascua/ts-plugin
+# ascua-ts-plugin
 
 Las plantillas de [Ascua](https://ascua.gitweave.run), entendidas por el
 editor:
@@ -14,14 +14,14 @@ editor:
   línea.
 
 ```sh
-stil add -D @ascua/ts-plugin      # o npm install -D @ascua/ts-plugin
+stil add -D ascua-ts-plugin      # o npm install -D ascua-ts-plugin
 ```
 
 ```jsonc
 // tsconfig.json
 {
   "compilerOptions": {
-    "plugins": [{ "name": "@ascua/ts-plugin" }]
+    "plugins": [{ "name": "ascua-ts-plugin" }]
   }
 }
 ```

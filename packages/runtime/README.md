@@ -1,17 +1,17 @@
-# @ascua/runtime
+# ascua
 
 Reactividad fine-grained y operaciones directas de DOM, en **2,23 kB gzip** y sin
 dependencias. Es el runtime de [Ascua](https://ascua.gitweave.run), y también
 una librería de signals que se puede usar sola.
 
 ```sh
-stil add @ascua/runtime      # o npm install @ascua/runtime
+stil add ascua      # o npm install ascua
 ```
 
 ## Signals
 
 ```ts
-import { signal, memo, effect, batch } from "@ascua/runtime";
+import { signal, memo, effect, batch } from "ascua";
 
 const precio = signal(1000);
 const cantidad = signal(3);
@@ -35,7 +35,7 @@ Las mismas llamadas que emite el compilador de Ascua, y que se pueden escribir a
 mano:
 
 ```ts
-import { element, dynamicText, on, append, mount } from "@ascua/runtime";
+import { element, dynamicText, on, append, mount } from "ascua";
 
 function Contador() {
   const cuenta = signal(0);
@@ -59,13 +59,13 @@ cliente **adopta** los nodos en vez de rehacerlos:
 
 ```ts
 // servidor
-import { island } from "@ascua/runtime";
-import { renderToString } from "@ascua/runtime/servidor";
+import { island } from "ascua";
+import { renderToString } from "ascua/servidor";
 
 const html = renderToString(() => island("contador", () => Contador(3), "3"));
 
 // cliente
-import { hydrate } from "@ascua/runtime";
+import { hydrate } from "ascua";
 
 hydrate({ contador: (props) => Contador(Number(props)) });
 // { adoptados: 4, creados: 0 }
@@ -78,7 +78,7 @@ tree-shaking se los lleva. Está explicado en la
 ## Con plantillas
 
 Lo normal, de todas formas, es no escribir esto: con
-[`@ascua/vite-plugin`](https://www.npmjs.com/package/@ascua/vite-plugin) se
+[`vite-plugin-ascua`](https://www.npmjs.com/package/vite-plugin-ascua) se
 escribe HTML dentro de TypeScript y el compilador lo traduce a estas llamadas.
 
 ## Licencia

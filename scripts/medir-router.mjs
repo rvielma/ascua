@@ -8,7 +8,7 @@ const archivo = readdirSync(dir).find((f) => f.endsWith(".js"));
 const codigo = readFileSync(join(dir, archivo));
 
 const kb = (n) => `${(n / 1024).toFixed(2)} kB`;
-console.log(`@ascua/router  (${archivo})`);
+console.log(`ascua-router  (${archivo})`);
 console.log(`  minificado: ${kb(codigo.length)}`);
 console.log(`  gzip:       ${kb(gzipSync(codigo, { level: 9 }).length)}`);
 console.log(`  brotli:     ${kb(brotliCompressSync(codigo).length)}`);

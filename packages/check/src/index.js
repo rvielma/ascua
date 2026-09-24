@@ -172,13 +172,13 @@ function localizarTsc(config) {
 function localizarCompilador(config) {
   for (const desde of [config, import.meta.url]) {
     try {
-      const wasm = createRequire(desde)("@ascua/compilador");
+      const wasm = createRequire(desde)("ascua-compilador");
       return (codigo, archivo) => JSON.parse(wasm.compilar_json(codigo, archivo));
     } catch {
       // Se prueba el siguiente.
     }
   }
-  throw new Error("no se encuentra @ascua/compilador");
+  throw new Error("no se encuentra ascua-compilador");
 }
 
 function mostrarConfig(tsc, config, raiz) {

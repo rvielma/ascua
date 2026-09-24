@@ -12,7 +12,7 @@ import { afterAll, beforeAll, expect, it } from "vitest";
 
 const require = createRequire(import.meta.url);
 const PROYECTO = join(__dirname, "fixtures/proyecto");
-const ENLACE = join(PROYECTO, "node_modules/@ascua/ts-plugin");
+const ENLACE = join(PROYECTO, "node_modules/ascua-ts-plugin");
 
 let servidor: ChildProcess;
 let salida = "";

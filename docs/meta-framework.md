@@ -209,7 +209,7 @@ El diseño es el mismo; cambia quién hace de backend. En el servidor,
 runtime —sin navegador, sin happy-dom ni jsdom— y lo serializa:
 
 ```ts
-import { renderToString, island } from "@ascua/runtime/servidor";
+import { renderToString, island } from "ascua/servidor";
 
 const html = renderToString(() => island("contador", () => Contador(2), "2"));
 ```
@@ -217,7 +217,7 @@ const html = renderToString(() => island("contador", () => Contador(2), "2"));
 En el cliente, `hydrate` recorre las islas y adopta lo que encuentra:
 
 ```ts
-import { hydrate } from "@ascua/runtime";
+import { hydrate } from "ascua";
 
 const { adoptados, creados } = hydrate({
   contador: (props) => Contador(Number(props)),

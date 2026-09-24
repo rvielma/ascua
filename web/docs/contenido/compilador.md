@@ -3,11 +3,11 @@ titulo: Compilador y plugin
 descripcion: El plugin de Vite, el paquete WebAssembly y la línea de comandos. Qué hace cada uno y cómo se configura.
 ---
 
-## @ascua/vite-plugin
+## vite-plugin-ascua
 
 ```ts
 // vite.config.ts
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 export default {
   plugins: [ascua()],
@@ -40,13 +40,13 @@ El nativo es algo más rápido, porque se ahorra arrancar el módulo; el
 WebAssembly es un solo artefacto para todas las plataformas, sin nada que
 descargar al instalar.
 
-## @ascua/compilador
+## ascua-compilador
 
 El compilador, como módulo WebAssembly de 87 KB. Lo usa el plugin; se puede
 llamar a mano:
 
 ```ts
-const { compilar_json } = require("@ascua/compilador");
+const { compilar_json } = require("ascua-compilador");
 
 const { code, css, map } = JSON.parse(compilar_json(fuente, "src/panel.ts"));
 ```
@@ -63,7 +63,7 @@ incluidos. De eso se encarga Vite, o `tsc`, o esbuild.
 En el navegador, el mismo `.wasm` con el envoltorio de `./web`:
 
 ```ts
-import init, { compilar_json } from "@ascua/compilador/web";
+import init, { compilar_json } from "ascua-compilador/web";
 
 await init();
 ```
@@ -99,7 +99,7 @@ toca.
 Una plantilla puede contener otras en sus huecos —el `render` de un `<For>`—, y
 cada una se compila por su cuenta, con su propio scope de CSS.
 
-## @ascua/check
+## ascua-check
 
 `ascua-check` comprueba los tipos de dentro de las plantillas con el `tsc` del
 proyecto. Está en [Tipos](/docs/tipos/).

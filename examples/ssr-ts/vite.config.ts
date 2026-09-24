@@ -1,15 +1,15 @@
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 const paquete = (ruta: string) => new URL(`../../packages/${ruta}`, import.meta.url).pathname;
 
 export default {
   plugins: [ascua()],
   resolve: {
-    // Con expresiones y no con claves: `@ascua/runtime` como clave también
-    // capturaría `@ascua/runtime/servidor`.
+    // Con expresiones y no con claves: `ascua` como clave también
+    // capturaría `ascua/servidor`.
     alias: [
-      { find: /^@ascua\/runtime$/, replacement: paquete("runtime/src/index.ts") },
-      { find: /^@ascua\/runtime\/servidor$/, replacement: paquete("runtime/src/servidor.ts") },
+      { find: /^ascua$/, replacement: paquete("runtime/src/index.ts") },
+      { find: /^ascua\/servidor$/, replacement: paquete("runtime/src/servidor.ts") },
     ],
   },
   build: { minify: "terser", target: "es2022" },

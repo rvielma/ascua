@@ -1,22 +1,22 @@
-# @ascua/vite-plugin
+# vite-plugin-ascua
 
 Compila las plantillas de [Ascua](https://ascua.gitweave.run) dentro de Vite, y
 entrega a Vite el CSS que el compilador extrae de los `<style>`.
 
 ```sh
-stil add -D @ascua/vite-plugin      # o npm install -D @ascua/vite-plugin
+stil add -D vite-plugin-ascua      # o npm install -D vite-plugin-ascua
 ```
 
 ```js
 // vite.config.ts
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 export default {
   plugins: [ascua()],
 };
 ```
 
-Por defecto compila con el módulo **WebAssembly** de `@ascua/compilador`, que
+Por defecto compila con el módulo **WebAssembly** de `ascua-compilador`, que
 viene como dependencia: un artefacto para todas las plataformas, sin
 `postinstall`. Con `ascua({ bin: "./target/release/ascuac" })` se usa un
 ejecutable nativo, que es algo más rápido.

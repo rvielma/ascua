@@ -1,5 +1,5 @@
 {
-  "name": "@ascua/runtime",
+  "name": "ascua",
   "version": "0.1.0",
   "description": "Runtime reactivo de Ascua: signals, effects y operaciones directas de DOM. Sin Virtual DOM.",
   "keywords": [

@@ -7,8 +7,8 @@
  * del usuario anterior.
  */
 
-import { mount, signal } from "@ascua/runtime";
-import { enlaces, navegar } from "@ascua/router";
+import { mount, signal } from "ascua";
+import { enlaces, navegar } from "ascua-router";
 
 import { PEDIDOS } from "./datos.js";
 import { Login } from "./login.js";

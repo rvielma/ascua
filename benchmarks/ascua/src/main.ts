@@ -1,7 +1,7 @@
 // Ascua, escrito como dice su documentación: un signal por etiqueta, <For> con
 // clave, y `selector` para la fila elegida —el equivalente al `createSelector`
 // que usa Solid en su versión—. Sin atajos que un usuario no tomaría.
-import { batch, mount, selector, signal, type Signal } from "@ascua/runtime";
+import { batch, mount, selector, signal, type Signal } from "ascua";
 
 // @ts-expect-error: módulo JS compartido, sin tipos.
 import { construirDatos } from "../../comun/datos.js";

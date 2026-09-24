@@ -1,15 +1,15 @@
-# @ascua/router
+# ascua-router
 
 El router de [Ascua](https://ascua.gitweave.run) en **0,98 kB** gzip. La ruta es
 un signal: leerla dentro de una closure hace que ese nodo siga a la URL, igual
 que con cualquier otro dato.
 
 ```sh
-stil add @ascua/router      # o npm install @ascua/router
+stil add ascua-router      # o npm install ascua-router
 ```
 
 ```ts
-import { enlaces, enrutarEn, navegar, ruta } from "@ascua/router";
+import { enlaces, enrutarEn, navegar, ruta } from "ascua-router";
 
 enlaces();   // los <a href="/…"> navegan sin recargar
 

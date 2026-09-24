@@ -3,7 +3,7 @@
 // Todo lo que se lee llega como HTML y funciona sin JavaScript; solo los tres
 // recuadros interactivos necesitan este archivo.
 
-import { mount } from "@ascua/runtime";
+import { mount } from "ascua";
 
 import { brasas } from "./brasas.js";
 import { DemoContador, DemoLista, DemoPanel } from "./demos.js";

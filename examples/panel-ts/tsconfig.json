@@ -11,10 +11,10 @@
     // Dentro del repositorio, los paquetes son los de packages/, como en
     // vite.config.ts. Una aplicación de verdad los tendría en node_modules.
     "paths": {
-      "@ascua/runtime": ["../../packages/runtime/src/index.ts"],
-      "@ascua/runtime/servidor": ["../../packages/runtime/src/servidor.ts"],
-      "@ascua/router": ["../../packages/router/src/index.ts"],
-      "@ascua/testing": ["../../packages/testing/src/index.ts"]
+      "ascua": ["../../packages/runtime/src/index.ts"],
+      "ascua/servidor": ["../../packages/runtime/src/servidor.ts"],
+      "ascua-router": ["../../packages/router/src/index.ts"],
+      "ascua-testing": ["../../packages/testing/src/index.ts"]
     }
   },
   "include": ["src", "test"]

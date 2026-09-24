@@ -3,7 +3,7 @@
 // Lo que enseñan no es "mira, reacciona" —eso lo hace cualquiera— sino
 // **cuántas operaciones de DOM** cuesta que reaccione.
 
-import { memo, onCleanup, signal, type Children, type Signal } from "@ascua/runtime";
+import { memo, onCleanup, signal, type Children, type Signal } from "ascua";
 
 /** Un contador, y al lado el registro de lo que el framework le hace al DOM. */
 export function DemoContador(): HTMLElement {

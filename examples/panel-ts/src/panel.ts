@@ -11,8 +11,8 @@
  * demás filas se enteran.
  */
 
-import { memo, signal, type Signal } from "@ascua/runtime";
-import { enrutarEn, navegar, ruta, sinQuery } from "@ascua/router";
+import { memo, signal, type Signal } from "ascua";
+import { enrutarEn, navegar, ruta, sinQuery } from "ascua-router";
 
 import { Metrica, Tarjeta, Campo } from "./componentes.js";
 import { pesos, siguienteEstado, type Estado, type Pedido } from "./datos.js";

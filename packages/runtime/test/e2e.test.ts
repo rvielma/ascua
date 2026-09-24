@@ -37,7 +37,7 @@ beforeAll(async () => {
     destino,
     // replaceAll: hay dos imports del runtime, el del fixture y el que añade
     // el compilador.
-    compilado.replaceAll('"@ascua/runtime"', `"${resolve(__dirname, "../src/index.ts")}"`),
+    compilado.replaceAll('"ascua"', `"${resolve(__dirname, "../src/index.ts")}"`),
   );
   modulo = (await import(/* @vite-ignore */ destino)) as typeof modulo;
 });
