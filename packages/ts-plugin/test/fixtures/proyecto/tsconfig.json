@@ -10,9 +10,9 @@
     "noEmit": true,
     "skipLibCheck": true,
     "types": [],
-    "plugins": [{ "name": "@ascua/ts-plugin" }],
+    "plugins": [{ "name": "ascua-ts-plugin" }],
     "paths": {
-      "@ascua/runtime": ["../../../../runtime/src/index.ts"],
+      "ascua": ["../../../../runtime/src/index.ts"],
       "@/*": ["./src/*"]
     }
   },

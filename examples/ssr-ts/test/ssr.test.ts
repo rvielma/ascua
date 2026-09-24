@@ -3,7 +3,7 @@
  * documento lo lee como lo leería el navegador y `hydrate` lo adopta.
  */
 
-import { hydrate } from "@ascua/runtime";
+import { hydrate } from "ascua";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { render } from "../src/entrada-servidor.js";

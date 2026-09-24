@@ -3,7 +3,7 @@
  * su código no llega al navegador. Lo interactivo va en islas.
  */
 
-import type { Children } from "@ascua/runtime";
+import type { Children } from "ascua";
 
 import { LENGUAJES } from "./datos.js";
 import { IslaBuscador, IslaContador } from "./islas/index.js";

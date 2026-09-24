@@ -7,7 +7,7 @@
  * es lo mismo que se puede escribir a mano.
  */
 
-import type { Children } from "@ascua/runtime";
+import type { Children } from "ascua";
 
 /** Una caja con título y el contenido que le pasen. */
 export function Tarjeta(props: { titulo: string; nota?: () => string; children?: Children }) {

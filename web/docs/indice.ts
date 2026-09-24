@@ -42,9 +42,9 @@ export const INDICE: Grupo[] = [
   {
     titulo: "Referencia",
     entradas: [
-      { slug: "api-runtime", rotulo: "@ascua/runtime" },
-      { slug: "api-router", rotulo: "@ascua/router" },
-      { slug: "api-testing", rotulo: "@ascua/testing" },
+      { slug: "api-runtime", rotulo: "ascua" },
+      { slug: "api-router", rotulo: "ascua-router" },
+      { slug: "api-testing", rotulo: "ascua-testing" },
       { slug: "compilador", rotulo: "Compilador y plugin" },
     ],
   },

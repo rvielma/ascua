@@ -1,4 +1,4 @@
-import { memo, signal } from "@ascua/runtime";
+import { memo, signal } from "ascua";
 
 import type { Lenguaje } from "../datos.js";
 

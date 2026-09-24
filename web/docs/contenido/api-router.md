@@ -1,13 +1,13 @@
 ---
-titulo: "@ascua/router"
+titulo: "ascua-router"
 descripcion: Las siete funciones del router, con su firma.
 ---
 
 ```ts
-import { coincide, enlaces, enrutarEn, navegar, query, ruta, sinQuery } from "@ascua/router";
+import { coincide, enlaces, enrutarEn, navegar, query, ruta, sinQuery } from "ascua-router";
 ```
 
-0,98 kB gzip. Depende de `@ascua/runtime`. La guía está en
+0,98 kB gzip. Depende de `ascua`. La guía está en
 [Rutas](/docs/router/).
 
 ## ruta

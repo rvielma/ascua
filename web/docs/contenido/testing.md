@@ -10,7 +10,7 @@ igual que la aplicación. En Vitest, el mismo plugin:
 
 ```ts
 // vitest.config.ts
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 export default {
   plugins: [ascua()],
@@ -19,7 +19,7 @@ export default {
 ```
 
 ```sh
-stil add -D @ascua/testing
+stil add -D ascua-testing
 stil add -D vitest
 stil add -D happy-dom
 ```
@@ -28,7 +28,7 @@ stil add -D happy-dom
 
 ```ts
 import { afterEach, expect, it } from "vitest";
-import { escribir, limpiar, pulsar, render } from "@ascua/testing";
+import { escribir, limpiar, pulsar, render } from "ascua-testing";
 
 import { Acceso } from "./acceso.js";
 

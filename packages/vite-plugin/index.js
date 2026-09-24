@@ -41,7 +41,7 @@ function elegirCompilador(opciones) {
   // paquete puede estar colgando de cualquiera de los dos.
   for (const desde of [join(process.cwd(), "index.js"), import.meta.url]) {
     try {
-      const wasm = createRequire(desde)("@ascua/compilador");
+      const wasm = createRequire(desde)("ascua-compilador");
       return (codigo, archivo) => JSON.parse(wasm.compilar_json(codigo, archivo));
     } catch {
       // Se prueba el siguiente.

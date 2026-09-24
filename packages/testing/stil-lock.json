@@ -1,6 +1,6 @@
 {
   "lockfileVersion": 3,
-  "name": "@ascua/testing",
+  "name": "ascua-testing",
   "version": "0.1.0",
   "packages": {
     "@jridgewell/resolve-uri@3.1.2": {

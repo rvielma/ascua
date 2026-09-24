@@ -13,7 +13,7 @@
 
 import { readFile } from "node:fs/promises";
 
-import { renderToString } from "@ascua/runtime/servidor";
+import { renderToString } from "ascua/servidor";
 import { Marked, type Tokens } from "marked";
 import { createCssVariablesTheme, createHighlighter, type Highlighter } from "shiki";
 

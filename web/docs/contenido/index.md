@@ -6,7 +6,7 @@ descripcion: Un framework de UI sin Virtual DOM. Escribes HTML dentro de TypeScr
 ## La idea en una pantalla
 
 ```ts
-import { signal } from "@ascua/runtime";
+import { signal } from "ascua";
 
 function Contador() {
   const cuenta = signal(0);
@@ -58,11 +58,11 @@ que la operación, así que el runtime es JavaScript. Está en
 
 | Paquete | Qué es | gzip |
 |---|---|---|
-| `@ascua/runtime` | Signals, operaciones de DOM, SSR e hidratación | 2,23 kB |
-| `@ascua/router` | La ruta como signal, con parámetros y enlaces que no recargan | 0,98 kB |
-| `@ascua/testing` | Montar, tocar y desmontar un componente en un test | — |
-| `@ascua/vite-plugin` | Compila las plantillas y entrega el CSS a Vite | — |
-| `@ascua/compilador` | El compilador, como módulo WebAssembly | — |
+| `ascua` | Signals, operaciones de DOM, SSR e hidratación | 2,23 kB |
+| `ascua-router` | La ruta como signal, con parámetros y enlaces que no recargan | 0,98 kB |
+| `ascua-testing` | Montar, tocar y desmontar un componente en un test | — |
+| `vite-plugin-ascua` | Compila las plantillas y entrega el CSS a Vite | — |
+| `ascua-compilador` | El compilador, como módulo WebAssembly | — |
 
 Una aplicación entera —runtime, un contador y una lista con clave— pesa
 **2,43 kB** gzip. Un panel con acceso, rutas, tabla filtrable y componentes,

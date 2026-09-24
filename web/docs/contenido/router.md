@@ -10,19 +10,19 @@ propagar. La ruta actual se lee con `ruta()`, y leerla dentro de una closure
 hace que ese nodo siga a la URL, igual que con cualquier otro dato:
 
 ```ts
-import { ruta } from "@ascua/router";
+import { ruta } from "ascua-router";
 
 view`<a href="/pedidos" class:activa=${() => ruta().startsWith("/pedidos")}>Pedidos</a>`;
 ```
 
 ```sh
-stil add @ascua/router
+stil add ascua-router
 ```
 
 ## Vistas por ruta
 
 ```ts
-import { enlaces, enrutarEn } from "@ascua/router";
+import { enlaces, enrutarEn } from "ascua-router";
 
 enlaces();   // los <a href="/…"> navegan sin recargar
 
@@ -66,7 +66,7 @@ cuenta, y la query tampoco: `/pedidos?orden=fecha` encaja con `/pedidos`.
 ## Navegar
 
 ```ts
-import { navegar } from "@ascua/router";
+import { navegar } from "ascua-router";
 
 navegar("/pedidos/4821");
 navegar("/", { reemplazar: true });   // sin apilar historial
@@ -84,7 +84,7 @@ tocan.
 ## La query
 
 ```ts
-import { query } from "@ascua/router";
+import { query } from "ascua-router";
 
 const orden = memo(() => query().get("orden") ?? "fecha");
 ```

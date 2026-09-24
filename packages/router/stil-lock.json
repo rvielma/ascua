@@ -1,6 +1,6 @@
 {
   "lockfileVersion": 3,
-  "name": "@ascua/router",
+  "name": "ascua-router",
   "version": "0.1.0",
   "packages": {
     "@jridgewell/gen-mapping@0.3.13": {

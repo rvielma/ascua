@@ -1,5 +1,5 @@
 // Lo que escribe el usuario: HTML dentro de TypeScript.
-import { signal } from "@ascua/runtime";
+import { signal } from "ascua";
 
 export function Contador(inicial = 0) {
   const count = signal(inicial);

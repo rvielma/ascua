@@ -1,6 +1,6 @@
 // Una aplicación de Ascua entera. No se ve Rust por ninguna parte: está en el
 // compilador, que traduce las plantillas a operaciones de DOM.
-import { list, mount, signal } from "@ascua/runtime";
+import { list, mount, signal } from "ascua";
 
 interface Tarea {
   id: number;

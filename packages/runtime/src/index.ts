@@ -1,5 +1,5 @@
 /**
- * # @ascua/runtime
+ * # ascua
  *
  * Reactividad fine-grained y operaciones directas de DOM. Sin Virtual DOM: la
  * relación entre un dato y el nodo que lo muestra se establece una vez, así

@@ -1,11 +1,11 @@
 ---
-titulo: "@ascua/runtime"
+titulo: "ascua"
 descripcion: Cada función que exporta el runtime, con su firma. Signals, operaciones de DOM, SSR e hidratación.
 ---
 
 ```ts
-import { signal, memo, effect, mount, hydrate } from "@ascua/runtime";
-import { renderToString } from "@ascua/runtime/servidor";
+import { signal, memo, effect, mount, hydrate } from "ascua";
+import { renderToString } from "ascua/servidor";
 ```
 
 2,23 kB gzip, sin dependencias. Con `hydrate` e `island`, 2,99 kB; si no se
@@ -187,7 +187,7 @@ servidor. Las islas sin constructor se dejan intactas.
 ### renderToString
 
 ```ts
-import { renderToString } from "@ascua/runtime/servidor";
+import { renderToString } from "ascua/servidor";
 
 function renderToString(construir: () => Node): string;
 ```

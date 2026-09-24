@@ -1,6 +1,6 @@
 "use strict";
 /**
- * # @ascua/ts-plugin
+ * # ascua-ts-plugin
  *
  * Lleva al editor lo que `ascua-check` comprueba en la línea de comandos:
  * errores de tipos dentro de las plantillas, en rojo mientras se escribe, más
@@ -9,7 +9,7 @@
  *
  * ```jsonc
  * // tsconfig.json
- * { "compilerOptions": { "plugins": [{ "name": "@ascua/ts-plugin" }] } }
+ * { "compilerOptions": { "plugins": [{ "name": "ascua-ts-plugin" }] } }
  * ```
  *
  * Los errores salen del mismo sitio que en `ascua-check`: el archivo se
@@ -38,7 +38,7 @@ function init({ typescript: ts }) {
     const registrar = (mensaje) => info.project?.projectService?.logger?.info?.(`[ascua] ${mensaje}`);
     const compilar = localizarCompilador(info);
     if (!compilar) {
-      registrar("no se encuentra @ascua/compilador: el plugin no hace nada");
+      registrar("no se encuentra ascua-compilador: el plugin no hace nada");
       return ls;
     }
     registrar("activo");
@@ -105,7 +105,7 @@ function init({ typescript: ts }) {
         // Lo copiado sin tocar ya lo informa TypeScript en el original, y el
         // import que añade el compilador no es de nadie.
         if (generada === escrita) continue;
-        if (line === 0 && generada.includes('from "@ascua/runtime"')) continue;
+        if (line === 0 && generada.includes('from "ascua"')) continue;
 
         // La columna: lo que señala el error, buscado en la línea original.
         const senalado = /^[\w$.]+/.exec(generada.slice(character))?.[0] ?? "";
@@ -321,7 +321,7 @@ function localizarCompilador(info) {
   desde.push(__filename);
   for (const lugar of desde) {
     try {
-      const wasm = createRequire(lugar)("@ascua/compilador");
+      const wasm = createRequire(lugar)("ascua-compilador");
       return (codigo, archivo) => wasm.compilar_json(codigo, archivo);
     } catch {
       // Se prueba el siguiente.

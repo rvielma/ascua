@@ -1,5 +1,5 @@
 {
-  "name": "@ascua/router",
+  "name": "ascua-router",
   "version": "0.1.0",
   "description": "El router de Ascua: la ruta es un signal. Sin contexto, sin componente que instalar.",
   "keywords": [
@@ -37,7 +37,7 @@
     "prepublishOnly": "tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
-    "@ascua/runtime": "^0.1.0"
+    "ascua": "^0.1.0"
   },
   "devDependencies": {
     "vite": "^8.3.0",

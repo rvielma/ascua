@@ -71,7 +71,7 @@ al componente la posibilidad de escribirlo.
 Lo que va entre la etiqueta de apertura y la de cierre llega en `children`:
 
 ```ts
-import type { Children } from "@ascua/runtime";
+import type { Children } from "ascua";
 
 function Tarjeta(props: { titulo: string; children?: Children }) {
   const caja = view`
@@ -129,7 +129,7 @@ Un componente no necesita `view`. Las mismas llamadas que emite el compilador
 se pueden escribir directamente, y el resultado es indistinguible:
 
 ```ts
-import { append, dynamicText, element, on, signal } from "@ascua/runtime";
+import { append, dynamicText, element, on, signal } from "ascua";
 
 function Contador() {
   const cuenta = signal(0);

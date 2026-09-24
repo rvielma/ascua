@@ -12,7 +12,7 @@ descripcion: signal, memo y effect son todo el modelo. Cómo se suscriben solos,
 | `effect` | Trabajo con efectos: tocar el DOM, un `fetch`, un log. | No | Tras la escritura que lo afecta |
 
 ```ts
-import { effect, memo, signal } from "@ascua/runtime";
+import { effect, memo, signal } from "ascua";
 
 const precio = signal(1000);
 const cantidad = signal(3);

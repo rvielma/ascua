@@ -5,7 +5,7 @@ export default {
   },
   resolve: {
     alias: {
-      "@ascua/runtime": new URL("../runtime/src/index.ts", import.meta.url).pathname,
+      "ascua": new URL("../runtime/src/index.ts", import.meta.url).pathname,
     },
   },
 };

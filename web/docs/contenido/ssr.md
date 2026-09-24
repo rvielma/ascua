@@ -10,7 +10,7 @@ distinto. `renderToString` ejecuta los mismos componentes sobre un documento en
 memoria que trae el propio runtime —sin happy-dom ni jsdom— y lo serializa:
 
 ```ts
-import { renderToString } from "@ascua/runtime/servidor";
+import { renderToString } from "ascua/servidor";
 
 const html = renderToString(() => Pagina({ usuario }));
 ```
@@ -25,7 +25,7 @@ las regiones que además se activan en el cliente. Lo que no es isla no viaja:
 ni su código ni su estado.
 
 ```ts
-import { island } from "@ascua/runtime";
+import { island } from "ascua";
 
 function IslaContador(props: { inicial: number }) {
   return island("contador", () => Contador(props), JSON.stringify(props));
@@ -52,7 +52,7 @@ En el cliente, `hydrate` busca las islas del documento y reconstruye cada una
 con su constructor:
 
 ```ts
-import { hydrate } from "@ascua/runtime";
+import { hydrate } from "ascua";
 
 const { adoptados, creados } = hydrate({
   contador: (props) => Contador(JSON.parse(props)),
@@ -89,7 +89,7 @@ servidor.js                HTTP: Vite en desarrollo, dist/ en producción
 
 ```ts
 // src/entrada-servidor.ts
-import { renderToString } from "@ascua/runtime/servidor";
+import { renderToString } from "ascua/servidor";
 
 export function render(url: string) {
   const pagina = paginaPara(new URL(url, "http://x").pathname);
@@ -99,7 +99,7 @@ export function render(url: string) {
 
 ```ts
 // src/entrada-cliente.ts
-import { hydrate } from "@ascua/runtime";
+import { hydrate } from "ascua";
 import { ISLAS } from "./islas/index.js";
 
 hydrate(ISLAS);

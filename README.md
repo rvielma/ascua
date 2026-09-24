@@ -43,7 +43,7 @@ view`
   </main>`;
 ```
 
-Las rutas son signals, con [`@ascua/router`](packages/router):
+Las rutas son signals, con [`ascua-router`](packages/router):
 
 ```ts
 enlaces();   // los <a href="/…"> navegan sin recargar
@@ -63,13 +63,13 @@ CSS, gzip, la aplicación entera.
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| `@ascua/runtime` | Signals y DOM, 2,23 kB gzip, cero dependencias | ✅ |
+| `ascua` | Signals y DOM, 2,23 kB gzip, cero dependencias | ✅ |
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
-| `@ascua/vite-plugin` | Integración con Vite | ✅ |
-| `@ascua/router` | La ruta como signal, 0,98 kB gzip | ✅ |
-| `@ascua/testing` | Montar, tocar y desmontar en un test | ✅ |
-| `@ascua/check` | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | ✅ |
-| `@ascua/ts-plugin` | Lo mismo en el editor: errores, autocompletado de props, ir a la definición | ✅ |
+| `vite-plugin-ascua` | Integración con Vite | ✅ |
+| `ascua-router` | La ruta como signal, 0,98 kB gzip | ✅ |
+| `ascua-testing` | Montar, tocar y desmontar en un test | ✅ |
+| `ascua-check` | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | ✅ |
+| `ascua-ts-plugin` | Lo mismo en el editor: errores, autocompletado de props, ir a la definición | ✅ |
 | CSS scoped en build time | `<style>` sin runtime de estilos | ✅ |
 | Componentes con props e hijos | `<Panel titulo=${t}>…</Panel>` | ✅ |
 | Control de flujo | `<Show>`, `<Else>`, `<For>` con clave | ✅ |
@@ -97,13 +97,13 @@ verificado en navegador real.
 
 ```
 packages/
-  runtime/          @ascua/runtime — signals y operaciones de DOM (TypeScript)
-  compilador/       @ascua/compilador — el compilador como .wasm
-  vite-plugin/      @ascua/vite-plugin
-  router/           @ascua/router — la ruta como signal
-  testing/          @ascua/testing — montar y tocar componentes en un test
-  check/            @ascua/check — ascua-check, los tipos de dentro de las plantillas
-  ts-plugin/        @ascua/ts-plugin — las plantillas entendidas por el editor
+  runtime/          ascua — signals y operaciones de DOM (TypeScript)
+  compilador/       ascua-compilador — el compilador como .wasm
+  vite-plugin/      vite-plugin-ascua
+  router/           ascua-router — la ruta como signal
+  testing/          ascua-testing — montar y tocar componentes en un test
+  check/            ascua-check — ascua-check, los tipos de dentro de las plantillas
+  ts-plugin/        ascua-ts-plugin — las plantillas entendidas por el editor
 crates/
   ascua-compilador/ El compilador: escáner, parser de plantillas y codegen
   ascua-css/        Scoping de CSS, compartido por los dos compiladores
@@ -176,7 +176,7 @@ bash scripts/verificar.sh --rapido   # sin MSRV ni el build del sitio
 
 Las dependencias de cada directorio se instalan con
 `bash scripts/instalar-dependencias.sh <dir>…`, que enlaza los paquetes
-`@ascua/*` desde `packages/`. Por partes:
+de Ascua desde `packages/`. Por partes:
 
 ```sh
 cargo test                   # 153 tests del compilador y la vía Rust

@@ -1,4 +1,4 @@
-import { signal } from "@ascua/runtime";
+import { signal } from "ascua";
 
 /** Un contador. Es un componente normal: no sabe si lo pintó el servidor. */
 export function Contador(props: { inicial: number }) {

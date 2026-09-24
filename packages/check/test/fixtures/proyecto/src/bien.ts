@@ -1,4 +1,4 @@
-import { signal } from "@ascua/runtime";
+import { signal } from "ascua";
 
 import { Metrica, Tarjeta } from "@/componentes.js";
 

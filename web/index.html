@@ -245,7 +245,7 @@ footer .credito { font-family: var(--mono); }
   </p>
 
   <div class="acciones">
-    <a class="accion-primaria" href="#empezar">$ stil add @ascua/runtime →</a>
+    <a class="accion-primaria" href="#empezar">$ stil add ascua →</a>
     <a class="accion-secundaria" href="/docs/">leer la documentación</a>
     <a class="accion-secundaria" href="/playground/">abrir el playground</a>
   </div>
@@ -502,16 +502,16 @@ p[data-ascua-98909ba2]:hover {
 <section id="empezar">
   <p class="kicker">09 · empezar</p>
   <h2>Dos comandos y un plugin</h2>
-  <pre><code>stil add @ascua/runtime
-stil add -D @ascua/vite-plugin</code></pre>
+  <pre><code>stil add ascua
+stil add -D vite-plugin-ascua</code></pre>
   <p>
-    Y si la aplicación tiene más de una pantalla, <code>stil add @ascua/router</code>:
+    Y si la aplicación tiene más de una pantalla, <code>stil add ascua-router</code>:
     0,98 kB en los que la ruta es un signal más, con parámetros
     (<code>/pedidos/:id</code>), enlaces que no recargan y vistas que se liberan al
     salir de ellas.
   </p>
   <pre><code>// vite.config.ts
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 export default { plugins: [ascua()] };</code></pre>
   <p class="pie-codigo">El compilador viene dentro del plugin. No hay binario que instalar.</p>

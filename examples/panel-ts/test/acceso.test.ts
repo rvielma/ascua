@@ -1,15 +1,15 @@
 /**
  * El acceso del panel, probado como lo usaría alguien.
  *
- * Esto es lo que hace `@ascua/testing` por un proyecto: montar un componente
+ * Esto es lo que hace `ascua-testing` por un proyecto: montar un componente
  * con plantillas, tocarlo y mirar el DOM, sin más ceremonia que un
  * `afterEach(limpiar)`.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { navegar } from "@ascua/router";
-import { enviar, escribir, esperar, limpiar, pulsar, render } from "@ascua/testing";
+import { navegar } from "ascua-router";
+import { enviar, escribir, esperar, limpiar, pulsar, render } from "ascua-testing";
 
 import { Login } from "../src/login.js";
 import { Panel } from "../src/panel.js";

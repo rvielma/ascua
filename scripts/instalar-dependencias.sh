@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Instala las dependencias de terceros de uno o varios directorios del repo.
 #
-# Las @ascua/* se apartan mientras se instala: dentro del repositorio tienen
+# Los paquetes de Ascua se apartan mientras se instala: dentro del repositorio tienen
 # que ser las de packages/, no las publicadas —los tests prueban el código de
 # ahora—, y las pone después scripts/enlazar-paquetes.sh. Sin apartarlas, el
 # gestor iría a buscarlas al registro.
@@ -26,7 +26,7 @@ for dir in "$@"; do
     const p = JSON.parse(fs.readFileSync("package.json", "utf8"));
     for (const campo of ["dependencies", "peerDependencies", "optionalDependencies"]) {
       for (const nombre of Object.keys(p[campo] ?? {})) {
-        if (nombre.startsWith("@ascua/")) delete p[campo][nombre];
+        if (nombre === "ascua" || nombre.startsWith("ascua-") || nombre === "vite-plugin-ascua") delete p[campo][nombre];
       }
     }
     fs.writeFileSync("package.json", JSON.stringify(p, null, 2) + "\n");

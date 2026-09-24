@@ -1,10 +1,10 @@
 ---
-titulo: "@ascua/testing"
+titulo: "ascua-testing"
 descripcion: Montar, tocar y desmontar un componente en un test. Siete funciones.
 ---
 
 ```ts
-import { enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "@ascua/testing";
+import { enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "ascua-testing";
 ```
 
 Funciona con cualquier runner que tenga un DOM —Vitest con happy-dom, jsdom—.

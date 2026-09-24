@@ -1,6 +1,6 @@
 // Un panel de verdad en miniatura: componente con props e hijos, una región
 // que se sustituye, una lista con clave y un formulario.
-import { memo, signal, type Children } from "@ascua/runtime";
+import { memo, signal, type Children } from "ascua";
 
 interface Tarea {
   id: number;

@@ -15,19 +15,19 @@ dentro del plugin como WebAssembly: no hay binario que descargar ni
 `postinstall` que ejecutar.
 
 ```sh
-stil add @ascua/runtime
-stil add -D @ascua/vite-plugin
+stil add ascua
+stil add -D vite-plugin-ascua
 stil add -D vite
 ```
 
-Con npm, pnpm o bun es lo mismo: `npm install @ascua/runtime` y
-`npm install -D @ascua/vite-plugin vite`.
+Con npm, pnpm o bun es lo mismo: `npm install ascua` y
+`npm install -D vite-plugin-ascua vite`.
 
 ## Configurar Vite
 
 ```ts
 // vite.config.ts
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 export default {
   plugins: [ascua()],
@@ -42,7 +42,7 @@ plantilla, y entregar a Vite el CSS que sale de sus `<style>`. Todo lo demás
 
 ```ts
 // src/contador.ts
-import { signal } from "@ascua/runtime";
+import { signal } from "ascua";
 
 export function Contador(props: { inicial: number }) {
   const cuenta = signal(props.inicial);
@@ -67,7 +67,7 @@ que cambia después son los nodos que dependen de un signal, no la función.
 
 ```ts
 // src/main.ts
-import { mount } from "@ascua/runtime";
+import { mount } from "ascua";
 
 import { Contador } from "./contador.js";
 
@@ -91,7 +91,7 @@ stil exec vite build    # un .js y un .css en dist/
 
 ## TypeScript
 
-`view` y `html` están declaradas como globales en `@ascua/runtime`, así que el
+`view` y `html` están declaradas como globales en `ascua`, así que el
 editor las conoce sin importarlas. Si tu `tsconfig.json` no incluye los tipos
 del paquete por otra vía, basta con importar algo de él en cualquier archivo.
 
@@ -102,7 +102,7 @@ tipo no da error. `ascua-check` lo comprueba con el `tsc` del proyecto y señala
 cada error en su línea:
 
 ```sh
-stil add -D @ascua/check
+stil add -D ascua-check
 stil exec ascua-check
 ```
 

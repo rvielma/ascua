@@ -1,4 +1,4 @@
-import type { Children } from "@ascua/runtime";
+import type { Children } from "ascua";
 
 export function Metrica(props: { etiqueta: string; valor: () => number }) {
   return view`<div><b>${() => props.valor()}</b> ${props.etiqueta}</div>`;

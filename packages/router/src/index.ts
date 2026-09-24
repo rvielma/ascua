@@ -1,5 +1,5 @@
 /**
- * # @ascua/router
+ * # ascua-router
  *
  * La ruta es un signal. Eso es todo lo que hay que entender: leerla dentro de
  * una closure hace que ese nodo siga a la URL, igual que con cualquier otro
@@ -11,7 +11,7 @@
  * anterior —efectos, listeners, `onCleanup`— y se construye la otra.
  */
 
-import { memo, root, show, signal, untrack } from "@ascua/runtime";
+import { memo, root, show, signal, untrack } from "ascua";
 
 /** Los parámetros que captura un patrón: `/pedidos/:id` → `{ id: "4821" }`. */
 export type Parametros = Record<string, string>;

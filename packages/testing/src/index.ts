@@ -1,5 +1,5 @@
 /**
- * # @ascua/testing
+ * # ascua-testing
  *
  * Lo justo para probar un componente: montarlo, tocarlo y desmontarlo.
  *
@@ -9,7 +9,7 @@
  * lo que se prueba tiene promesas por medio, y para eso está `esperar`.
  */
 
-import { mount } from "@ascua/runtime";
+import { mount } from "ascua";
 
 /** Lo que devuelve `render`. */
 export interface Montaje {

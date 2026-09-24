@@ -32,7 +32,7 @@ use std::fmt;
 use crate::plantilla::{ABRE, CIERRA};
 
 /// De dónde se importa el runtime.
-pub const MODULO_RUNTIME: &str = "@ascua/runtime";
+pub const MODULO_RUNTIME: &str = "ascua";
 
 #[derive(Debug)]
 pub struct Error {
@@ -240,7 +240,7 @@ mod tests {
 
     #[test]
     fn compila_una_plantilla_y_anade_el_import() {
-        let fuente = r#"import { signal } from "@ascua/runtime";
+        let fuente = r#"import { signal } from "ascua";
 
 export function Contador() {
   const count = signal(0);
@@ -297,11 +297,7 @@ export function Contador() {
         assert!(salida.contains("_$list("), "{salida}");
         assert!(salida.contains("_$el(\"li\")"), "{salida}");
         // Un solo import, con todo lo que hace falta.
-        assert_eq!(
-            salida.matches("from \"@ascua/runtime\"").count(),
-            1,
-            "{salida}"
-        );
+        assert_eq!(salida.matches("from \"ascua\"").count(), 1, "{salida}");
     }
 
     #[test]
@@ -357,7 +353,7 @@ export function Contador() {
 
     #[test]
     fn el_mapa_lleva_cada_linea_a_su_sitio() {
-        let fuente = "import { signal } from \"@ascua/runtime\";\n\
+        let fuente = "import { signal } from \"ascua\";\n\
                       \n\
                       export function Contador() {\n\
                       const count = signal(0);\n\

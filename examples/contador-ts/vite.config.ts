@@ -1,10 +1,10 @@
-import ascua from "@ascua/vite-plugin";
+import ascua from "vite-plugin-ascua";
 
 export default {
-  // Sin `bin`: compila con el módulo WebAssembly de @ascua/compilador.
+  // Sin `bin`: compila con el módulo WebAssembly de ascua-compilador.
   plugins: [ascua()],
   resolve: {
-    alias: { "@ascua/runtime": new URL("../../packages/runtime/src/index.ts", import.meta.url).pathname },
+    alias: { "ascua": new URL("../../packages/runtime/src/index.ts", import.meta.url).pathname },
   },
   build: { minify: "terser", target: "es2022" },
 };

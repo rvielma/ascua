@@ -25,7 +25,7 @@ su cuenta. `ascua-check` compila el proyecto, lo pasa por `tsc` y devuelve cada
 error a tu archivo y a su línea:
 
 ```sh
-stil add -D @ascua/check
+stil add -D ascua-check
 stil exec ascua-check
 ```
 
@@ -87,7 +87,7 @@ resuelta y genera otra que la extiende y apunta a la copia compilada.
 
 ## En el editor
 
-`@ascua/ts-plugin` lleva lo mismo al editor, mientras escribes:
+`ascua-ts-plugin` lleva lo mismo al editor, mientras escribes:
 
 - los errores de tipos de las plantillas, **subrayados donde están**;
 - **autocompletado de props** dentro de la etiqueta de un componente, con los
@@ -97,13 +97,13 @@ resuelta y genera otra que la extiende y apunta a la copia compilada.
 - los errores de sintaxis de una plantilla, en su línea.
 
 ```sh
-stil add -D @ascua/ts-plugin
+stil add -D ascua-ts-plugin
 ```
 
 ```json
 {
   "compilerOptions": {
-    "plugins": [{ "name": "@ascua/ts-plugin" }]
+    "plugins": [{ "name": "ascua-ts-plugin" }]
   }
 }
 ```

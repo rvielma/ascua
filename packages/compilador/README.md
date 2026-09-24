@@ -1,4 +1,4 @@
-# @ascua/compilador
+# ascua-compilador
 
 El compilador de plantillas de [Ascua](https://ascua.gitweave.run), como módulo
 **WebAssembly**: un solo artefacto para Node, Bun, Deno y el navegador. Sin
@@ -6,11 +6,11 @@ binarios por plataforma —SWC publica una decena, esbuild veinte— y sin
 `postinstall` que descargue nada.
 
 ```sh
-stil add -D @ascua/compilador      # o npm install -D @ascua/compilador
+stil add -D ascua-compilador      # o npm install -D ascua-compilador
 ```
 
 ```js
-const { compilar_json } = require("@ascua/compilador");
+const { compilar_json } = require("ascua-compilador");
 
 const { code, css } = JSON.parse(compilar_json(fuente));
 ```
@@ -23,7 +23,7 @@ copia sin tocar: esto no transpila TypeScript.
 En el navegador, el mismo .wasm con el envoltorio de `./web`:
 
 ```js
-import init, { compilar_json } from "@ascua/compilador/web";
+import init, { compilar_json } from "ascua-compilador/web";
 
 await init();
 ```
@@ -32,7 +32,7 @@ Es lo que hace funcionar el [playground](https://ascua.gitweave.run/playground/)
 el compilador entero corriendo en la pestaña.
 
 Normalmente no se llama a mano, sino a través de
-[`@ascua/vite-plugin`](https://www.npmjs.com/package/@ascua/vite-plugin).
+[`vite-plugin-ascua`](https://www.npmjs.com/package/vite-plugin-ascua).
 
 ## Licencia
 

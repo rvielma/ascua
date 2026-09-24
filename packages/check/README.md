@@ -1,4 +1,4 @@
-# @ascua/check
+# ascua-check
 
 Los tipos de TypeScript, también **dentro de las plantillas** de
 [Ascua](https://ascua.gitweave.run).
@@ -17,7 +17,7 @@ src/panel.ts:69:22 - error TS2322: Type 'number' is not assignable to type 'stri
 ```
 
 ```sh
-stil add -D @ascua/check      # o npm install -D @ascua/check
+stil add -D ascua-check      # o npm install -D ascua-check
 stil exec ascua-check         # o npx ascua-check
 ```
 

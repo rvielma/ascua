@@ -5,7 +5,7 @@
  * el runtime más los componentes de las islas.
  */
 
-import { hydrate } from "@ascua/runtime";
+import { hydrate } from "ascua";
 
 import { ISLAS } from "./islas/index.js";
 

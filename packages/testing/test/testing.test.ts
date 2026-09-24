@@ -8,7 +8,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { element, on, onCleanup, property, signal, text, dynamicText, append } from "@ascua/runtime";
+import { element, on, onCleanup, property, signal, text, dynamicText, append } from "ascua";
 import { enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "../src/index.js";
 
 afterEach(limpiar);
