@@ -9,7 +9,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { append, attribute, dynamicText, element, list, mount, on, show, text } from "../src/dom.js";
-import { onCleanup, signal } from "../src/reactivo.js";
+import { currentScope, onCleanup, root, signal } from "../src/reactivo.js";
 
 function escenario(): HTMLElement {
   document.body.innerHTML = "";
@@ -378,6 +378,57 @@ describe("list: lo que cuesta reordenar", () => {
 
     items.set([4, 5]);
     expect(soltados.sort()).toEqual([1, 2, 3]);
+  });
+});
+
+describe("memoria", () => {
+  it("una lista que se llena y se vacía no retiene las filas que ya no están", () => {
+    const items = signal<number[]>([]);
+    let scope: { hijos: unknown[] } | undefined;
+    mount(document.body, () => {
+      const ul = element("ul");
+      scope = currentScope() as unknown as { hijos: unknown[] };
+      list(ul, () => items(), (n) => n, (n) => {
+        const li = element("li");
+        append(li, text(String(n)));
+        return li;
+      });
+      return ul;
+    });
+
+    for (let vuelta = 0; vuelta < 10; vuelta++) {
+      items.set(Array.from({ length: 1000 }, (_, i) => vuelta * 1000 + i));
+      items.set([]);
+    }
+    // Antes de arreglarlo eran 10.001: cada fila que existió seguía colgada
+    // del scope de la lista, con sus closures y sus nodos del DOM.
+    expect(scope!.hijos.length).toBeLessThan(100);
+  });
+
+  it("liberar dos veces no repite las limpiezas", () => {
+    let limpiezas = 0;
+    const [, liberar] = root(() => onCleanup(() => limpiezas++));
+    liberar();
+    liberar();
+    expect(limpiezas).toBe(1);
+  });
+
+  it("un listener se quita si el nodo sigue en el documento, y no si ya salió", () => {
+    const dentro = element("button");
+    const fuera = element("button");
+    document.body.append(dentro, fuera);
+    const [, liberar] = root(() => {
+      on(dentro, "click", () => {});
+      on(fuera, "click", () => {});
+    });
+    const quitarDentro = vi.spyOn(dentro, "removeEventListener");
+    const quitarFuera = vi.spyOn(fuera, "removeEventListener");
+
+    fuera.remove();
+    liberar();
+    expect(quitarDentro).toHaveBeenCalledTimes(1);
+    expect(quitarFuera).not.toHaveBeenCalled();
+    dentro.remove();
   });
 });
 

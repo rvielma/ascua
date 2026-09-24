@@ -84,10 +84,12 @@ const OPERACIONES = [
   },
 ];
 
-window.medir = async function medir({ vueltas = 15, calentamiento = 5 } = {}) {
+window.medir = async function medir({ vueltas = 15, calentamiento = 5, solo = null } = {}) {
   const resultado = {};
 
-  for (const operacion of OPERACIONES) {
+  // `solo`: los nombres de las operaciones a medir, para estudiar una sin
+  // esperar a las demás.
+  for (const operacion of OPERACIONES.filter((o) => !solo || solo.includes(o.nombre))) {
     const tiempos = [];
 
     for (let vuelta = 0; vuelta < calentamiento + vueltas; vuelta++) {

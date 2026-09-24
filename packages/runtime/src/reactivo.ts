@@ -36,6 +36,10 @@ interface Nodo {
   observadores: Nodo[];
   dueño: Nodo | null;
   hijos: Nodo[];
+  /** Cuántos de `hijos` ya se liberaron por su cuenta. Ver `liberarNodo`. */
+  hijosLiberados: number;
+  /** Ya no existe: sus efectos no corren y liberarlo otra vez no hace nada. */
+  liberado: boolean;
   limpiezas: Array<() => void>;
   /** Quién se hace cargo si algo falla aquí dentro. */
   manejadores: Array<(error: unknown) => void>;
@@ -63,6 +67,8 @@ function crearNodo(valor: unknown, estado: Estado = LIMPIO): Nodo {
     observadores: [],
     dueño,
     hijos: [],
+    hijosLiberados: 0,
+    liberado: false,
     limpiezas: [],
     manejadores: [],
   };
@@ -187,29 +193,68 @@ function manejar(desde: Nodo, error: unknown): boolean {
   return false;
 }
 
-/** Deja el nodo listo para reejecutarse. El nodo en sí sobrevive. */
+/**
+ * Deja el nodo listo para reejecutarse. El nodo en sí sobrevive.
+ *
+ * Se llama mucho —una vez por nodo al desmontar una tabla entera—, así que no
+ * copia listas que están vacías, que es lo normal en un nodo hoja.
+ */
 function limpiarNodo(nodo: Nodo): void {
-  for (const fuente of nodo.fuentes) {
-    const indice = fuente.observadores.indexOf(nodo);
-    if (indice >= 0) fuente.observadores.splice(indice, 1);
+  if (nodo.fuentes.length > 0) {
+    for (const fuente of nodo.fuentes) {
+      const indice = fuente.observadores.indexOf(nodo);
+      if (indice >= 0) fuente.observadores.splice(indice, 1);
+    }
+    nodo.fuentes.length = 0;
   }
-  nodo.fuentes.length = 0;
 
-  const hijos = nodo.hijos.slice();
-  nodo.hijos.length = 0;
-  for (const hijo of hijos) liberarNodo(hijo);
+  if (nodo.hijos.length > 0) {
+    const hijos = nodo.hijos;
+    nodo.hijos = [];
+    nodo.hijosLiberados = 0;
+    for (const hijo of hijos) liberarNodo(hijo, true);
+  }
 
-  const limpiezas = nodo.limpiezas.slice();
-  nodo.limpiezas.length = 0;
   nodo.manejadores.length = 0;
-  // En orden inverso de registro, como los destructores.
-  for (let i = limpiezas.length - 1; i >= 0; i--) limpiezas[i]!();
+  if (nodo.limpiezas.length > 0) {
+    const limpiezas = nodo.limpiezas;
+    nodo.limpiezas = [];
+    // En orden inverso de registro, como los destructores.
+    for (let i = limpiezas.length - 1; i >= 0; i--) limpiezas[i]!();
+  }
 }
 
-function liberarNodo(nodo: Nodo): void {
+/**
+ * Libera un nodo y todo lo que cuelga de él.
+ *
+ * `desdeElDueño` es que lo está liberando su dueño, que ya lo sacó de su
+ * lista. Si no —una raíz que se suelta sola, como la fila de un `<For>` que
+ * desaparece—, hay que descolgarlo del dueño: si no, el dueño seguiría
+ * reteniendo cada fila que existió, con sus closures y sus nodos del DOM.
+ *
+ * Descolgar uno a uno con `indexOf` sería cuadrático al vaciar una lista
+ * grande. En su lugar se cuentan, y cuando la mitad de los hijos del dueño ya
+ * se liberaron, la lista se compacta: cuesta O(1) por nodo y el orden de los
+ * que quedan no cambia.
+ */
+function liberarNodo(nodo: Nodo, desdeElDueño = false): void {
+  if (nodo.liberado) return;
+  nodo.liberado = true;
+
+  const suyo = nodo.dueño;
+  if (!desdeElDueño && suyo && !suyo.liberado) {
+    suyo.hijosLiberados++;
+    if (suyo.hijosLiberados > 16 && suyo.hijosLiberados * 2 > suyo.hijos.length) {
+      suyo.hijos = suyo.hijos.filter((hijo) => !hijo.liberado);
+      suyo.hijosLiberados = 0;
+    }
+  }
+
   limpiarNodo(nodo);
-  const indice = pendientes.indexOf(nodo);
-  if (indice >= 0) pendientes.splice(indice, 1);
+  if (pendientes.length > 0) {
+    const indice = pendientes.indexOf(nodo);
+    if (indice >= 0) pendientes.splice(indice, 1);
+  }
   nodo.ejecutar = null;
   nodo.recomputar = null;
 }
