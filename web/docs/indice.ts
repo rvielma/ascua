@@ -52,6 +52,7 @@ export const INDICE: Grupo[] = [
     titulo: "A fondo",
     entradas: [
       { slug: "como-funciona", rotulo: "Cómo funciona" },
+      { slug: "rendimiento", rotulo: "Rendimiento" },
       { slug: "decisiones", rotulo: "Lo que queda fuera" },
     ],
   },

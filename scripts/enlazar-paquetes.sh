@@ -40,3 +40,4 @@ enlazar examples/panel-ts   compilador vite-plugin router testing
 enlazar examples/ssr-ts     compilador vite-plugin
 enlazar web                 compilador vite-plugin
 enlazar playground          compilador vite-plugin
+enlazar benchmarks/ascua    compilador vite-plugin
