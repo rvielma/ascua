@@ -53,17 +53,25 @@ const mediana = (valores) => {
   return orden[Math.floor(orden.length / 2)];
 };
 
-window.correr = async function correr({ rondas = 3, vueltas = 15, calentamiento = 5 } = {}) {
+window.correr = async function correr({
+  rondas = 3,
+  vueltas = 15,
+  calentamiento = 5,
+  // Para estudiar un cambio: otros contendientes (vanilla tiene que estar,
+  // es la base) y solo algunas operaciones.
+  contendientes = CONTENDIENTES,
+  solo = null,
+} = {}) {
   // tiempos[contendiente][operacion] = [ms por ronda]
   const tiempos = {};
-  for (const nombre of CONTENDIENTES) tiempos[nombre] = {};
+  for (const nombre of contendientes) tiempos[nombre] = {};
 
   for (let ronda = 0; ronda < rondas; ronda++) {
-    const orden = CONTENDIENTES.map((_, i) => CONTENDIENTES[(i + ronda) % CONTENDIENTES.length]);
+    const orden = contendientes.map((_, i) => contendientes[(i + ronda) % contendientes.length]);
     for (const nombre of orden) {
       salida.textContent = `ronda ${ronda + 1} de ${rondas}: ${nombre}…`;
       const ventana = await cargar(nombre);
-      const resultado = await ventana.medir({ vueltas, calentamiento });
+      const resultado = await ventana.medir({ vueltas, calentamiento, solo });
       for (const [operacion, ms] of Object.entries(resultado)) {
         (tiempos[nombre][operacion] ??= []).push(ms);
       }
@@ -72,7 +80,7 @@ window.correr = async function correr({ rondas = 3, vueltas = 15, calentamiento 
 
   const operaciones = Object.keys(tiempos.vanilla);
   const informe = { rondas, ms: {}, factor: {} };
-  for (const nombre of CONTENDIENTES) {
+  for (const nombre of contendientes) {
     informe.ms[nombre] = {};
     informe.factor[nombre] = {};
     for (const operacion of operaciones) {
@@ -83,7 +91,12 @@ window.correr = async function correr({ rondas = 3, vueltas = 15, calentamiento 
         mediana(propios.map((ms, ronda) => ms / base[ronda])).toFixed(2),
       );
     }
-    const factores = Object.values(informe.factor[nombre]);
+    // «seleccionar una fila» tarda lo que la resolución del reloj del
+    // navegador (~0,1 ms): su factor mide el redondeo, no la operación, así que
+    // no entra en el resumen.
+    const factores = Object.entries(informe.factor[nombre])
+      .filter(([operacion]) => operacion !== "seleccionar una fila")
+      .map(([, factor]) => factor);
     // La media geométrica, que es la que usa js-framework-benchmark para
     // resumir: una operación diez veces más lenta no se compensa con diez
     // que van un poco más rápido.

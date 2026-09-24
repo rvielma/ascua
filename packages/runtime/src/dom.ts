@@ -241,7 +241,8 @@ export function staticAttribute(nodo: Element, nombre: string, valor: ValorAtrib
 
 /**
  * Manejador de eventos. Se quita solo cuando el scope se libera, así que
- * desmontar no deja listeners colgando.
+ * desmontar no deja listeners colgando: si el nodo sigue en el documento, se
+ * quita el listener; si ya salió, se va con él.
  *
  * El nombre es el del DOM (`click`, `input`): lo que ya sabe cualquiera que
  * haya escrito HTML.
@@ -254,7 +255,13 @@ export function on<K extends keyof HTMLElementEventMap>(
 export function on(nodo: Element, evento: string, manejador: (evento: Event) => void): void;
 export function on(nodo: Element, evento: string, manejador: (evento: Event) => void): void {
   nodo.addEventListener(evento, manejador);
-  onCleanup(() => nodo.removeEventListener(evento, manejador));
+  // Si el nodo ya salió del documento —una fila que se vacía, una rama de
+  // <Show> que se cierra—, el recolector se lo lleva con su listener, y
+  // quitarlo uno a uno es trabajo para nada. Solo se quita si el nodo sigue
+  // ahí, como cuando se desmonta una isla y su HTML se queda.
+  onCleanup(() => {
+    if (nodo.isConnected) nodo.removeEventListener(evento, manejador);
+  });
 }
 
 /**

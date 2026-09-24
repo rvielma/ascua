@@ -81,7 +81,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | `ascua`, `vite-plugin-ascua` y el resto, en la 0.1.0 | ✅ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
-**303 tests** (153 en Rust, 150 en TypeScript), sin warnings de `clippy`, todo
+**306 tests** (153 en Rust, 153 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -93,9 +93,9 @@ verificado en navegador real.
 | El router | 0,98 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
-En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,21×** el
-tiempo del DOM escrito a mano, a la par de Solid (1,22×) y a la mitad del coste
-de React (2,47×). Método y datos crudos en [`benchmarks/`](benchmarks) y en
+En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,16×** el
+tiempo del DOM escrito a mano, cerca de Solid (1,06×) y muy por delante de React
+(1,92×). Método y datos crudos en [`benchmarks/`](benchmarks) y en
 [la documentación](https://ascua.gitweave.run/docs/rendimiento/).
 
 ## Cómo está construido
@@ -187,7 +187,7 @@ de Ascua desde `packages/`. Por partes:
 cargo test                   # 153 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 86 tests del runtime
+cd packages/runtime && stil run test    # 89 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
 cd packages/testing && stil run test    # 9 tests del paquete de testing
 cd packages/check && stil run test      # 6 tests de ascua-check

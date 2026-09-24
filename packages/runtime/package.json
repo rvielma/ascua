@@ -1,6 +1,6 @@
 {
   "name": "ascua",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Runtime reactivo de Ascua: signals, effects y operaciones directas de DOM. Sin Virtual DOM.",
   "keywords": [
     "reactividad",
