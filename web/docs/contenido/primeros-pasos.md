@@ -3,11 +3,6 @@ titulo: Primeros pasos
 descripcion: De un directorio vacío a un componente montado en el navegador, con Vite.
 ---
 
-> **Cuidado:** los paquetes están listos para npm, pero todavía no se han
-> publicado. Hasta entonces, se usan desde el
-> [repositorio](https://github.com/rvielma/ascua): los ejemplos de `examples/`
-> enlazan `packages/` con un alias de Vite, y es la forma más rápida de probar.
-
 ## Instalar
 
 Ascua es una librería de runtime y un plugin de Vite. El compilador viene
@@ -22,6 +17,10 @@ stil add -D vite
 
 Con npm, pnpm o bun es lo mismo: `npm install ascua` y
 `npm install -D vite-plugin-ascua vite`.
+
+> **Nota:** stil no instala versiones con menos de 7 días —es su defensa
+> contra paquetes comprometidos recién publicados—. En la primera semana de
+> una versión nueva, `stil add ascua --min-age 0`.
 
 ## Configurar Vite
 

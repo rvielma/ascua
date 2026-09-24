@@ -78,7 +78,7 @@ CSS, gzip, la aplicación entera.
 | `class:` y `ref` | Una clase que va y viene, y quedarse con un nodo | ✅ |
 | `onError` | Un fallo en una vista no se lleva la aplicación | ✅ |
 | Resaltado en el editor | `html` como alias de `view`, para lit-html y compañía | ✅ |
-| Publicado en npm | Los paquetes están listos; falta `npm publish` | ⬜ |
+| Publicado en npm | `ascua`, `vite-plugin-ascua` y el resto, en la 0.1.0 | ✅ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
 **291 tests** (153 en Rust, 138 en TypeScript), sin warnings de `clippy`, todo
