@@ -19,7 +19,7 @@ import { createCssVariablesTheme, createHighlighter, type Highlighter } from "sh
 
 import { INDICE, ORDEN, ruta, type Entrada } from "./indice.js";
 
-const VERSION = "v0.1.0";
+const VERSION = "v0.1.1";
 const CONTENIDO = new URL("./contenido/", import.meta.url);
 
 interface Seccion {
