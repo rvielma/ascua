@@ -1,6 +1,6 @@
 {
   "name": "ascua-ts-plugin",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Plugin del language service de TypeScript para Ascua: errores de tipos, autocompletado de props e ir a la definición dentro de las plantillas.",
   "keywords": [
     "typescript",
@@ -20,6 +20,7 @@
   "files": [
     "index.js",
     "plantilla.js",
+    "atributos.js",
     "LICENSE-MIT",
     "LICENSE-APACHE"
   ],

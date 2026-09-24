@@ -92,6 +92,11 @@ resuelta y genera otra que la extiende y apunta a la copia compilada.
 - los errores de tipos de las plantillas, **subrayados donde están**;
 - **autocompletado de props** dentro de la etiqueta de un componente, con los
   obligatorios primero y sin los que ya escribiste;
+- **autocompletado del HTML**: después de `<`, las etiquetas y tus componentes;
+  dentro de una etiqueta, sus atributos y los globales, los eventos (`oninput`,
+  `onkeydown`…), `prop:` con las propiedades que se pueden escribir en ese
+  elemento, `class:` y `ref`. Con el valor ya puesto: comillas para un
+  atributo, `${}` para un evento;
 - **ir a la definición** desde `<Tarjeta` hasta la función;
 - la **firma del componente** al pasar por encima de su etiqueta;
 - los errores de sintaxis de una plantilla, en su línea.
@@ -119,8 +124,6 @@ además `typescript@6` para el editor. `ascua-check` sirve con los tres.
 
 ## Lo que falta
 
-- **Los atributos del HTML** no se autocompletan: los props de los
-  componentes, sí.
 - **La columna de un error** se encuentra buscando en tu línea el nombre que
   señala TypeScript: casi siempre es el prop exacto, y si no aparece, el
   subrayado empieza donde empieza la etiqueta.

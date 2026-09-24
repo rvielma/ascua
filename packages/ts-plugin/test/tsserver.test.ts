@@ -25,9 +25,17 @@ function pedir(command: string, args: object): Promise<any> {
   return new Promise((listo, fallo) => {
     const limite = setTimeout(() => fallo(new Error(`sin respuesta a ${command}`)), 50_000);
     const mirar = () => {
-      for (const linea of salida.split(/\r?\n/)) {
+      // Solo las líneas completas: una respuesta grande llega en trozos.
+      const lineas = salida.split(/\r?\n/);
+      lineas.pop();
+      for (const linea of lineas) {
         if (!linea.startsWith("{")) continue;
-        const mensaje = JSON.parse(linea);
+        let mensaje;
+        try {
+          mensaje = JSON.parse(linea);
+        } catch {
+          continue;
+        }
         if (mensaje.type === "response" && mensaje.request_seq === seq) {
           clearTimeout(limite);
           servidor.stdout!.off("data", mirar);
@@ -77,3 +85,17 @@ it("tsserver carga el plugin desde el tsconfig y los errores llegan al editor", 
   expect(deAscua.map((d: any) => d.start.line)).toEqual([10, 11, 14, 15]);
   expect(deAscua[0].text).toBe("Type 'number' is not assignable to type 'string'.");
 });
+
+it("y el autocompletado de atributos, por el mismo protocolo", async () => {
+  const archivo = join(PROYECTO, "src/html.ts");
+  servidor.stdin!.write(
+    `${JSON.stringify({ seq: ++secuencia, type: "request", command: "open", arguments: { file: archivo } })}\n`,
+  );
+  // Línea 6: `      <input type="text" disabled >`, con el cursor antes del `>`
+  // (tsserver cuenta las columnas desde 1).
+  const respuesta = await pedir("completionInfo", { file: archivo, line: 6, offset: 35 });
+  const nombres = respuesta.body.entries.map((e: any) => e.name);
+  expect(nombres).toEqual(expect.arrayContaining(["placeholder", "oninput", "prop:value"]));
+  expect(nombres).not.toContain("disabled");
+});
+

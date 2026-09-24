@@ -26,7 +26,15 @@
 const { createRequire } = require("node:module");
 const { join } = require("node:path");
 
+const { atributosDe } = require("./atributos.js");
 const { enmascarar, etiquetaEn, lineasDeOrigen, plantillaEn } = require("./plantilla.js");
+
+/** Atributos booleanos: se escriben solos, sin valor. */
+const BOOLEANOS = new Set([
+  "hidden", "disabled", "required", "readonly", "checked", "selected", "multiple", "open",
+  "autofocus", "novalidate", "controls", "autoplay", "loop", "muted", "playsinline", "defer",
+  "async", "reversed", "default", "inert", "allowfullscreen", "ismap", "nomodule",
+]);
 
 const PLANTILLA = /\b(?:view|html)`/;
 /** Código propio para los errores de sintaxis de una plantilla. */
@@ -204,30 +212,20 @@ function init({ typescript: ts }) {
       const base = ls.getCompletionsAtPosition(nombre, posicion, opciones, formato);
       try {
         const aqui = etiqueta(nombre, posicion);
-        if (!aqui?.esComponente || aqui.enNombre || aqui.enValor) return base;
-        const simbolo = componente(aqui.nombre, aqui.nodo);
-        const props = simbolo && tipoDeProps(simbolo, aqui.nodo);
-        if (!props) return base;
+        if (!aqui || aqui.enValor) return base;
 
-        const checker = programa().getTypeChecker();
-        const entradas = checker
-          .getPropertiesOfType(props)
-          .filter((p) => p.name !== "children" && !aqui.escritos.has(p.name))
-          .map((p) => {
-            const opcional = (p.flags & ts.SymbolFlags.Optional) !== 0;
-            return {
-              name: p.name,
-              kind: ts.ScriptElementKind.memberVariableElement,
-              kindModifiers: opcional ? "optional" : "",
-              // Los obligatorios primero: son los que faltan.
-              sortText: opcional ? "1" : "0",
-              replacementSpan: { start: posicion - aqui.prefijo.length, length: aqui.prefijo.length },
-            };
-          });
-        if (entradas.length === 0) return base;
+        let entradas;
+        if (aqui.enNombre) entradas = completarEtiqueta(aqui);
+        else if (aqui.esComponente) entradas = completarProps(aqui);
+        else entradas = completarAtributos(aqui, opciones);
+
+        if (!entradas?.length) return base;
+        const inicio = aqui.enNombre ? aqui.inicioNombre : posicion - aqui.prefijo.length;
+        const largo = aqui.enNombre ? aqui.nombre.length : aqui.prefijo.length;
+        for (const entrada of entradas) entrada.replacementSpan = { start: inicio, length: largo };
         return {
           isGlobalCompletion: false,
-          isMemberCompletion: true,
+          isMemberCompletion: !aqui.enNombre,
           isNewIdentifierLocation: false,
           entries: entradas,
         };
@@ -236,6 +234,128 @@ function init({ typescript: ts }) {
         return base;
       }
     };
+
+    /** Los props que le faltan a un componente. */
+    function completarProps(aqui) {
+      const simbolo = componente(aqui.nombre, aqui.nodo);
+      const props = simbolo && tipoDeProps(simbolo, aqui.nodo);
+      if (!props) return [];
+      const checker = programa().getTypeChecker();
+      return checker
+        .getPropertiesOfType(props)
+        .filter((p) => p.name !== "children" && !aqui.escritos.has(p.name))
+        .map((p) => {
+          const opcional = (p.flags & ts.SymbolFlags.Optional) !== 0;
+          return {
+            name: p.name,
+            kind: ts.ScriptElementKind.memberVariableElement,
+            kindModifiers: opcional ? "optional" : "",
+            // Los obligatorios primero: son los que faltan.
+            sortText: opcional ? "1" : "0",
+          };
+        });
+    }
+
+    /** Un tipo global del DOM por su nombre: `HTMLElementTagNameMap`… */
+    function tipoGlobal(nombre, nodo) {
+      const checker = programa().getTypeChecker();
+      const simbolo = checker.getSymbolsInScope(nodo, ts.SymbolFlags.Type).find((s) => s.name === nombre);
+      return simbolo ? checker.getDeclaredTypeOfSymbol(simbolo) : undefined;
+    }
+
+    /** Después de `<`: las etiquetas del HTML y los componentes en scope. */
+    function completarEtiqueta(aqui) {
+      const checker = programa().getTypeChecker();
+      const componentes = checker
+        .getSymbolsInScope(aqui.nodo, ts.SymbolFlags.Value | ts.SymbolFlags.Alias)
+        .filter((s) => /^[A-Z]/.test(s.name))
+        .filter((s) => {
+          const real = s.flags & ts.SymbolFlags.Alias ? checker.getAliasedSymbol(s) : s;
+          return checker.getTypeOfSymbolAtLocation(real, aqui.nodo).getCallSignatures().length > 0;
+        })
+        .map((s) => ({ name: s.name, kind: ts.ScriptElementKind.functionElement, kindModifiers: "", sortText: "0" }));
+
+      const mapa = tipoGlobal("HTMLElementTagNameMap", aqui.nodo);
+      const etiquetas = mapa
+        ? checker.getPropertiesOfType(mapa).map((p) => ({
+            name: p.name,
+            kind: ts.ScriptElementKind.keyword,
+            kindModifiers: "",
+            sortText: "1",
+          }))
+        : [];
+      return [...componentes, ...etiquetas];
+    }
+
+    /**
+     * Dentro de una etiqueta del HTML: sus atributos, los globales, los
+     * eventos, `prop:` con las propiedades que se pueden escribir, `class:` y
+     * `ref`.
+     */
+    function completarAtributos(aqui, opciones) {
+      const checker = programa().getTypeChecker();
+      const fragmentos = opciones?.includeCompletionsWithSnippetText === true;
+      const entradas = [];
+      const añadir = (nombre, orden, detalle, valor) => {
+        if (aqui.escritos.has(nombre)) return;
+        const entrada = {
+          name: nombre,
+          kind: ts.ScriptElementKind.memberVariableElement,
+          kindModifiers: detalle,
+          sortText: orden,
+        };
+        // Con fragmentos, el valor viene puesto: comillas para un atributo,
+        // un hueco para lo que recibe una expresión.
+        if (fragmentos && valor) {
+          entrada.insertText = valor === "hueco" ? `${nombre}=\${$1}` : `${nombre}="$1"`;
+          entrada.isSnippet = true;
+        }
+        entradas.push(entrada);
+      };
+
+      const { propios, globales } = atributosDe(aqui.nombre);
+      for (const nombre of propios) añadir(nombre, "0", "", BOOLEANOS.has(nombre) ? null : "texto");
+      for (const nombre of globales) añadir(nombre, "1", "", BOOLEANOS.has(nombre) ? null : "texto");
+
+      const eventos = tipoGlobal("HTMLElementEventMap", aqui.nodo);
+      if (eventos) {
+        for (const evento of checker.getPropertiesOfType(eventos)) añadir(`on${evento.name}`, "2", "", "hueco");
+      }
+
+      añadir("class:", "3", "", null);
+      añadir("ref", "3", "", "hueco");
+
+      // `prop:` con lo que se puede escribir del elemento concreto: primero lo
+      // suyo (`value` en un <input>), luego lo heredado.
+      const mapa = tipoGlobal("HTMLElementTagNameMap", aqui.nodo);
+      const deLaEtiqueta = mapa && checker.getPropertyOfType(mapa, aqui.nombre.toLowerCase());
+      const tipo = deLaEtiqueta
+        ? checker.getTypeOfSymbolAtLocation(deLaEtiqueta, aqui.nodo)
+        : tipoGlobal("HTMLElement", aqui.nodo);
+      if (tipo) {
+        const propio = tipo.getSymbol()?.name;
+        for (const propiedad of checker.getPropertiesOfType(tipo)) {
+          if (!escribible(propiedad)) continue;
+          const declarada = propiedad.declarations?.[0]?.parent;
+          const suya = declarada && ts.isInterfaceDeclaration(declarada) && declarada.name.text === propio;
+          añadir(`prop:${propiedad.name}`, suya ? "4" : "5", "", "hueco");
+        }
+      }
+      return entradas;
+    }
+
+    /** Una propiedad que tiene sentido asignar: ni método, ni solo lectura, ni un `on…`. */
+    function escribible(propiedad) {
+      if (/^on/.test(propiedad.name) || /^[A-Z_]+$/.test(propiedad.name)) return false;
+      const declaraciones = propiedad.declarations ?? [];
+      if (declaraciones.some((d) => ts.isSetAccessorDeclaration(d))) return true;
+      return declaraciones.some(
+        (d) =>
+          ts.isPropertySignature(d) &&
+          !(ts.getCombinedModifierFlags(d) & ts.ModifierFlags.Readonly) &&
+          !(d.type && ts.isFunctionTypeNode(d.type)),
+      );
+    }
 
     const definicion = (nombre, posicion) => {
       const aqui = etiqueta(nombre, posicion);

@@ -117,6 +117,63 @@ describe("autocompletado", () => {
   });
 });
 
+describe("autocompletado del HTML", () => {
+  const completar = (aguja: string, desplazamiento: number, fragmentos = false) =>
+    servicio.getCompletionsAtPosition(ruta("src/html.ts"), posicion("src/html.ts", aguja, desplazamiento), {
+      includeCompletionsWithSnippetText: fragmentos,
+    })!.entries;
+
+  it("en una etiqueta, sus atributos, los globales, los eventos y prop:", () => {
+    const entradas = completar(`disabled >`, `disabled `.length);
+    const nombres = entradas.map((e) => e.name);
+
+    expect(nombres).toEqual(expect.arrayContaining(["placeholder", "value", "name", "required"]));
+    expect(nombres).toEqual(expect.arrayContaining(["id", "class", "tabindex", "hidden"]));
+    expect(nombres).toEqual(expect.arrayContaining(["oninput", "onclick", "onkeydown"]));
+    expect(nombres).toEqual(expect.arrayContaining(["prop:value", "prop:checked", "class:", "ref"]));
+    // Lo ya escrito no se repite.
+    expect(nombres).not.toContain("type");
+    expect(nombres).not.toContain("disabled");
+    // Ni métodos, ni lo que es de solo lectura, ni los manejadores `on…` como propiedad.
+    expect(nombres).not.toContain("prop:click");
+    expect(nombres).not.toContain("prop:form");
+    expect(nombres).not.toContain("prop:onclick");
+  });
+
+  it("los atributos de la etiqueta van primero, y las propiedades suyas antes que las heredadas", () => {
+    const entradas = completar(`disabled >`, `disabled `.length);
+    const orden = (nombre: string) => entradas.find((e) => e.name === nombre)!.sortText;
+    expect(orden("placeholder") < orden("id")).toBe(true);
+    expect(orden("id") < orden("onclick")).toBe(true);
+    expect(orden("prop:value") < orden("prop:title")).toBe(true);
+  });
+
+  it("cada etiqueta, los suyos", () => {
+    const nombres = completar(`<a >`, 3).map((e) => e.name);
+    expect(nombres).toEqual(expect.arrayContaining(["href", "target", "download"]));
+    expect(nombres).not.toContain("placeholder");
+  });
+
+  it("con fragmentos, el valor viene puesto", () => {
+    const entradas = completar(`disabled >`, `disabled `.length, true);
+    const insertar = (nombre: string) => entradas.find((e) => e.name === nombre)!.insertText;
+    expect(insertar("placeholder")).toBe('placeholder="$1"');
+    expect(insertar("oninput")).toBe("oninput=${$1}");
+    expect(insertar("prop:value")).toBe("prop:value=${$1}");
+    // Un booleano se escribe solo.
+    expect(insertar("required")).toBeUndefined();
+  });
+
+  it("después de <, las etiquetas y los componentes en scope", () => {
+    const entradas = completar(`<p><`, 4);
+    const nombres = entradas.map((e) => e.name);
+    expect(nombres).toEqual(expect.arrayContaining(["button", "div", "input", "section"]));
+    expect(nombres).toContain("Metrica");
+    // Los componentes primero.
+    expect(entradas.find((e) => e.name === "Metrica")!.sortText).toBe("0");
+  });
+});
+
 describe("navegación", () => {
   it("ir a la definición desde la etiqueta", () => {
     const aqui = posicion("src/editor.ts", "<Metrica", 3);
