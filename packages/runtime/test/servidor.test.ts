@@ -22,7 +22,7 @@ import {
   text,
 } from "../src/dom.js";
 import { signal } from "../src/reactivo.js";
-import { island, renderToString } from "../src/servidor.js";
+import { collectStyles, island, registerStyle, renderToString } from "../src/servidor.js";
 
 describe("renderToString", () => {
   it("no necesita un navegador", () => {
@@ -223,3 +223,51 @@ describe("island", () => {
     expect(html.match(/data-ascua-h="0"/g)).toHaveLength(2);
   });
 });
+
+describe("collectStyles", () => {
+  registerStyle(".nota[data-ascua-aaaa1111] { color: gray; }");
+  registerStyle(".caja[data-ascua-bbbb2222] { padding: 1rem; }\n.caja h2[data-ascua-bbbb2222] { margin: 0; }");
+  registerStyle(".otra[data-ascua-cccc3333] { color: red; }");
+
+  it("devuelve solo el CSS de lo que aparece en la página", () => {
+    const html = renderToString(() => {
+      const div = element("div");
+      staticAttribute(div, "data-ascua-bbbb2222", "");
+      const p = element("p");
+      staticAttribute(p, "data-ascua-aaaa1111", "");
+      append(div, p);
+      return div;
+    });
+    const css = collectStyles(html);
+    expect(css).toContain("color: gray");
+    expect(css).toContain("padding: 1rem");
+    expect(css).not.toContain("color: red");
+  });
+
+  it("no confunde los atributos de la hidratación con un scope", () => {
+    const html = renderToString(() => island("x", () => element("p")));
+    expect(html).toContain("data-ascua-h=");
+    expect(collectStyles(html)).toBe("");
+  });
+
+  it("de una hoja con varias plantillas, solo las reglas de la que se usa", () => {
+    registerStyle(
+      ".pagina[data-ascua-dddd4444] { color: teal; }\n\n" +
+        "@media (min-width: 40rem) { .pagina[data-ascua-dddd4444] { padding: 2rem; } }\n\n" +
+        "@keyframes latido { from { opacity: .5; } }\n\n" +
+        ".otra[data-ascua-eeee5555] { color: purple; content: \"}\"; }",
+    );
+    const css = collectStyles('<main data-ascua-dddd4444=""></main>');
+    expect(css).toContain("color: teal");
+    expect(css).toContain("padding: 2rem");
+    expect(css).toContain("@keyframes latido");
+    expect(css).not.toContain("purple");
+  });
+
+  it("registrar dos veces la misma hoja no la duplica", () => {
+    registerStyle(".nota[data-ascua-aaaa1111] { color: gray; }");
+    const css = collectStyles('<p data-ascua-aaaa1111=""></p>');
+    expect(css.match(/color: gray/g)).toHaveLength(1);
+  });
+});
+

@@ -6,15 +6,18 @@
  * archivos.
  */
 
-import { renderToString } from "ascua/servidor";
+import { collectStyles, renderToString } from "ascua/servidor";
 
 import { paginaPara } from "./paginas.js";
 
-export function render(url: string): { html: string; titulo: string; estado: number } {
+export function render(url: string): { html: string; css: string; titulo: string; estado: number } {
   const ruta = new URL(url, "http://x").pathname.replace(/\/+$/, "") || "/";
   const pagina = paginaPara(ruta);
+  const html = renderToString(pagina.construir);
   return {
-    html: renderToString(pagina.construir),
+    html,
+    // Los estilos de los componentes que aparecen en esta página, y solo esos.
+    css: collectStyles(html),
     titulo: `${pagina.titulo} · Ascua`,
     estado: pagina.estado,
   };

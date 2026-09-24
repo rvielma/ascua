@@ -81,7 +81,7 @@ CSS, gzip, la aplicación entera.
 | Publicado en npm | `ascua`, `vite-plugin-ascua` y el resto, en la 0.1.0 | ✅ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
 
-**297 tests** (153 en Rust, 144 en TypeScript), sin warnings de `clippy`, todo
+**303 tests** (153 en Rust, 150 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -182,14 +182,14 @@ de Ascua desde `packages/`. Por partes:
 cargo test                   # 153 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 82 tests del runtime
+cd packages/runtime && stil run test    # 86 tests del runtime
 cd packages/router && stil run test     # 18 tests del router
 cd packages/testing && stil run test    # 9 tests del paquete de testing
 cd packages/check && stil run test      # 6 tests de ascua-check
 cd packages/ts-plugin && stil run test  # 17 tests del plugin del editor, con tsserver
 cd examples/panel-ts && stil run check  # ascua-check sobre el panel
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
-cd examples/ssr-ts && stil run test     # 5 tests del ejemplo con SSR
+cd examples/ssr-ts && stil run test     # 7 tests del ejemplo con SSR
 cd web && ./build.sh                    # el sitio, con el playground dentro
 cd examples/panel-ts && stil run dev
 ```

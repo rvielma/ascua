@@ -80,7 +80,7 @@ en desarrollo y `dist/` en producción. Las piezas:
 
 ```text
 index.html                 plantilla con <!--app--> donde va la página
-src/entrada-servidor.ts    render(url) → { html, titulo, estado }
+src/entrada-servidor.ts    render(url) → { html, css, titulo, estado }
 src/entrada-cliente.ts     hydrate(ISLAS)
 src/paginas.ts             las páginas: solo servidor
 src/islas/                 los componentes interactivos
@@ -89,11 +89,12 @@ servidor.js                HTTP: Vite en desarrollo, dist/ en producción
 
 ```ts
 // src/entrada-servidor.ts
-import { renderToString } from "ascua/servidor";
+import { collectStyles, renderToString } from "ascua/servidor";
 
 export function render(url: string) {
   const pagina = paginaPara(new URL(url, "http://x").pathname);
-  return { html: renderToString(pagina.construir), estado: pagina.estado };
+  const html = renderToString(pagina.construir);
+  return { html, css: collectStyles(html), estado: pagina.estado };
 }
 ```
 
@@ -113,6 +114,28 @@ vite build --ssr src/entrada-servidor.ts --outDir dist/servidor
 Las páginas no se importan desde el cliente, así que su código no llega al
 navegador: el bundle es el runtime y las islas. En el ejemplo, **3,1 kB** gzip
 para un contador y un buscador con lista filtrable.
+
+## Estilos
+
+El CSS con scope de un componente llega a Vite como un módulo de estilos, y en
+el cliente eso basta. Pero una página que solo se renderiza en el servidor
+nunca entra en el bundle del cliente, así que en el servidor el plugin hace
+otra cosa: **registra** cada hoja al cargar el módulo, y `collectStyles`
+devuelve las que usa una página.
+
+```ts
+import { collectStyles, renderToString } from "ascua/servidor";
+
+const html = renderToString(() => Pagina());
+const css = collectStyles(html);
+// `<style>${css}</style>` en el <head>, `html` en el <body>.
+```
+
+`collectStyles` mira qué scopes aparecen en el HTML y devuelve **solo el CSS de
+esos componentes**: los estilos llegan con la página, sin parpadeo, sin otra
+petición y sin arrastrar los de las páginas que no se están viendo. El código
+de las páginas tampoco viaja: en el ejemplo, el CSS del cliente es solo el de
+las islas y el global.
 
 ## Cómo encuentra cada nodo
 
@@ -152,9 +175,6 @@ el dato por props.
 
 ## Lo que falta
 
-- **El CSS con scope de un componente que solo existe en el servidor** no
-  llega al navegador: Vite solo extrae lo que importa el cliente. De momento,
-  los estilos de las páginas van en un `.css` global.
 - **Navegar entre páginas recarga.** Es una aplicación de varias páginas con
   islas, no una SPA que el servidor pinta la primera vez.
 - **No hay streaming**: `renderToString` devuelve la página entera.

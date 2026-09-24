@@ -85,7 +85,7 @@ export default function ascua(opciones = {}) {
       return null;
     },
 
-    transform(codigo, id) {
+    transform(codigo, id, opciones) {
       const archivo = id.split("?")[0];
       if (!EXTENSIONES.test(archivo)) return null;
       // Sin plantillas no hay nada que compilar, y el archivo ni se toca.
@@ -105,6 +105,24 @@ export default function ascua(opciones = {}) {
       // del archivo original salió cada línea de la suya. Sin esto, un error
       // en el navegador señala `_$dtxt(...)` y no lo que alguien escribió.
       if (!salida.css) return { code: salida.code, map: salida.map };
+
+      // En el servidor, el CSS no puede ir a un módulo de estilos: una página
+      // que solo se renderiza aquí nunca entra en el bundle del cliente, y sus
+      // estilos se perderían. Se registra, y `collectStyles` de
+      // `ascua/servidor` devuelve los que usa cada página.
+      //
+      // `ssr` llega en las opciones en el servidor de desarrollo; en el build
+      // con Rolldown no, y lo que dice dónde se está es el entorno.
+      const enServidor = opciones?.ssr === true || this.environment?.config?.consumer === "server";
+      if (enServidor) {
+        const mapa = salida.map ? { ...salida.map, mappings: `;;${salida.map.mappings}` } : null;
+        return {
+          code:
+            `import { registerStyle as _$estilo } from "ascua/servidor";\n` +
+            `_$estilo(${JSON.stringify(salida.css)});\n${salida.code}`,
+          map: mapa,
+        };
+      }
 
       // El CSS se entrega como un módulo aparte: Vite lo inyecta en dev y lo
       // extrae a un .css en el build. No queda nada de estilos en runtime.

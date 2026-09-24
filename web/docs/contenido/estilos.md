@@ -38,6 +38,12 @@ inyecta y la recarga al guardar; en el build la extrae a un `.css` junto al
 resto. **No queda nada de estilos en el JavaScript**: ni un objeto de clases,
 ni un `<style>` que se inserte al montar.
 
+## En el servidor
+
+Con [SSR](/docs/ssr/#estilos), el CSS de los componentes que solo se renderizan
+en el servidor no va al bundle del cliente: `collectStyles` lo devuelve con cada
+página, y solo el de lo que aparece en ella.
+
 ## El scope es por plantilla
 
 Tres consecuencias que conviene tener presentes:

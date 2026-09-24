@@ -67,10 +67,17 @@ async function renderizar(peticion, respuesta) {
     ({ render } = await vite.ssrLoadModule("/src/entrada-servidor.ts"));
   }
 
-  const { html, titulo, estado } = render(url);
+  const { html, css, titulo, estado } = render(url);
   respuesta.statusCode = estado;
   respuesta.setHeader("content-type", "text/html; charset=utf-8");
-  respuesta.end(plantilla.replace("<!--titulo-->", titulo).replace("<!--app-->", html));
+  // Con funciones y no con texto: `replace` interpreta `$&` o `$'` en el
+  // texto de reemplazo, y una página que los contenga saldría rota.
+  respuesta.end(
+    plantilla
+      .replace("<!--titulo-->", () => titulo)
+      .replace("<!--estilos-->", () => (css ? `<style>${css}</style>` : ""))
+      .replace("<!--app-->", () => html),
+  );
 }
 
 /** Los archivos de `dist/cliente`, menos el index.html, que es plantilla. */

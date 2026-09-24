@@ -22,11 +22,6 @@ body {
   color: light-dark(#17171a, #ececf0);
   font: 16px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
 }
-header, main, footer { max-width: 44rem; margin: 0 auto; padding: 1rem; }
-header { display: flex; gap: 1rem; align-items: baseline; border-bottom: 1px solid var(--borde); }
-header strong { margin-right: auto; }
-nav a { color: var(--tenue); text-decoration: none; margin-left: 1rem; }
-nav a[aria-current="page"] { color: var(--acento); }
 h1 { font-size: 1.6rem; margin: 1.5rem 0 .5rem; }
 .nota { color: var(--tenue); }
 code, output, .cifra { font-family: ui-monospace, "SF Mono", Menlo, monospace; }
@@ -38,4 +33,3 @@ ascua-island { display: block; margin: 1.25rem 0; padding: 1rem; border: 1px das
 .buscador ul { list-style: none; padding: 0; margin: .5rem 0 0; }
 .buscador li { display: flex; justify-content: space-between; padding: .35rem 0; border-bottom: 1px solid var(--borde); }
 .buscador li span { color: var(--tenue); }
-footer { color: var(--tenue); font-size: .85rem; border-top: 1px solid var(--borde); }
