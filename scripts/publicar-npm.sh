@@ -60,7 +60,13 @@ publicar() {
       return
     fi
     if grep -q "EOTP" <<<"$salida"; then
-      read -r -p "    código de doble factor: " otp
+      read -r -p "    código de doble factor (vacío para salir): " otp
+      if [[ -z "$otp" ]]; then
+        echo "    Sin código no se puede publicar. El código es el de la app de autenticación" >&2
+        echo "    (la entrada «npm»), o usa un token granular con «Bypass 2FA»:" >&2
+        echo "      npm config set //registry.npmjs.org/:_authToken=EL_TOKEN" >&2
+        return 1
+      fi
       continue
     fi
     echo "$salida" >&2
