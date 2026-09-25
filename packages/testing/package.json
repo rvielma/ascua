@@ -1,6 +1,6 @@
 {
   "name": "ascua-testing",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Montar, tocar y desmontar un componente de Ascua en un test.",
   "keywords": [
     "testing",
@@ -35,7 +35,7 @@
     "prepublishOnly": "tsc -p tsconfig.build.json"
   },
   "peerDependencies": {
-    "ascua": "^0.1.0"
+    "ascua": "^0.1.0 || ^0.2.0"
   },
   "devDependencies": {
     "vite": "^8.3.0",

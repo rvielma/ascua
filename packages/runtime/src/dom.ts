@@ -459,6 +459,12 @@ export function island(nombre: string, construir: () => Node, props = ""): HTMLE
   return contenedor;
 }
 
+/** Lo que `hydrate` necesita de una isla de `defineIsland`. */
+export interface IslaHidratable {
+  readonly nombre: string;
+  readonly preparar: (props: string) => (() => Node) | undefined;
+}
+
 /** Lo que dejó la hidratación: cuántos nodos se adoptaron y cuántos se crearon. */
 export interface Hydrated {
   adoptados: number;
@@ -481,9 +487,14 @@ export interface Hydrated {
  *
  * Las islas cuyo nombre no esté registrado se dejan intactas: servidor y
  * cliente se pueden desplegar por separado sin que la página se rompa.
+ *
+ * Las islas se registran de dos formas: una lista de islas de
+ * `defineIsland`, que validan sus props antes de hidratarse y se quedan
+ * estáticas si no encajan, o un objeto que va del nombre a una función de los
+ * props en texto, sin validar nada.
  */
 export function hydrate(
-  islas: Record<string, (props: string) => Node>,
+  islas: readonly IslaHidratable[] | Record<string, (props: string) => Node>,
   raiz: ParentNode = document,
 ): Hydrated {
   const resultado: Hydrated = { adoptados: 0, creados: 0, desmontar: () => {} };
@@ -492,11 +503,17 @@ export function hydrate(
   for (const contenedor of Array.from(raiz.querySelectorAll(`[${ISLAND_ATTR}]`))) {
     // Las anidadas las hidrata la isla que las contiene, al construirse.
     if (contenedor.parentElement?.closest(`[${ISLAND_ATTR}]`)) continue;
-    const construir = islas[contenedor.getAttribute(ISLAND_ATTR) ?? ""];
-    if (!construir) continue;
+    const nombre = contenedor.getAttribute(ISLAND_ATTR) ?? "";
     const props = contenedor.getAttribute(ISLAND_PROPS_ATTR) ?? "";
+    // Se prepara antes de tocar nada: hidratar quita lo que no reclama, y una
+    // isla cuyos props no encajan tiene que quedarse como vino.
+    const sinValidar = (islas as Record<string, (props: string) => Node>)[nombre];
+    const construir = Array.isArray(islas)
+      ? (islas as readonly IslaHidratable[]).find((isla) => isla.nombre === nombre)?.preparar(props)
+      : sinValidar && (() => sinValidar(props));
+    if (!construir) continue;
 
-    const [estado, liberar] = root(() => hidratarEn(contenedor, () => construir(props)));
+    const [estado, liberar] = root(() => hidratarEn(contenedor, construir));
     resultado.adoptados += estado.adoptados;
     resultado.creados += estado.creados;
     liberaciones.push(liberar);

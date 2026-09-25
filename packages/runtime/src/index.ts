@@ -46,8 +46,19 @@ export {
   text,
   type Children,
   type Hydrated,
+  type IslaHidratable,
   type ValorAtributo,
 } from "./dom.js";
+
+export {
+  defineIsland,
+  p,
+  type Infer,
+  type InferShape,
+  type Island,
+  type Shape,
+  type StandardSchema,
+} from "./isla.js";
 
 declare global {
   /**

@@ -4,7 +4,7 @@
  */
 
 import { hydrate } from "ascua";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { render } from "../src/entrada-servidor.js";
 import { ISLAS } from "../src/islas/index.js";
@@ -68,5 +68,20 @@ describe("hydrate", () => {
     expect([...document.querySelectorAll("li")]).toEqual([rust]);
     expect(document.querySelector(".nota")!.textContent).toBe("1 de 14");
     expect(document.body.innerHTML).not.toContain("data-ascua-h");
+  });
+
+  it("si el servidor manda otros props, la isla se queda como vino", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    servir("/lenguajes");
+    // Un servidor de otra versión, que manda el año como texto.
+    const isla = document.querySelector("[data-ascua-island=buscador]")!;
+    isla.setAttribute("data-ascua-props", isla.getAttribute("data-ascua-props")!.replace(/"año":(\d+)/, '"año":"$1"'));
+    const antes = document.body.innerHTML;
+
+    const { adoptados } = hydrate(ISLAS);
+    expect(adoptados).toBe(0);
+    expect(document.body.innerHTML).toBe(antes);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('lenguajes[0].año: se esperaba number, llegó string "1957"'));
+    error.mockRestore();
   });
 });

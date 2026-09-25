@@ -16,6 +16,7 @@ import { ISLAND_ATTR, SEPARADOR, usarDocumento } from "./dom.js";
 import { root } from "./reactivo.js";
 
 export { island } from "./dom.js";
+export { defineIsland, p } from "./isla.js";
 
 /**
  * Renderiza un árbol a HTML.

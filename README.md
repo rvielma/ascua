@@ -80,8 +80,9 @@ CSS, gzip, la aplicación entera.
 | Resaltado en el editor | `html` como alias de `view`, para lit-html y compañía | ✅ |
 | Publicado en npm | `ascua`, `vite-plugin-ascua` y el resto, en la 0.1.0 | ✅ |
 | SSR e hidratación | `renderToString`, islas y `hydrate`, que adopta los nodos del servidor | ✅ |
+| Props de islas validados | `defineIsland`: el esquema se comprueba al compilar y al hidratar; si no encaja, la isla queda estática | ✅ |
 
-**306 tests** (153 en Rust, 153 en TypeScript), sin warnings de `clippy`, todo
+**321 tests** (153 en Rust, 168 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -89,7 +90,8 @@ verificado en navegador real.
 | Una aplicación entera (runtime + contador + lista con clave) | **2,43 kB** |
 | Un panel con acceso, rutas, tabla filtrable y componentes | 5,69 kB + 1,39 kB de CSS |
 | Solo el runtime | 2,23 kB |
-| El runtime con `hydrate` e `island` | 2,99 kB |
+| El runtime con `hydrate` e `island` | 3,03 kB |
+| La validación de props de `defineIsland` | +0,75 kB |
 | El router | 0,98 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 

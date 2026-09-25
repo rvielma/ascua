@@ -134,7 +134,7 @@ adoptado. Está en [SSR e islas](/docs/ssr/#como-encuentra-cada-nodo).
 | | gzip |
 |---|---|
 | El runtime | 2,23 kB |
-| El runtime con `hydrate` e `island` | 2,99 kB |
+| El runtime con `hydrate` e `island` | 3,03 kB |
 | Una aplicación entera (runtime, contador y lista con clave) | 2,43 kB |
 | Un panel con acceso, rutas, tabla filtrable y componentes | 5,69 kB + 1,39 kB de CSS |
 | El router | 0,98 kB |
