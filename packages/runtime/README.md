@@ -58,22 +58,31 @@ El mismo código renderiza en el servidor, sin navegador ni dependencias, y el
 cliente **adopta** los nodos en vez de rehacerlos:
 
 ```ts
+// las islas, compartidas por servidor y cliente
+import { defineIsland, p } from "ascua";
+
+export const IslaContador = defineIsland("contador", { inicial: p.number }, Contador);
+
 // servidor
-import { island } from "ascua";
 import { collectStyles, renderToString } from "ascua/servidor";
 
-const html = renderToString(() => island("contador", () => Contador(3), "3"));
+const html = renderToString(() => IslaContador({ inicial: 3 }));
 const css = collectStyles(html);   // el CSS con scope de lo que aparece
 
 // cliente
 import { hydrate } from "ascua";
 
-hydrate({ contador: (props) => Contador(Number(props)) });
+hydrate([IslaContador]);
 // { adoptados: 4, creados: 0 }
 ```
 
-`hydrate` e `island` suben el runtime a 2,99 kB; si no se importan, el
-tree-shaking se los lleva. Está explicado en la
+Los props viajan como JSON y se comprueban contra el esquema antes de hidratar:
+si el servidor mandó otra cosa, la isla se queda estática y la consola dice qué
+campo falló. `island` es la pieza de debajo, sin esquema, para quien quiera
+otro formato.
+
+`hydrate` e `island` suben el runtime a 3,03 kB, y `defineIsland` unos 0,75 kB
+más; lo que no se importa, el tree-shaking se lo lleva. Está explicado en la
 [documentación](https://ascua.gitweave.run/docs/ssr/).
 
 ## Con plantillas

@@ -8,8 +8,9 @@ import { signal, memo, effect, mount, hydrate } from "ascua";
 import { renderToString } from "ascua/servidor";
 ```
 
-2,23 kB gzip, sin dependencias. Con `hydrate` e `island`, 2,99 kB; si no se
-importan, el tree-shaking se los lleva. `ascua/servidor` no cuenta: no llega
+2,23 kB gzip, sin dependencias. Con `hydrate` e `island`, 3,03 kB, y
+`defineIsland` suma unos 0,75 kB; lo que no se importa, el tree-shaking se lo
+lleva. `ascua/servidor` no cuenta: no llega
 al navegador.
 
 ## Reactividad
@@ -164,26 +165,53 @@ desmontarlo.
 
 ## SSR e hidratación
 
+### defineIsland
+
+```ts
+function defineIsland<S extends StandardSchema | Shape>(
+  nombre: string,
+  esquema: S,
+  componente: (props: Props<S>) => Node,
+): Island<Props<S>>;
+```
+
+Una isla con props validados. Se usa como un componente y se registra en
+`hydrate`. El esquema tiene que encajar con los props del componente; si al
+hidratar no encaja con lo que mandó el servidor, la isla se queda estática y la
+consola dice qué campo falló. Ver [SSR e islas](/docs/ssr/).
+
+### p
+
+```ts
+p.string  p.number  p.boolean
+p.array(e)  p.object({ … })  p.optional(e)  p.nullable(e)
+```
+
+Esquemas para los props de una isla. Siguen Standard Schema, así que se mezclan
+con los de Zod, Valibot o ArkType.
+
 ### island
 
 ```ts
 function island(nombre: string, construir: () => Node, props?: string): HTMLElement;
 ```
 
-Envuelve el contenido en `<ascua-island>`. En el servidor numera lo de dentro;
-en el cliente, si se está hidratando, lo adopta.
+La pieza de debajo de `defineIsland`. Envuelve el contenido en
+`<ascua-island>` y deja `props` en un atributo, sin interpretarlo. En el
+servidor numera lo de dentro; en el cliente, si se está hidratando, lo adopta.
 
 ### hydrate
 
 ```ts
 function hydrate(
-  islas: Record<string, (props: string) => Node>,
+  islas: Island<any>[] | Record<string, (props: string) => Node>,
   raiz?: ParentNode,
 ): { adoptados: number; creados: number; desmontar: () => void };
 ```
 
 Activa las islas de `raiz` —el documento, por defecto— adoptando los nodos del
-servidor. Las islas sin constructor se dejan intactas.
+servidor. Con una lista de `defineIsland`, valida los props antes; con un
+objeto, pasa el texto tal cual. Las islas sin constructor se dejan intactas.
 
 ### renderToString
 

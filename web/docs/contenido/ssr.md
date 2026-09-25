@@ -25,11 +25,9 @@ las regiones que además se activan en el cliente. Lo que no es isla no viaja:
 ni su código ni su estado.
 
 ```ts
-import { island } from "ascua";
+import { defineIsland, p } from "ascua";
 
-function IslaContador(props: { inicial: number }) {
-  return island("contador", () => Contador(props), JSON.stringify(props));
-}
+export const IslaContador = defineIsland("contador", { inicial: p.number }, Contador);
 
 function Inicio() {
   return view`
@@ -41,22 +39,19 @@ function Inicio() {
 }
 ```
 
-`island(nombre, construir, props)` envuelve el contenido en
-`<ascua-island data-ascua-island="contador">` y deja los props en un atributo.
-No hay serializador: el formato lo elige quien escribe la isla —aquí JSON— y
-el cliente lo interpreta.
+Una isla se define una vez: su nombre, el **esquema** de sus props y el
+componente. En el servidor se usa como cualquier componente, y sale envuelta en
+`<ascua-island data-ascua-island="contador">` con los props en JSON.
 
 ## Hidratar
 
-En el cliente, `hydrate` busca las islas del documento y reconstruye cada una
-con su constructor:
+En el cliente, `hydrate` recibe las islas, busca las suyas en el documento y
+activa cada una:
 
 ```ts
 import { hydrate } from "ascua";
 
-const { adoptados, creados } = hydrate({
-  contador: (props) => Contador(JSON.parse(props)),
-});
+const { adoptados, creados } = hydrate([IslaContador]);
 // { adoptados: 4, creados: 0 }
 ```
 
@@ -71,6 +66,70 @@ sobra se quita—, pero conviene saber por qué.
 
 Las islas sin constructor registrado se dejan intactas, así que el servidor y
 el cliente se pueden desplegar por separado sin que la página se rompa.
+
+## Props que no mienten
+
+Los props viajan del servidor al cliente como texto, y ahí el tipo que declara
+TypeScript deja de valer: `JSON.parse` devuelve `any`. Un servidor de otra
+versión puede haber renombrado un prop; un número puede haber llegado como
+`"5"` desde un query string, y el contador mostraría `51` al sumar. Nada de eso
+da error: da un dato equivocado.
+
+El esquema cierra esa brecha dos veces:
+
+- **Al compilar.** Si el esquema no encaja con los props del componente —dice
+  `p.string` donde el componente espera `number`, o le falta un prop—, es un
+  error de tipos. También lo es pasarle a la isla un prop que el esquema no
+  admite. `ascua-check` lo señala en la plantilla.
+- **Al hidratar.** Antes de tocar el DOM se comprueba lo que llegó. Si no
+  encaja, la isla **se queda estática**, tal como la pintó el servidor, y la
+  consola dice qué campo falló:
+
+```text
+[ascua] isla "buscador": lenguajes[1].año: se esperaba number, llegó string "1958". Se deja estática.
+```
+
+El tipo de los props sale del esquema, no al revés: no hay dos descripciones
+que puedan contradecirse.
+
+| Esquema | Acepta |
+| --- | --- |
+| `p.string`, `p.number`, `p.boolean` | ese tipo |
+| `p.array(e)` | un array cuyos elementos encajan con `e` |
+| `p.object({ … })` | un objeto con esos campos; lo que sobra se descarta |
+| `p.optional(e)` | `e`, o que falte |
+| `p.nullable(e)` | `e`, o `null` |
+
+`{ inicial: p.number }` es un atajo de `p.object({ inicial: p.number })`.
+
+Los esquemas de `p` siguen [Standard Schema](https://standardschema.dev), y
+`defineIsland` acepta cualquiera que lo siga: uno de Zod, Valibot o ArkType
+sirve igual, también dentro de `p.object`, con sus transformaciones —un texto
+que llega y se convierte en `Date`—. Solo los síncronos: la hidratación no
+puede esperar.
+
+Validar cuesta unos **0,75 kB** gzip, y solo lo paga quien importa
+`defineIsland`.
+
+### Sin esquema
+
+`island` es la pieza de debajo, para quien quiera otro formato que JSON o no
+quiera validar:
+
+```ts
+import { island } from "ascua";
+
+function IslaContador(props: { inicial: number }) {
+  return island("contador", () => Contador(props), JSON.stringify(props));
+}
+
+hydrate({ contador: (props) => Contador(JSON.parse(props)) });
+```
+
+`island(nombre, construir, props)` envuelve el contenido y deja `props` en un
+atributo, sin interpretarlo. `hydrate` acepta entonces un objeto que va del
+nombre a una función de ese texto. Aquí nada comprueba que los dos lados
+coincidan.
 
 ## Con Vite
 
@@ -112,8 +171,9 @@ vite build --ssr src/entrada-servidor.ts --outDir dist/servidor
 ```
 
 Las páginas no se importan desde el cliente, así que su código no llega al
-navegador: el bundle es el runtime y las islas. En el ejemplo, **3,1 kB** gzip
-para un contador y un buscador con lista filtrable.
+navegador: el bundle es el runtime y las islas. En el ejemplo, **4,0 kB** gzip
+para un contador y un buscador con lista filtrable, con la validación de props
+incluida.
 
 ## Estilos
 
