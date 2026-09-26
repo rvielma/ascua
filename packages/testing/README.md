@@ -40,6 +40,7 @@ tiene promesas por medio.
 | `escribir(campo, valor)` | Cambia el valor **y avisa** con `input`. |
 | `marcar(casilla, marcada?)` | Con su evento `change`. |
 | `enviar(formulario)` | Un `submit` cancelable. |
+| `arrastrar(nodo, puntos, opciones?)` | `pointerdown`, `pointermove` y `pointerup` (o `pointercancel`). |
 | `esperar(ms?)` | Cede el turno a las promesas pendientes. |
 
 `render` devuelve `contenedor`, `buscar`, `buscarTodos`, `texto` y `desmontar`.

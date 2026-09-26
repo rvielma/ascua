@@ -1,10 +1,10 @@
 ---
 titulo: "ascua-testing"
-descripcion: Montar, tocar y desmontar un componente en un test. Siete funciones.
+descripcion: Montar, tocar y desmontar un componente en un test. Ocho funciones.
 ---
 
 ```ts
-import { enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "ascua-testing";
+import { arrastrar, enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "ascua-testing";
 ```
 
 Funciona con cualquier runner que tenga un DOM —Vitest con happy-dom, jsdom—.
@@ -67,6 +67,29 @@ function enviar(formulario: HTMLFormElement): void;
 ```
 
 Un `submit` cancelable, como el de pulsar Enter.
+
+## arrastrar
+
+```ts
+function arrastrar(nodo: Element, puntos: readonly Punto[], opciones?: OpcionesArrastre): void;
+
+interface Punto { x: number; y: number }
+
+interface OpcionesArrastre {
+  pointerId?: number;                          // 1
+  pointerType?: "mouse" | "pen" | "touch";     // "mouse"
+  cancelar?: boolean;                          // termina con pointercancel
+}
+```
+
+`pointerdown` en el primer punto, `pointermove` en cada uno de los siguientes y
+`pointerup` en el último; con `cancelar`, `pointercancel`, que es lo que manda
+iOS cuando entra un gesto del sistema. Un solo punto es un toque. Todo va al
+mismo nodo, como con `setPointerCapture`.
+
+El DOM de los tests no hace layout: si el componente calcula qué hay bajo el
+dedo a partir de `clientX/Y`, conviene que pueda recibir el rectángulo desde
+fuera en vez de pedirle `getBoundingClientRect()` a un nodo que mide cero.
 
 ## esperar
 

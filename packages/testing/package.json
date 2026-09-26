@@ -1,6 +1,6 @@
 {
   "name": "ascua-testing",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Montar, tocar y desmontar un componente de Ascua en un test.",
   "keywords": [
     "testing",

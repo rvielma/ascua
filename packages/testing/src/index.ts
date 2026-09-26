@@ -106,6 +106,64 @@ export function enviar(formulario: HTMLFormElement): void {
   formulario.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 }
 
+/** Un punto del recorrido de `arrastrar`, en coordenadas de ventana. */
+export interface Punto {
+  x: number;
+  y: number;
+}
+
+/** Opciones de `arrastrar`. */
+export interface OpcionesArrastre {
+  /** Por defecto 1. Dos arrastres con ids distintos son dos dedos. */
+  pointerId?: number;
+  /** Por defecto `"mouse"`. */
+  pointerType?: "mouse" | "pen" | "touch";
+  /** Termina con `pointercancel` en vez de `pointerup`, como iOS al entrar un gesto del sistema. */
+  cancelar?: boolean;
+}
+
+/**
+ * Arrastra un puntero por los puntos dados: `pointerdown` en el primero,
+ * `pointermove` en los intermedios y `pointerup` en el último.
+ *
+ * Todos los eventos van al mismo nodo, que es lo que pasa en un navegador
+ * cuando el componente llama a `setPointerCapture`. El DOM de los tests no
+ * hace layout, así que un componente que calcula la celda bajo el dedo a
+ * partir de `clientX/Y` tiene que poder recibir el rectángulo desde fuera.
+ */
+export function arrastrar(
+  nodo: Element,
+  puntos: readonly Punto[],
+  opciones: OpcionesArrastre = {},
+): void {
+  const primero = puntos[0];
+  const ultimo = puntos[puntos.length - 1];
+  if (!primero || !ultimo) throw new Error("arrastrar necesita al menos un punto");
+
+  const { pointerId = 1, pointerType = "mouse", cancelar = false } = opciones;
+  const lanzar = (tipo: string, { x, y }: Punto, buttons: number) =>
+    nodo.dispatchEvent(
+      new PointerEvent(tipo, {
+        bubbles: true,
+        cancelable: true,
+        clientX: x,
+        clientY: y,
+        pointerId,
+        pointerType,
+        isPrimary: true,
+        button: tipo === "pointermove" ? -1 : 0,
+        buttons,
+      }),
+    );
+
+  lanzar("pointerdown", primero, 1);
+  for (const punto of puntos.slice(1, -1)) lanzar("pointermove", punto, 1);
+  // El último también se mueve: un navegador siempre avisa de dónde está el
+  // dedo antes de soltarlo, y el componente puede depender de ello.
+  if (puntos.length > 1) lanzar("pointermove", ultimo, 1);
+  lanzar(cancelar ? "pointercancel" : "pointerup", ultimo, 0);
+}
+
 /**
  * Cede el turno para que corran las promesas pendientes.
  *

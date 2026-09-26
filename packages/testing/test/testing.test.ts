@@ -9,7 +9,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { element, on, onCleanup, property, signal, text, dynamicText, append } from "ascua";
-import { enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "../src/index.js";
+import { arrastrar, enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "../src/index.js";
 
 afterEach(limpiar);
 
@@ -123,6 +123,63 @@ describe("los gestos", () => {
     enviar(buscar<HTMLFormElement>("form"));
 
     expect(recibido).toHaveBeenCalledWith("Ana");
+  });
+});
+
+describe("arrastrar", () => {
+  function Lienzo(registro: string[]) {
+    const lienzo = element("div");
+    for (const tipo of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) {
+      on(lienzo, tipo, (e) => {
+        const p = e as PointerEvent;
+        registro.push(`${p.type}@${p.clientX},${p.clientY}#${p.pointerId}:${p.pointerType}`);
+      });
+    }
+    return lienzo;
+  }
+
+  it("baja en el primero, se mueve y suelta en el último", () => {
+    const registro: string[] = [];
+    const { contenedor } = render(() => Lienzo(registro));
+
+    arrastrar(contenedor.firstElementChild!, [
+      { x: 14, y: 14 },
+      { x: 44, y: 44 },
+      { x: 74, y: 74 },
+    ]);
+
+    expect(registro).toEqual([
+      "pointerdown@14,14#1:mouse",
+      "pointermove@44,44#1:mouse",
+      "pointermove@74,74#1:mouse",
+      "pointerup@74,74#1:mouse",
+    ]);
+  });
+
+  it("acepta el dedo y la cancelación", () => {
+    const registro: string[] = [];
+    const { contenedor } = render(() => Lienzo(registro));
+
+    arrastrar(contenedor.firstElementChild!, [{ x: 0, y: 0 }, { x: 5, y: 5 }], {
+      pointerId: 7,
+      pointerType: "touch",
+      cancelar: true,
+    });
+
+    expect(registro.at(-1)).toBe("pointercancel@5,5#7:touch");
+  });
+
+  it("un solo punto es un toque", () => {
+    const registro: string[] = [];
+    const { contenedor } = render(() => Lienzo(registro));
+
+    arrastrar(contenedor.firstElementChild!, [{ x: 3, y: 3 }]);
+    expect(registro).toEqual(["pointerdown@3,3#1:mouse", "pointerup@3,3#1:mouse"]);
+  });
+
+  it("sin puntos falla", () => {
+    const { contenedor } = render(() => Lienzo([]));
+    expect(() => arrastrar(contenedor, [])).toThrow(/al menos un punto/);
   });
 });
 
