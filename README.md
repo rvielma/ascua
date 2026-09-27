@@ -1,8 +1,8 @@
 # Ascua
 
 Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
-compilador —un módulo **WebAssembly** de 87 KB— lo traduce a operaciones
-directas de DOM. Una aplicación entera pesa 2,43 kB.
+compilador —un módulo **WebAssembly** de 88 KB— lo traduce a operaciones
+directas de DOM. Una aplicación entera pesa 2,45 kB.
 
 **[ascua.gitweave.run](https://ascua.gitweave.run)** ·
 **[documentación](https://ascua.gitweave.run/docs/)** · el compilador corre en tu
@@ -63,7 +63,7 @@ CSS, gzip, la aplicación entera.
 
 | Pieza | Qué es | Estado |
 |---|---|---|
-| `ascua` | Signals y DOM, 2,23 kB gzip, cero dependencias | ✅ |
+| `ascua` | Signals y DOM, 2,25 kB gzip, cero dependencias | ✅ |
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
 | `vite-plugin-ascua` | Integración con Vite | ✅ |
 | `ascua-router` | La ruta como signal, 0,98 kB gzip | ✅ |
@@ -87,10 +87,10 @@ verificado en navegador real.
 
 | | gzip |
 |---|---|
-| Una aplicación entera (runtime + contador + lista con clave) | **2,43 kB** |
-| Un panel con acceso, rutas, tabla filtrable y componentes | 5,69 kB + 1,39 kB de CSS |
-| Solo el runtime | 2,23 kB |
-| El runtime con `hydrate` e `island` | 3,03 kB |
+| Una aplicación entera (runtime + contador + lista con clave) | **2,45 kB** |
+| Un panel con acceso, rutas, tabla filtrable y componentes | 5,71 kB + 1,39 kB de CSS |
+| Solo el runtime | 2,25 kB |
+| El runtime con `hydrate` e `island` | 3,05 kB |
 | La validación de props de `defineIsland` | +0,75 kB |
 | El router | 0,98 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
@@ -162,14 +162,14 @@ cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 87 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 88 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
 un playground que compila en tu pestaña.
 
 En el navegador, en cambio, no aporta: el DOM vive en JavaScript y cruzar la
-frontera cuesta más que la operación. Por eso el runtime son 2,23 kB de
+frontera cuesta más que la operación. Por eso el runtime son 2,25 kB de
 JavaScript.
 
 ## Desarrollo

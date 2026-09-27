@@ -119,5 +119,5 @@ Una tabla de mil filas es un caso concreto. Mide el coste de crear, mover y
 quitar nodos, que es donde los frameworks se diferencian, pero no el arranque,
 ni la memoria, ni cómo se comporta una aplicación de verdad con cien
 componentes distintos. El tamaño, en cambio, se mide solo:
-[2,23 kB](/docs/como-funciona/#lo-que-cuesta) de runtime frente a los ~45 kB de
+[2,25 kB](/docs/como-funciona/#lo-que-cuesta) de runtime frente a los ~45 kB de
 React.

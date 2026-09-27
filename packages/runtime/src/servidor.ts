@@ -310,9 +310,17 @@ class ElementoServidor extends NodoServidor {
     this.crudo = String(valor ?? "");
   }
 
-  constructor(etiqueta: string) {
+  // Fuera del HTML las mayúsculas cuentan: `linearGradient`, `viewBox`. El
+  // navegador solo pasa a minúsculas los nombres de los elementos HTML.
+  private readonly html: boolean;
+  private nombre(atributo: string): string {
+    return this.html ? atributo.toLowerCase() : atributo;
+  }
+
+  constructor(etiqueta: string, espacio?: string) {
     super();
-    this.localName = etiqueta.toLowerCase();
+    this.html = !espacio;
+    this.localName = espacio ? etiqueta : etiqueta.toLowerCase();
   }
 
   get tagName(): string {
@@ -355,16 +363,16 @@ class ElementoServidor extends NodoServidor {
   }
 
   getAttribute(nombre: string): string | null {
-    return this.atributos.get(nombre.toLowerCase()) ?? null;
+    return this.atributos.get(this.nombre(nombre)) ?? null;
   }
   setAttribute(nombre: string, valor: string): void {
-    this.atributos.set(nombre.toLowerCase(), String(valor));
+    this.atributos.set(this.nombre(nombre), String(valor));
   }
   removeAttribute(nombre: string): void {
-    this.atributos.delete(nombre.toLowerCase());
+    this.atributos.delete(this.nombre(nombre));
   }
   hasAttribute(nombre: string): boolean {
-    return this.atributos.has(nombre.toLowerCase());
+    return this.atributos.has(this.nombre(nombre));
   }
   toggleAttribute(nombre: string, forzar?: boolean): boolean {
     const poner = forzar ?? !this.hasAttribute(nombre);
@@ -403,6 +411,9 @@ class DocumentoServidor {
   createElement(etiqueta: string): ElementoServidor {
     return new ElementoServidor(etiqueta);
   }
+  createElementNS(espacio: string, etiqueta: string): ElementoServidor {
+    return new ElementoServidor(etiqueta, espacio);
+  }
   createTextNode(contenido: string): TextoServidor {
     return new TextoServidor(contenido);
   }
@@ -439,7 +450,7 @@ function compilarSelector(selector: string): (el: ElementoServidor) => boolean {
       );
     }
   }
-  return (el) => (etiqueta === null || el.localName === etiqueta) && pruebas.every((p) => p(el));
+  return (el) => (etiqueta === null || el.localName.toLowerCase() === etiqueta) && pruebas.every((p) => p(el));
 }
 
 // ---------------------------------------------------------------------------

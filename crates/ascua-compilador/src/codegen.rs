@@ -59,6 +59,7 @@ pub fn generar(plantilla: &Plantilla) -> Generado {
         nivel: 1,
         scope,
         origen: 0,
+        espacio: None,
     };
 
     let mut lineas = Vec::new();
@@ -106,6 +107,56 @@ fn separar_origenes(crudo: &str) -> (String, Vec<usize>) {
     (codigo, origenes)
 }
 
+const SVG: &str = "http://www.w3.org/2000/svg";
+const MATHML: &str = "http://www.w3.org/1998/Math/MathML";
+
+/// Etiquetas que solo existen en SVG. Sirven para la raíz de una plantilla
+/// que es un trozo de dibujo —un componente que devuelve un `<circle>` para
+/// meterlo en el `<svg>` de otro— y no tiene un `<svg>` encima que lo diga.
+/// Faltan a propósito las que también son HTML: `a`, `title`, `style`,
+/// `script`, `image`.
+const SOLO_SVG: &[&str] = &[
+    "circle",
+    "clipPath",
+    "defs",
+    "desc",
+    "ellipse",
+    "foreignObject",
+    "g",
+    "line",
+    "linearGradient",
+    "marker",
+    "mask",
+    "path",
+    "pattern",
+    "polygon",
+    "polyline",
+    "radialGradient",
+    "rect",
+    "stop",
+    "symbol",
+    "text",
+    "textPath",
+    "tspan",
+    "use",
+];
+
+/// El espacio de nombres de un elemento, sabiendo el de su padre.
+fn espacio_de(etiqueta: &str, padre: Option<&'static str>) -> Option<&'static str> {
+    match etiqueta {
+        "svg" => Some(SVG),
+        "math" => Some(MATHML),
+        _ if padre.is_some() => padre,
+        // Los filtros: `feGaussianBlur`, `feOffset`…
+        _ if SOLO_SVG.contains(&etiqueta)
+            || (etiqueta.starts_with("fe") && etiqueta[2..].starts_with(char::is_uppercase)) =>
+        {
+            Some(SVG)
+        }
+        _ => None,
+    }
+}
+
 struct Generador {
     importes: BTreeSet<(&'static str, &'static str)>,
     contador: usize,
@@ -115,6 +166,9 @@ struct Generador {
     scope: Option<String>,
     /// La línea de la plantilla de lo que se está generando ahora.
     origen: usize,
+    /// El espacio de nombres de lo que se está generando: SVG o MathML dentro
+    /// de `<svg>` o `<math>`, `None` en HTML.
+    espacio: Option<&'static str>,
 }
 
 impl Generador {
@@ -190,8 +244,12 @@ impl Generador {
         self.origen = elemento.linea;
         let variable = self.siguiente_variable();
         let el = self.usar(ELEMENT);
+        let espacio = espacio_de(&elemento.etiqueta, self.espacio);
         let etiqueta = cadena(&elemento.etiqueta);
-        lineas.push(self.linea(&format!("const {variable} = {el}({etiqueta});")));
+        lineas.push(self.linea(&match espacio {
+            Some(espacio) => format!("const {variable} = {el}({etiqueta}, \"{espacio}\");"),
+            None => format!("const {variable} = {el}({etiqueta});"),
+        }));
 
         if let Some(scope) = self.scope.clone() {
             let sattr = self.usar(STATIC_ATTRIBUTE);
@@ -254,7 +312,11 @@ impl Generador {
             lineas.push(self.linea(&texto));
         }
 
+        // Lo que va dentro de `<foreignObject>` vuelve a ser HTML.
+        let anterior = self.espacio;
+        self.espacio = espacio.filter(|_| elemento.etiqueta != "foreignObject");
         self.hijos(&elemento.hijos, &variable, lineas);
+        self.espacio = anterior;
         variable
     }
 
@@ -810,6 +872,79 @@ mod tests {
                 .map(|(n, _)| *n)
                 .collect::<Vec<_>>(),
             vec!["element"]
+        );
+    }
+
+    #[test]
+    fn lo_de_dentro_de_un_svg_se_crea_en_su_espacio() {
+        let generado = compilar(
+            "<div><svg viewBox=\"0 0 10 10\"><linearGradient id=\"g\"><stop/></linearGradient><circle r=\"4\"/></svg><p>x</p></div>",
+            &[],
+        );
+        let codigo = &generado.codigo;
+        let svg = "\"http://www.w3.org/2000/svg\"";
+
+        assert!(codigo.contains("_$el(\"div\");"), "{codigo}");
+        for etiqueta in ["svg", "linearGradient", "stop", "circle"] {
+            assert!(
+                codigo.contains(&format!("_$el(\"{etiqueta}\", {svg})")),
+                "{codigo}"
+            );
+        }
+        // Las mayúsculas de los atributos también cuentan en SVG.
+        assert!(codigo.contains("\"viewBox\""), "{codigo}");
+        // Al cerrar el `<svg>` se vuelve al HTML.
+        assert!(codigo.contains("_$el(\"p\");"), "{codigo}");
+    }
+
+    #[test]
+    fn foreign_object_vuelve_al_html() {
+        let generado = compilar("<svg><foreignObject><p>x</p></foreignObject></svg>", &[]);
+        let codigo = &generado.codigo;
+        assert!(
+            codigo.contains("_$el(\"foreignObject\", \"http://www.w3.org/2000/svg\")"),
+            "{codigo}"
+        );
+        assert!(codigo.contains("_$el(\"p\");"), "{codigo}");
+    }
+
+    #[test]
+    fn un_show_dentro_de_un_svg_sigue_en_svg() {
+        let entrada = format!("<svg><Show when={ABRE}0{CIERRA}><circle/></Show></svg>");
+        let generado = compilar(&entrada, &["() => visible()"]);
+        let codigo = &generado.codigo;
+        assert!(
+            codigo.contains("_$el(\"circle\", \"http://www.w3.org/2000/svg\")"),
+            "{codigo}"
+        );
+    }
+
+    #[test]
+    fn un_trozo_de_dibujo_sin_svg_encima_tambien_es_svg() {
+        // Un componente que devuelve un `<g>` para el `<svg>` de otro.
+        let generado = compilar("<g><path d=\"M0 0\"/><feGaussianBlur/></g>", &[]);
+        let codigo = &generado.codigo;
+        for etiqueta in ["g", "path", "feGaussianBlur"] {
+            assert!(
+                codigo.contains(&format!(
+                    "_$el(\"{etiqueta}\", \"http://www.w3.org/2000/svg\")"
+                )),
+                "{codigo}"
+            );
+        }
+        // Lo que también existe en HTML se queda en HTML.
+        assert!(compilar("<a>x</a>", &[]).codigo.contains("_$el(\"a\");"));
+    }
+
+    #[test]
+    fn math_es_mathml() {
+        let generado = compilar("<math><mi>x</mi></math>", &[]);
+        assert!(
+            generado
+                .codigo
+                .contains("_$el(\"mi\", \"http://www.w3.org/1998/Math/MathML\")"),
+            "{}",
+            generado.codigo
         );
     }
 }

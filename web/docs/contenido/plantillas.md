@@ -133,6 +133,28 @@ El compilador llama a `ref` justo después de crear el elemento. Se ejecuta en
 cada construcción: tras un `<Show>` que reconstruye, la variable apunta al nodo
 nuevo.
 
+## SVG y MathML
+
+```ts
+const icono = view`
+  <svg viewBox="0 0 24 24" width="24" height="24">
+    <circle cx="12" cy="12" r=${() => radio()} class:activo=${() => activo()}/>
+  </svg>`;
+```
+
+Lo que va dentro de `<svg>` se crea en el espacio de nombres de SVG, y lo de
+`<math>` en el de MathML: un `<circle>` hecho como un elemento HTML no se
+dibuja. Dentro de `<foreignObject>` se vuelve al HTML. Los atributos y
+`class:` funcionan igual; las mayúsculas de `viewBox` o `linearGradient` se
+respetan.
+
+Un componente que devuelve un trozo de dibujo para el `<svg>` de otro —un
+`<g>`, un `<path>`— no tiene un `<svg>` encima que lo diga. Para esos, las
+etiquetas que solo existen en SVG se reconocen solas. Las que también son HTML
+(`<a>`, `<title>`, `<style>`) no pueden saberlo: van dentro de un `<g>`.
+
+Para enlazar, `href` a secas; `xlink:href` es de SVG 1.1 y no hace falta.
+
 ## Límites, y por qué
 
 - **Una plantilla tiene un único elemento raíz.** Es lo que permite que montar,

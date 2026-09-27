@@ -1,6 +1,6 @@
 ---
 titulo: Qué es Ascua
-descripcion: Un framework de UI sin Virtual DOM. Escribes HTML dentro de TypeScript, un compilador en WebAssembly lo traduce a operaciones de DOM, y al navegador llegan 2,23 kB de runtime.
+descripcion: Un framework de UI sin Virtual DOM. Escribes HTML dentro de TypeScript, un compilador en WebAssembly lo traduce a operaciones de DOM, y al navegador llegan 2,25 kB de runtime.
 ---
 
 ## La idea en una pantalla
@@ -48,7 +48,7 @@ pega tal cual, y un `<style>` dentro de la plantilla es CSS con scope que se
 extrae al compilar. Está en [Estilos](/docs/estilos/).
 
 **3. WebAssembly donde suma.** El compilador está escrito en Rust y se
-distribuye como un único `.wasm` de 87 KB que corre en Node, Bun, Deno y el
+distribuye como un único `.wasm` de 88 KB que corre en Node, Bun, Deno y el
 navegador —el [playground](/playground/) es ese mismo archivo—. En el
 navegador, en cambio, el DOM vive en JavaScript y cruzar la frontera cuesta más
 que la operación, así que el runtime es JavaScript. Está en
@@ -58,15 +58,15 @@ que la operación, así que el runtime es JavaScript. Está en
 
 | Paquete | Qué es | gzip |
 |---|---|---|
-| `ascua` | Signals, operaciones de DOM, SSR e hidratación | 2,23 kB |
+| `ascua` | Signals, operaciones de DOM, SSR e hidratación | 2,25 kB |
 | `ascua-router` | La ruta como signal, con parámetros y enlaces que no recargan | 0,98 kB |
 | `ascua-testing` | Montar, tocar y desmontar un componente en un test | — |
 | `vite-plugin-ascua` | Compila las plantillas y entrega el CSS a Vite | — |
 | `ascua-compilador` | El compilador, como módulo WebAssembly | — |
 
 Una aplicación entera —runtime, un contador y una lista con clave— pesa
-**2,43 kB** gzip. Un panel con acceso, rutas, tabla filtrable y componentes,
-5,69 kB más 1,39 kB de CSS.
+**2,45 kB** gzip. Un panel con acceso, rutas, tabla filtrable y componentes,
+5,71 kB más 1,39 kB de CSS.
 
 ## Cuándo encaja, y cuándo no
 

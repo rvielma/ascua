@@ -42,7 +42,7 @@ descargar al instalar.
 
 ## ascua-compilador
 
-El compilador, como módulo WebAssembly de 87 KB. Lo usa el plugin; se puede
+El compilador, como módulo WebAssembly de 88 KB. Lo usa el plugin; se puede
 llamar a mano:
 
 ```ts

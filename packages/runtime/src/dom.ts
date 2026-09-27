@@ -71,16 +71,27 @@ interface Hidratacion {
  * Un elemento. Con una etiqueta conocida devuelve su tipo concreto
  * —`element("input")` es un `HTMLInputElement`—, así que un `ref` o un
  * manejador que espera ese tipo lo recibe sin conversiones.
+ *
+ * Con `espacio` se crea en ese espacio de nombres: un `<circle>` hecho con
+ * `createElement` es un `HTMLUnknownElement` y no se dibuja. El compilador lo
+ * pasa solo para lo que va dentro de `<svg>` o `<math>`.
  */
 export function element<K extends keyof HTMLElementTagNameMap>(etiqueta: K): HTMLElementTagNameMap[K];
 export function element(etiqueta: string): HTMLElement;
-export function element(etiqueta: string): HTMLElement {
+export function element(etiqueta: string, espacio: string): Element;
+export function element(etiqueta: string, espacio?: string): HTMLElement {
   if (hidratando) {
     // El elemento número N del cliente es el número N del servidor: los dos
     // ejecutan el mismo código de construcción, en el mismo orden.
     const numero = hidratando.contador++;
     const candidato = hidratando.candidatos.get(numero) as HTMLElement | undefined;
-    if (candidato && candidato.nodeType === 1 && candidato.localName === etiqueta.toLowerCase()) {
+    // En SVG el navegador conserva `linearGradient` tal cual: se compara sin
+    // mayúsculas.
+    if (
+      candidato &&
+      candidato.nodeType === 1 &&
+      candidato.localName.toLowerCase() === etiqueta.toLowerCase()
+    ) {
       hidratando.candidatos.delete(numero);
       candidato.removeAttribute(HYDRATION_ATTR);
       hidratando.adoptados++;
@@ -88,7 +99,9 @@ export function element(etiqueta: string): HTMLElement {
     }
     hidratando.creados++;
   }
-  const nodo = doc().createElement(etiqueta);
+  const nodo = (
+    espacio ? doc().createElementNS(espacio, etiqueta) : doc().createElement(etiqueta)
+  ) as HTMLElement;
   if (numeracion) nodo.setAttribute(HYDRATION_ATTR, String(numeracion.contador++));
   return nodo;
 }

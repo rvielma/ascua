@@ -33,7 +33,7 @@ Cada punto dinámico es **una llamada que crea un efecto** y captura el nodo
 concreto que debe actualizar. No queda plantilla en tiempo de ejecución, ni
 árbol que recorrer, ni nada que comparar.
 
-Está escrito en Rust y se distribuye como un único `.wasm` de 87 KB: el mismo
+Está escrito en Rust y se distribuye como un único `.wasm` de 88 KB: el mismo
 archivo corre en Node, Bun, Deno y el navegador. Sin binarios por plataforma
 —SWC publica una decena, esbuild veinte— y sin `postinstall` que descargue
 nada al instalar.
@@ -133,10 +133,10 @@ adoptado. Está en [SSR e islas](/docs/ssr/#como-encuentra-cada-nodo).
 
 | | gzip |
 |---|---|
-| El runtime | 2,23 kB |
-| El runtime con `hydrate` e `island` | 3,03 kB |
-| Una aplicación entera (runtime, contador y lista con clave) | 2,43 kB |
-| Un panel con acceso, rutas, tabla filtrable y componentes | 5,69 kB + 1,39 kB de CSS |
+| El runtime | 2,25 kB |
+| El runtime con `hydrate` e `island` | 3,05 kB |
+| Una aplicación entera (runtime, contador y lista con clave) | 2,45 kB |
+| Un panel con acceso, rutas, tabla filtrable y componentes | 5,71 kB + 1,39 kB de CSS |
 | El router | 0,98 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 

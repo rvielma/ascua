@@ -248,3 +248,39 @@ describe("hydrate", () => {
     expect(boton.textContent).toBe("1");
   });
 });
+
+describe("SVG", () => {
+  const SVG = "http://www.w3.org/2000/svg";
+
+  function Dibujo() {
+    const svg = element("svg", SVG);
+    staticAttribute(svg, "viewBox", "0 0 10 10");
+    const degradado = element("linearGradient", SVG);
+    staticAttribute(degradado, "id", "g");
+    const circulo = element("circle", SVG);
+    staticAttribute(circulo, "r", "4");
+    append(svg, degradado, circulo);
+    return svg;
+  }
+
+  it("en el cliente se crea en su espacio y se dibuja", () => {
+    const svg = Dibujo();
+    expect(svg.namespaceURI).toBe(SVG);
+    expect(svg.lastChild).toBeInstanceOf(SVGElement);
+    expect(svg.getAttribute("viewBox")).toBe("0 0 10 10");
+  });
+
+  it("el servidor respeta las mayúsculas y la hidratación adopta todo", () => {
+    const html = renderToString(() => island("dibujo", Dibujo));
+    expect(html).toContain("<linearGradient");
+    expect(html).toContain('viewBox="0 0 10 10"');
+
+    document.body.innerHTML = html;
+    const antes = document.querySelector("circle");
+    const { adoptados, creados } = hydrate({ dibujo: Dibujo });
+
+    expect(creados).toBe(0);
+    expect(adoptados).toBe(3);
+    expect(document.querySelector("circle")).toBe(antes);
+  });
+});

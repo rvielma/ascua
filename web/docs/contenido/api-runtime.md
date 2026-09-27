@@ -8,7 +8,7 @@ import { signal, memo, effect, mount, hydrate } from "ascua";
 import { renderToString } from "ascua/servidor";
 ```
 
-2,23 kB gzip, sin dependencias. Con `hydrate` e `island`, 3,03 kB, y
+2,25 kB gzip, sin dependencias. Con `hydrate` e `island`, 3,05 kB, y
 `defineIsland` suma unos 0,75 kB; lo que no se importa, el tree-shaking se lo
 lleva. `ascua/servidor` no cuenta: no llega
 al navegador.
