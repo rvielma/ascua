@@ -154,6 +154,38 @@ escuchando a un componente que ya no está.
 Cuando un efecto se reejecuta, antes de correr libera lo que creó la vez
 anterior: un efecto creado dentro de otro efecto no se acumula.
 
+### Datos que llegan tarde: `resource`
+
+```ts
+const club = resource(
+  () => id(),                                   // la fuente: cambia, recarga
+  (id, { signal }) => fetch(`/api/clubes/${id}`, { signal }).then((r) => r.json()),
+);
+
+view`
+  <section>
+    <Show when=${() => club.state() === "error"}><p>No se pudo cargar.</p></Show>
+    <Show when=${() => club()}>${(c) => view`<h2>${() => c().nombre}</h2>`}</Show>
+    <button onclick=${() => club.reload()}>Recargar</button>
+  </section>`;
+```
+
+`club()` es el último valor cargado, `club.state()` dice en qué está
+(`idle`, `loading`, `ready`, `error`), `club.error()` guarda el error y
+`club.reload()` vuelve a cargar. Si la fuente da `null`, `undefined` o `false`,
+no carga. Sin fuente, `resource(({ signal }) => …)` carga una vez.
+
+Lo que no hay que escribir a mano:
+
+- **Una carga nueva aborta la anterior**, y su respuesta se descarta aunque
+  llegue: un resultado lento no pisa a uno más reciente.
+- **Cerrar la vista cancela lo que estaba en camino.** El `signal` que recibe
+  la función se dispara al liberar el scope.
+- **Recargar no parpadea.** Mientras llega el valor nuevo, `club()` sigue
+  dando el anterior; para un indicador, `club.loading()`.
+- `club.mutate(valor)` cambia el valor sin cargar: lo que ya se sabe después
+  de guardar.
+
 ### Código asíncrono
 
 Después de un `await`, el scope ya no es el que era: el código corre en otra

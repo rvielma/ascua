@@ -19,7 +19,9 @@ view`<header><Saludo nombre="Ana"/></header>`;
 ```
 
 y el compilador lo traduce a `Saludo({ nombre: "Ana" })`, que es exactamente lo
-que se puede escribir a mano. No hay clase base, ni `this`, ni registro: la
+que se puede escribir a mano. Un componente sin props se declara sin
+parámetros —`function Menu()`— y `<Menu/>` funciona igual; si le faltan props
+obligatorias, TypeScript lo dice. No hay clase base, ni `this`, ni registro: la
 plantilla no da acceso a nada que no estuviera ya al alcance.
 
 **Un componente se ejecuta una vez.** No hay re-render: lo que cambia después

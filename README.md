@@ -1,5 +1,12 @@
 # Ascua
 
+[![npm](https://img.shields.io/npm/v/ascua?logo=npm&label=npm&color=e2703a&labelColor=12100d)](https://www.npmjs.com/package/ascua)
+[![runtime](https://img.shields.io/badge/runtime-2%2C25%20kB%20gzip-e2703a?labelColor=12100d)](https://ascua.gitweave.run/docs/como-funciona/#lo-que-cuesta)
+[![compilador](https://img.shields.io/badge/compilador-.wasm%20de%2088%20KB-f2b544?logo=webassembly&logoColor=white&labelColor=12100d)](https://ascua.gitweave.run/docs/compilador/)
+[![dependencias](https://img.shields.io/badge/dependencias-0-f2b544?labelColor=12100d)](packages/runtime/package.json)
+[![Rust](https://img.shields.io/badge/Rust-1.82%2B-6f6860?logo=rust&logoColor=white&labelColor=12100d)](Cargo.toml)
+[![licencia](https://img.shields.io/badge/licencia-MIT%20o%20Apache--2.0-6f6860?labelColor=12100d)](#licencia)
+
 Framework de UI sin Virtual DOM. Escribes **HTML dentro de TypeScript** y el
 compilador —un módulo **WebAssembly** de 88 KB— lo traduce a operaciones
 directas de DOM. Una aplicación entera pesa 2,45 kB.

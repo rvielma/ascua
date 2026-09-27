@@ -104,6 +104,10 @@ pub enum Valor {
     /// `ref=${(nodo) => ...}` — le pasa el elemento recién creado a una
     /// función. Es la forma de quedarse con un nodo sin buscarlo después.
     Referencia(String),
+    /// `bind:value=${senal}` — el campo y el signal, atados en los dos
+    /// sentidos: lo que el signal diga se ve, y lo que el usuario escriba va al
+    /// signal.
+    Enlace(String),
     /// `onclick=${manejador}`
     Evento { evento: String, manejador: String },
 }
@@ -605,7 +609,10 @@ impl Parser<'_> {
         }
         self.saltar_espacios();
 
-        if (nombre.starts_with("prop:") || nombre.starts_with("class:") || nombre == "ref")
+        if (nombre.starts_with("prop:")
+            || nombre.starts_with("class:")
+            || nombre.starts_with("bind:")
+            || nombre == "ref")
             && self.actual() != Some('=')
         {
             return Err(self.error(&format!("`{nombre}` necesita un valor en ${{}}")));
@@ -635,6 +642,15 @@ impl Parser<'_> {
                     Valor::Clase(expresion)
                 } else if nombre == "ref" {
                     Valor::Referencia(expresion)
+                } else if let Some(propiedad) = nombre.strip_prefix("bind:") {
+                    if !ENLAZABLES.contains(&propiedad) {
+                        return Err(self.error(&format!(
+                            "`bind:{propiedad}` no existe; se puede atar {}",
+                            ENLAZABLES.join(", ")
+                        )));
+                    }
+                    nombre = propiedad.to_string();
+                    Valor::Enlace(expresion)
                 } else if let Some(propiedad) = nombre.strip_prefix("prop:") {
                     nombre = propiedad.to_string();
                     Valor::Propiedad(expresion)
@@ -749,6 +765,28 @@ fn decodificar(texto: &str) -> String {
 /// expresión se evalúa una vez. Se decide mirando solo el principio, así que
 /// es predecible: `() => x` y `n => x` sí; `f(() => x)` no, porque empieza por
 /// `f`.
+/// Lo que `bind:` sabe atar. Cada una tiene su evento: `value` y
+/// `valueAsNumber` escuchan `input`, `checked` escucha `change`.
+const ENLAZABLES: &[&str] = &["value", "checked", "valueAsNumber"];
+
+/// ¿Es una closure que recibe algo? `(club) => …` sí; `() => …` no.
+///
+/// Es lo que distingue el hijo de un `<Show>` que quiere el valor —una
+/// función de render— de un texto reactivo cualquiera.
+#[must_use]
+pub fn es_closure_con_parametros(expresion: &str) -> bool {
+    if !es_closure(expresion) {
+        return false;
+    }
+    let texto = expresion.trim_start();
+    let texto = texto.strip_prefix("async").map_or(texto, str::trim_start);
+    match texto.strip_prefix('(') {
+        Some(resto) => !resto.trim_start().starts_with(')'),
+        // `nombre => …`
+        None => true,
+    }
+}
+
 pub fn es_closure(expresion: &str) -> bool {
     let texto = expresion.trim_start();
 
@@ -1093,5 +1131,29 @@ mod tests {
         assert!(error.mensaje.contains("-->"), "{error}");
         // Señala donde abre, no el final de la plantilla.
         assert_eq!(error.posicion, 6, "{error}");
+    }
+
+    #[test]
+    fn bind_solo_ata_lo_que_sabe() {
+        let error = parsear(
+            &format!("<input bind:valor={ABRE}0{CIERRA}>"),
+            &["x".to_string()],
+        )
+        .expect_err("debería fallar");
+        assert!(error.mensaje.contains("bind:valor"), "{error}");
+        assert!(
+            error.mensaje.contains("value, checked, valueAsNumber"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn closure_con_parametros() {
+        assert!(es_closure_con_parametros("(club) => x"));
+        assert!(es_closure_con_parametros("club => x"));
+        assert!(es_closure_con_parametros("async (a, b) => x"));
+        assert!(!es_closure_con_parametros("() => x"));
+        assert!(!es_closure_con_parametros("( ) => x"));
+        assert!(!es_closure_con_parametros("club"));
     }
 }

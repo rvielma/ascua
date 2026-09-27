@@ -31,6 +31,29 @@ dos sean verdaderas. Para evitarlo, que devuelva un booleano:
 `<Else>` es opcional, va dentro del `<Show>` y solo puede haber uno. Una rama
 puede tener varios nodos hermanos.
 
+### Con el valor
+
+Cuando la rama necesita lo que `when` comprobó, el hijo puede ser una función
+que lo recibe:
+
+```ts
+view`
+  <section>
+    <Show when=${() => club()}>
+      ${(club) => view`<h2>${() => club().nombre}</h2>`}
+      <Else><p>Sin club.</p></Else>
+    </Show>
+  </section>`;
+```
+
+`club` es un accesor **ya estrechado**: si fuera `club()` es un
+`Club | undefined`, dentro es un `Club`, sin `!`, `?.` ni `?? ""`. «No hay» es
+`null`, `undefined` o `false`; un `0` o una cadena vacía cuentan como valor.
+
+Y la rama se reconstruye solo cuando el valor **aparece o desaparece**. Si
+cambia por otro —un sondeo que cada quince segundos trae el club otra vez,
+en un objeto nuevo—, lo que lo lee dentro se actualiza sin rehacer nada.
+
 ## `<For>`
 
 ```ts

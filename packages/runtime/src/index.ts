@@ -17,12 +17,16 @@ export {
   memo,
   onCleanup,
   onError,
+  resource,
   root,
   selector,
   signal,
   untrack,
   withScope,
   type Memo,
+  type Resource,
+  type ResourceInfo,
+  type ResourceState,
   type Scope,
   type Signal,
 } from "./reactivo.js";
@@ -30,6 +34,8 @@ export {
 export {
   append,
   attribute,
+  bind,
+  component,
   cssClass,
   dynamicText,
   element,
@@ -42,12 +48,15 @@ export {
   on,
   property,
   show,
+  showValue,
   staticAttribute,
   text,
   type Children,
   type Hydrated,
   type IslaHidratable,
+  type Present,
   type ValorAtributo,
+  type Writable,
 } from "./dom.js";
 
 export {

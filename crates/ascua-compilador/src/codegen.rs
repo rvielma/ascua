@@ -23,6 +23,9 @@ const CSS_CLASS: (&str, &str) = ("cssClass", "_$class");
 const ON: (&str, &str) = ("on", "_$on");
 const APPEND: (&str, &str) = ("append", "_$add");
 const SHOW_FN: (&str, &str) = ("show", "_$show");
+const SHOW_VALUE_FN: (&str, &str) = ("showValue", "_$showv");
+const BIND: (&str, &str) = ("bind", "_$bind");
+const COMPONENT: (&str, &str) = ("component", "_$comp");
 const LIST_FN: (&str, &str) = ("list", "_$list");
 
 pub struct Generado {
@@ -298,6 +301,11 @@ impl Generador {
                         format!("{variable}.classList.toggle({nombre}, Boolean({sangrada}));")
                     }
                 }
+                Valor::Enlace(expresion) => {
+                    let bind = self.usar(BIND);
+                    let sangrada = self.sangrar(expresion);
+                    format!("{bind}({variable}, {nombre}, {sangrada});")
+                }
                 Valor::Referencia(expresion) => {
                     // Quedarse con el nodo es una llamada y ya.
                     let sangrada = self.sangrar(expresion);
@@ -403,6 +411,16 @@ impl Generador {
             let lista: Vec<&str> = campos.iter().map(|(campo, _)| campo.as_str()).collect();
             format!("{{ {} }}", lista.join(", "))
         };
+        // Sin props ni hijos, `Menu({})` obligaría a `Menu` a declarar un
+        // parámetro que no usa. `component` acepta las dos firmas.
+        if campos.is_empty() {
+            let comp = self.usar(COMPONENT);
+            lineas.push(self.linea(&format!(
+                "const {variable} = {comp}({});",
+                componente.nombre
+            )));
+            return variable;
+        }
         lineas.push(self.linea(&format!(
             "const {variable} = {}({props});",
             componente.nombre
@@ -439,6 +457,36 @@ impl Generador {
             .map_or_else(|| "false".to_string(), |valor| self.expresion(valor));
 
         let (entonces, si_no): (Vec<&Nodo>, Vec<&Nodo>) = particionar_ramas(&componente.hijos);
+
+        // `<Show when=${() => club()}>${(club) => …}</Show>`: el hijo quiere el
+        // valor, ya estrechado.
+        if let [Nodo::Dinamico(render)] = entonces.as_slice() {
+            if crate::plantilla::es_closure_con_parametros(render) {
+                // A un componente los props le llegan tal cual, closures
+                // incluidas: se mira el texto.
+                let cuando = match componente.prop("when") {
+                    Some(valor) => {
+                        let expresion = self.expresion(valor);
+                        if crate::plantilla::es_closure(&expresion) {
+                            expresion
+                        } else {
+                            format!("() => ({expresion})")
+                        }
+                    }
+                    None => "() => false".to_string(),
+                };
+                let render = self.sangrar(render);
+                let si_no = if si_no.is_empty() {
+                    "null".to_string()
+                } else {
+                    format!("() => {}", self.rama(&si_no))
+                };
+                self.origen = componente.linea;
+                let showv = self.usar(SHOW_VALUE_FN);
+                lineas.push(self.linea(&format!("{showv}({padre}, {cuando}, {render}, {si_no});")));
+                return;
+            }
+        }
 
         let condicion = format!("_c{}", self.contador);
         self.contador += 1;
@@ -527,7 +575,8 @@ fn expresion_de(valor: &Valor) -> String {
         | Valor::Dinamico(expresion)
         | Valor::Propiedad(expresion)
         | Valor::Clase(expresion)
-        | Valor::Referencia(expresion) => expresion.clone(),
+        | Valor::Referencia(expresion)
+        | Valor::Enlace(expresion) => expresion.clone(),
         Valor::Evento { manejador, .. } => manejador.clone(),
     }
 }
@@ -946,5 +995,54 @@ mod tests {
             "{}",
             generado.codigo
         );
+    }
+
+    #[test]
+    fn show_con_una_funcion_de_hijo_entrega_el_valor() {
+        let entrada = format!(
+            "<div><Show when={ABRE}0{CIERRA}>{ABRE}1{CIERRA}<Else><p>no</p></Else></Show></div>"
+        );
+        let generado = compilar(&entrada, &["() => club()", "(club) => Tarjeta(club)"]);
+        let codigo = &generado.codigo;
+
+        assert!(
+            codigo.contains("_$showv(_n0, () => club(), (club) => Tarjeta(club), () => (() => {"),
+            "{codigo}"
+        );
+        assert!(!codigo.contains("_$show("), "{codigo}");
+    }
+
+    #[test]
+    fn un_texto_reactivo_dentro_de_show_sigue_siendo_texto() {
+        // `() => …` no recibe nada: es texto, como siempre.
+        let entrada = format!("<div><Show when={ABRE}0{CIERRA}>{ABRE}1{CIERRA}</Show></div>");
+        let generado = compilar(&entrada, &["() => activo()", "() => cuenta()"]);
+        assert!(generado.codigo.contains("_$show("), "{}", generado.codigo);
+        assert!(!generado.codigo.contains("_$showv"), "{}", generado.codigo);
+    }
+
+    #[test]
+    fn bind_ata_el_campo_al_signal() {
+        let entrada = format!(
+            "<form><input bind:value={ABRE}0{CIERRA}><input type=\"checkbox\" bind:checked={ABRE}1{CIERRA}></form>"
+        );
+        let generado = compilar(&entrada, &["nombre", "acepta"]);
+        let codigo = &generado.codigo;
+        assert!(
+            codigo.contains("_$bind(_n1, \"value\", nombre);"),
+            "{codigo}"
+        );
+        assert!(
+            codigo.contains("_$bind(_n2, \"checked\", acepta);"),
+            "{codigo}"
+        );
+    }
+
+    #[test]
+    fn un_componente_sin_props_ni_hijos_pasa_por_component() {
+        let generado = compilar("<div><Menu/><Panel titulo=\"x\"/></div>", &[]);
+        let codigo = &generado.codigo;
+        assert!(codigo.contains("= _$comp(Menu);"), "{codigo}");
+        assert!(codigo.contains("= Panel({ titulo: \"x\" });"), "{codigo}");
     }
 }

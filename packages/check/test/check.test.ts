@@ -42,6 +42,13 @@ describe("ascua-check", () => {
     ]);
   });
 
+  it("Show entrega el valor estrechado, bind exige su tipo y <Menu/> no pide firma", () => {
+    expect(de("src/novedades.ts").map((e) => [e.linea, e.codigo])).toEqual([
+      [29, "TS2345"], // <Pide/> sin su prop obligatoria
+      [32, "TS2769"], // bind:value con un signal de número
+    ]);
+  });
+
   it("la columna señala lo que falla en la línea original", () => {
     const [titulo, , valor] = de("src/mal.ts");
     // `      <Tarjeta titulo=${42}/>`: la columna de `titulo`.
@@ -55,8 +62,8 @@ describe("ascua-check", () => {
   });
 
   it("cuenta lo que hizo y no deja la copia", () => {
-    expect(resultado.archivos).toBe(3);
-    expect(resultado.conPlantillas).toBe(3);
+    expect(resultado.archivos).toBe(4);
+    expect(resultado.conPlantillas).toBe(4);
     expect(existsSync(join(PROYECTO, ".ascua-check"))).toBe(false);
   });
 

@@ -104,6 +104,29 @@ view`
 Con `value=` en vez de `prop:value=`, el botón de vaciar dejaría de funcionar
 en cuanto alguien escribiera.
 
+### `bind:`, en los dos sentidos
+
+Lo de arriba es tan común que tiene atajo. `bind:` ata el campo a un signal:
+lo que el signal diga se ve, y lo que el usuario escriba va al signal.
+
+```ts
+const nombre = signal("");
+const acepta = signal(false);
+const edad = signal(30);
+
+view`
+  <form>
+    <input bind:value=${nombre}>
+    <input type="checkbox" bind:checked=${acepta}>
+    <input type="number" bind:valueAsNumber=${edad}>
+    <select bind:value=${pais}>…</select>
+  </form>`;
+```
+
+Se le pasa **el signal**, no una closure. `value` escucha `input`, `checked`
+escucha `change`, y `valueAsNumber` guarda un número (vacío es `NaN`). Los
+tipos se comprueban: atar `bind:value` a un `Signal<number>` es un error.
+
 ## Clases que van y vienen: `class:`
 
 `class` es un atributo como otro cualquiera: hacerlo reactivo obliga a

@@ -333,6 +333,88 @@ export function show<T>(
   });
 }
 
+/** Lo que queda de `T` al quitarle lo que `<Show>` entiende como «no hay». */
+export type Present<T> = Exclude<T, null | undefined | false>;
+
+/**
+ * `<Show>` que entrega el valor ya estrechado:
+ *
+ * ```ts
+ * view`<div><Show when=${() => club()}>${(club) => view`<h2>${() => club().nombre}</h2>`}</Show></div>`;
+ * ```
+ *
+ * La región se reconstruye solo cuando el valor **aparece o desaparece**. Si
+ * cambia por otro —un sondeo que trae el club otra vez—, lo que lo lee dentro
+ * se actualiza sin rehacer nada. «No hay» es `null`, `undefined` o `false`; un
+ * `0` o una cadena vacía son un valor.
+ */
+export function showValue<T>(
+  padre: Node,
+  elegir: () => T,
+  construir: (valor: () => Present<T>) => Node | readonly Node[] | null,
+  siNo: (() => Node | readonly Node[] | null) | null = null,
+): void {
+  const hay = (v: T): v is Present<T> => v !== null && v !== undefined && v !== false;
+  let ultimo: Present<T>;
+  // Cuando el valor se va, la rama cae en el mismo ciclo, pero un efecto de
+  // dentro puede alcanzar a leer antes: recibe el último valor que hubo, nunca
+  // un `undefined` que su tipo promete que no llega.
+  const valor = () => {
+    const actual = elegir();
+    if (hay(actual)) ultimo = actual;
+    return ultimo;
+  };
+  show(padre, () => hay(elegir()), (esta) => (esta ? construir(valor) : siNo ? siNo() : null));
+}
+
+/**
+ * Un componente usado sin props ni hijos: `<Menu/>`.
+ *
+ * Llamarlo como `Menu({})` obligaría a declarar un parámetro que no usa —si
+ * no, TypeScript protesta por el argumento de más—. Así acepta tanto
+ * `function Menu()` como uno con props opcionales, y sigue fallando si le
+ * faltan props obligatorias.
+ */
+export function component<R>(construir: (props: Record<never, never>) => R): R {
+  return construir({});
+}
+
+/** Lo que `bind:` necesita de un signal: leerlo y escribirlo. */
+export interface Writable<T> {
+  (): T;
+  set(valor: T): void;
+}
+
+/**
+ * Un campo atado a un signal en los dos sentidos: `bind:value=${nombre}`.
+ *
+ * `value` escucha `input` —texto, `<textarea>`, `<select>`—; `checked`,
+ * `change`. `valueAsNumber` es `value` para un `<input type=number>` que
+ * guarda un número: vacío es `NaN`.
+ */
+export function bind(nodo: Element, propiedad: "value", senal: Writable<string>): void;
+export function bind(nodo: Element, propiedad: "checked", senal: Writable<boolean>): void;
+export function bind(nodo: Element, propiedad: "valueAsNumber", senal: Writable<number>): void;
+export function bind(
+  nodo: Element,
+  propiedad: "value" | "checked" | "valueAsNumber",
+  senal: Writable<string> | Writable<boolean> | Writable<number>,
+): void {
+  const campo = nodo as unknown as Record<string, unknown>;
+  const escribir = (senal as Writable<unknown>).set;
+  if (propiedad === "valueAsNumber") {
+    // Se escribe `value`, no `valueAsNumber`: es lo que el servidor sabe
+    // poner en el HTML.
+    property(nodo, "value", () => {
+      const numero = (senal as Writable<number>)();
+      return Number.isNaN(numero) ? "" : String(numero);
+    });
+  } else {
+    property(nodo, propiedad, () => senal());
+  }
+  on(nodo, propiedad === "checked" ? "change" : "input", () => escribir(campo[propiedad]));
+}
+
 /**
  * Lista con clave: el único sitio donde Ascua hace algo parecido a un diff.
  *

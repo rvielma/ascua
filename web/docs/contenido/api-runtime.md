@@ -9,8 +9,8 @@ import { renderToString } from "ascua/servidor";
 ```
 
 2,25 kB gzip, sin dependencias. Con `hydrate` e `island`, 3,05 kB, y
-`defineIsland` suma unos 0,75 kB; lo que no se importa, el tree-shaking se lo
-lleva. `ascua/servidor` no cuenta: no llega
+`defineIsland` suma unos 0,75 kB, `resource` 0,26 kB, `bind` 0,10 kB y
+`showValue` 0,07 kB; lo que no se importa, el tree-shaking se lo lleva. `ascua/servidor` no cuenta: no llega
 al navegador.
 
 ## Reactividad
@@ -92,6 +92,32 @@ function onError(manejador: (error: unknown) => void): void;
 Se hace cargo de los errores de este scope y de los de debajo. El manejador
 corre en su propio scope. Ver [Errores](/docs/errores/).
 
+### resource
+
+```ts
+function resource<T>(cargar: (info: ResourceInfo) => Promise<T>): Resource<T>;
+function resource<T, S>(
+  fuente: () => S | null | undefined | false,
+  cargar: (fuente: S, info: ResourceInfo) => Promise<T>,
+): Resource<T>;
+
+interface ResourceInfo { signal: AbortSignal }
+type ResourceState = "idle" | "loading" | "ready" | "error";
+
+interface Resource<T> {
+  (): T | undefined;
+  state(): ResourceState;
+  loading(): boolean;
+  error(): unknown;
+  reload(): void;
+  mutate(valor: T | undefined): void;
+}
+```
+
+Carga al crearse y cada vez que cambia la fuente; una carga nueva aborta la
+anterior y descarta su respuesta. Liberar el scope aborta lo pendiente. La
+guía está en [Reactividad](/docs/reactividad/#datos-que-llegan-tarde-resource).
+
 ### root
 
 ```ts
@@ -115,7 +141,7 @@ Las llamadas que emite el compilador. Se pueden escribir a mano.
 
 | Función | Qué hace |
 |---|---|
-| `element(etiqueta)` | `document.createElement`. |
+| `element(etiqueta, espacio?)` | `document.createElement`, o `createElementNS` dentro de `<svg>` y `<math>`. |
 | `text(contenido?)` | Un nodo de texto. |
 | `marker()` | Un comentario vacío: el ancla de una región dinámica. |
 | `append(padre, ...hijos)` | Añade al final. |
@@ -126,6 +152,8 @@ Las llamadas que emite el compilador. Se pueden escribir a mano.
 | `property(nodo, nombre, calcular)` | Propiedad reactiva: `value`, `checked`. |
 | `cssClass(nodo, nombre, calcular)` | Pone o quita una clase. |
 | `on(nodo, evento, manejador)` | `addEventListener`, que se quita solo al liberar. |
+| `bind(nodo, propiedad, signal)` | `bind:`: `value`, `checked` o `valueAsNumber`, en los dos sentidos. |
+| `component(Componente)` | Un componente sin props ni hijos: `<Menu/>`. |
 
 ### show
 
@@ -139,6 +167,22 @@ function show<T>(
 
 La región de un `<Show>`. `construir` corre dentro de un scope propio y sin
 rastrear; se vuelve a llamar solo cuando `elegir` devuelve otro valor.
+
+### showValue
+
+```ts
+type Present<T> = Exclude<T, null | undefined | false>;
+
+function showValue<T>(
+  padre: Node,
+  elegir: () => T,
+  construir: (valor: () => Present<T>) => Node | readonly Node[] | null,
+  siNo?: (() => Node | readonly Node[] | null) | null,
+): void;
+```
+
+Un `<Show>` cuyo hijo es una función. Reconstruye solo cuando el valor aparece
+o desaparece; `construir` recibe un accesor ya estrechado.
 
 ### list
 
@@ -242,6 +286,7 @@ hojas las registra el plugin de Vite al cargar cada módulo en el servidor, con
 type Children = (padre: Node) => void;
 type ValorAtributo = string | number | boolean | null | undefined;
 type Memo<T> = () => T;
+interface Writable<T> { (): T; set(valor: T): void }
 ```
 
 Y dos globales, para que el editor conozca las plantillas sin importarlas:

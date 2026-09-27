@@ -454,6 +454,105 @@ export function selector<T>(fuente: () => T): (clave: T) => boolean {
   };
 }
 
+/** En qué está un `resource`. */
+export type ResourceState = "idle" | "loading" | "ready" | "error";
+
+/** Lo que recibe la función que carga: con qué cancelar la petición. */
+export interface ResourceInfo {
+  signal: AbortSignal;
+}
+
+/** Datos que llegan tarde, con su estado. */
+export interface Resource<T> {
+  /**
+   * El último valor cargado, o `undefined` hasta el primero. Mientras se
+   * recarga sigue ahí: la pantalla no parpadea a «cargando» en cada sondeo.
+   */
+  (): T | undefined;
+  /** `idle` si la fuente no da nada que cargar. */
+  state(): ResourceState;
+  loading(): boolean;
+  /** El error de la última carga, o `undefined` si fue bien. */
+  error(): unknown;
+  /** Vuelve a cargar con la fuente de ahora. */
+  reload(): void;
+  /** Cambia el valor sin cargar: lo que ya se sabe tras guardar algo. */
+  mutate(valor: T | undefined): void;
+}
+
+/**
+ * Datos asíncronos: `const club = resource(() => id(), (id, { signal }) => …)`.
+ *
+ * Carga al crearse y cada vez que la fuente cambia. Si la fuente da `null`,
+ * `undefined` o `false`, no carga y queda en `idle`. Una carga nueva **aborta
+ * la anterior** —su `signal` se dispara— y la respuesta vieja se descarta
+ * aunque llegue, así que un resultado lento nunca pisa a uno más reciente.
+ * Lo mismo al liberar el scope: cerrar la vista cancela lo que estaba en
+ * camino.
+ */
+export function resource<T>(cargar: (info: ResourceInfo) => Promise<T>): Resource<T>;
+export function resource<T, S>(
+  fuente: () => S | null | undefined | false,
+  cargar: (fuente: S, info: ResourceInfo) => Promise<T>,
+): Resource<T>;
+export function resource<T, S>(
+  primero: (() => S | null | undefined | false) | ((info: ResourceInfo) => Promise<T>),
+  segundo?: (fuente: S, info: ResourceInfo) => Promise<T>,
+): Resource<T> {
+  const fuente = segundo ? (primero as () => S | null | undefined | false) : () => true as S;
+  const cargar = segundo ?? ((_: S, info: ResourceInfo) => (primero as (info: ResourceInfo) => Promise<T>)(info));
+
+  const valor = signal<T | undefined>(undefined);
+  const estado = signal<ResourceState>("idle");
+  const fallo = signal<unknown>(undefined);
+  const vuelta = signal(0);
+
+  effect(() => {
+    vuelta();
+    const clave = fuente();
+    if (clave === null || clave === undefined || clave === false) {
+      estado.set("idle");
+      return;
+    }
+
+    const control = new AbortController();
+    onCleanup(() => control.abort());
+    estado.set("loading");
+
+    let promesa: Promise<T>;
+    try {
+      promesa = untrack(() => cargar(clave, { signal: control.signal }));
+    } catch (error) {
+      promesa = Promise.reject(error);
+    }
+    promesa.then(
+      (dato) => {
+        if (control.signal.aborted) return;
+        batch(() => {
+          valor.set(dato);
+          fallo.set(undefined);
+          estado.set("ready");
+        });
+      },
+      (error: unknown) => {
+        if (control.signal.aborted) return;
+        batch(() => {
+          fallo.set(error);
+          estado.set("error");
+        });
+      },
+    );
+  });
+
+  const recurso = (() => valor()) as Resource<T>;
+  recurso.state = () => estado();
+  recurso.loading = () => estado() === "loading";
+  recurso.error = () => fallo();
+  recurso.reload = () => vuelta.update((n) => n + 1);
+  recurso.mutate = (nuevo) => valor.set(nuevo);
+  return recurso;
+}
+
 /** Crea una raíz reactiva y devuelve su resultado y cómo liberarla. */
 export function root<T>(fn: () => T): [T, () => void] {
   const nodo = crearNodo(undefined);
