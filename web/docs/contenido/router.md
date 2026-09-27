@@ -1,6 +1,6 @@
 ---
 titulo: Rutas
-descripcion: La ruta actual es un signal. Enlaces que no recargan, parámetros y vistas que se liberan al salir de ellas, en 0,98 kB.
+descripcion: La ruta actual es un signal. Enlaces que no recargan, parámetros y vistas que se liberan al salir de ellas, en 1,03 kB.
 ---
 
 ## La ruta es un signal
@@ -80,6 +80,11 @@ la raíz que se le pase— y devuelve cómo soltarlo. Respeta lo que un enlace
 significa: un click con ⌘ o ctrl, uno con el botón central, un `target` o un
 `download` siguen abriendo como siempre, y los enlaces a otro origen no se
 tocan.
+
+Si la aplicación vive bajo un camino y el resto del sitio son otras páginas
+—la portada en `/`, el juego en `/jugar/`—, `enlaces(document, { base: "/jugar/" })`
+solo intercepta lo que cuelga de `/jugar/`: el enlace a `/` carga la portada.
+Para un enlace suelto, `rel="external"`.
 
 ## La query
 

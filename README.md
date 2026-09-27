@@ -66,7 +66,7 @@ CSS, gzip, la aplicación entera.
 | `ascua` | Signals y DOM, 2,25 kB gzip, cero dependencias | ✅ |
 | `ascua-compilador` | Plantillas a operaciones de DOM. Se distribuye como WASM | ✅ |
 | `vite-plugin-ascua` | Integración con Vite | ✅ |
-| `ascua-router` | La ruta como signal, 0,98 kB gzip | ✅ |
+| `ascua-router` | La ruta como signal, 1,03 kB gzip | ✅ |
 | `ascua-testing` | Montar, tocar y desmontar en un test | ✅ |
 | `ascua-check` | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | ✅ |
 | `ascua-ts-plugin` | Lo mismo en el editor: errores, autocompletado de props y del HTML, ir a la definición | ✅ |
@@ -92,7 +92,7 @@ verificado en navegador real.
 | Solo el runtime | 2,25 kB |
 | El runtime con `hydrate` e `island` | 3,05 kB |
 | La validación de props de `defineIsland` | +0,75 kB |
-| El router | 0,98 kB |
+| El router | 1,03 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
 En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,16×** el

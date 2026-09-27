@@ -172,9 +172,9 @@ pub fn parsear_con_saltos(
         css: String::new(),
     };
 
-    parser.saltar_espacios();
+    parser.saltar_espacios_y_comentarios()?;
     let raiz = parser.nodo()?;
-    parser.saltar_espacios();
+    parser.saltar_espacios_y_comentarios()?;
 
     if parser.posicion < parser.chars.len() {
         return Err(parser.error(
@@ -265,6 +265,41 @@ impl Parser<'_> {
     fn saltar_espacios(&mut self) {
         while self.actual().is_some_and(char::is_whitespace) {
             self.posicion += 1;
+        }
+    }
+
+    /// Salta un `<!-- … -->` si empieza aquí. Un comentario no produce nada:
+    /// ni nodo, ni código, ni lo que hubiera en sus huecos.
+    fn comentario(&mut self) -> Resultado<bool> {
+        let empieza = ['<', '!', '-', '-']
+            .iter()
+            .enumerate()
+            .all(|(i, c)| self.mirar(i) == Some(*c));
+        if !empieza {
+            return Ok(false);
+        }
+        let inicio = self.posicion;
+        self.posicion += 4;
+        while self.posicion < self.chars.len() {
+            if self.actual() == Some('-')
+                && self.mirar(1) == Some('-')
+                && self.mirar(2) == Some('>')
+            {
+                self.posicion += 3;
+                return Ok(true);
+            }
+            self.posicion += 1;
+        }
+        self.posicion = inicio;
+        Err(self.error("falta cerrar el comentario con -->"))
+    }
+
+    fn saltar_espacios_y_comentarios(&mut self) -> Resultado<()> {
+        loop {
+            self.saltar_espacios();
+            if !self.comentario()? {
+                return Ok(());
+            }
         }
     }
 
@@ -534,6 +569,9 @@ impl Parser<'_> {
     fn hijos(&mut self, etiqueta: &str) -> Resultado<Vec<Nodo>> {
         let mut hijos = Vec::new();
         loop {
+            if self.comentario()? {
+                continue;
+            }
             match self.actual() {
                 None => {
                     return Err(self.error(&format!("falta la etiqueta de cierre </{etiqueta}>")))
@@ -1033,5 +1071,27 @@ mod tests {
             error.mensaje.contains("elemento que lo contenga"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn los_comentarios_no_dejan_rastro() {
+        let entrada = format!(
+            "<!-- antes -->\n<div><!-- uno --><p>a</p><!--\n  dos {ABRE}0{CIERRA}\n--><p>b</p></div>\n<!-- después -->"
+        );
+        let plantilla = parsear(&entrada, &["x".to_string()]).expect("debería parsear");
+        let Nodo::Elemento(div) = plantilla.raiz else {
+            panic!("debería ser un elemento");
+        };
+        assert_eq!(div.etiqueta, "div");
+        assert_eq!(div.hijos.len(), 2);
+    }
+
+    #[test]
+    fn un_comentario_sin_cerrar_dice_donde() {
+        let error =
+            parsear("<div>\n<!-- sin cerrar <p>a</p></div>", &[]).expect_err("debería fallar");
+        assert!(error.mensaje.contains("-->"), "{error}");
+        // Señala donde abre, no el final de la plantilla.
+        assert_eq!(error.posicion, 6, "{error}");
     }
 }

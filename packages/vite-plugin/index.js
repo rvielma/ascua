@@ -96,7 +96,8 @@ export default function ascua(opciones = {}) {
       try {
         salida = compilar(codigo, archivo);
       } catch (error) {
-        const detalle = error.stderr?.toString().trim() || error.message;
+        // El compilador en wasm lanza el mensaje como cadena, no como Error.
+        const detalle = error?.stderr?.toString().trim() || error?.message || String(error);
         this.error(`ascua: ${detalle}\n  en ${archivo}`);
         return null;
       }

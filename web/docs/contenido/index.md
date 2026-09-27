@@ -59,7 +59,7 @@ que la operación, así que el runtime es JavaScript. Está en
 | Paquete | Qué es | gzip |
 |---|---|---|
 | `ascua` | Signals, operaciones de DOM, SSR e hidratación | 2,25 kB |
-| `ascua-router` | La ruta como signal, con parámetros y enlaces que no recargan | 0,98 kB |
+| `ascua-router` | La ruta como signal, con parámetros y enlaces que no recargan | 1,03 kB |
 | `ascua-testing` | Montar, tocar y desmontar un componente en un test | — |
 | `vite-plugin-ascua` | Compila las plantillas y entrega el CSS a Vite | — |
 | `ascua-compilador` | El compilador, como módulo WebAssembly | — |

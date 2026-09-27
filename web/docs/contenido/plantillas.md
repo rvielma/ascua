@@ -164,6 +164,8 @@ Para enlazar, `href` a secas; `xlink:href` es de SVG 1.1 y no hace falta.
   adivinar la intención; para componer, un componente.
 - **`<Show>` y `<For>` necesitan un elemento padre** donde anclarse, porque lo
   que producen es un marcador dentro de él. No pueden ser la raíz.
+- **Los comentarios `<!-- … -->` desaparecen al compilar**, con lo que haya
+  dentro, huecos incluidos: no llegan al DOM.
 - **Los espacios entre etiquetas no cuentan.** Un texto que es solo espacios
   entre dos elementos se descarta, como hace cualquier minificador de HTML. Si
   un espacio importa, va dentro del texto: `<b>uno</b>${" "}<b>dos</b>`.

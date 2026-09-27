@@ -137,7 +137,7 @@ adoptado. Está en [SSR e islas](/docs/ssr/#como-encuentra-cada-nodo).
 | El runtime con `hydrate` e `island` | 3,05 kB |
 | Una aplicación entera (runtime, contador y lista con clave) | 2,45 kB |
 | Un panel con acceso, rutas, tabla filtrable y componentes | 5,71 kB + 1,39 kB de CSS |
-| El router | 0,98 kB |
+| El router | 1,03 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
 El código fuente del runtime son tres archivos: `reactivo.ts`, `dom.ts` y

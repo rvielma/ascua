@@ -87,8 +87,17 @@ export function navegar(destino: string, opciones: { reemplazar?: boolean } = {}
  * Se respeta lo que el usuario espera de un enlace: un click con ⌘/ctrl, un
  * click central, un `target` o un `download` siguen abriendo como siempre, y
  * los enlaces externos no se tocan. Devuelve cómo soltar el listener.
+ *
+ * Si la aplicación vive bajo un camino —`/jugar/`— y el resto del sitio son
+ * otras páginas, `base` limita la navegación a lo que cuelga de él: un enlace
+ * a `/` carga la portada de verdad. Para un enlace suelto basta
+ * `rel="external"`.
  */
-export function enlaces(raiz: Node = document): () => void {
+export function enlaces(raiz: Node = document, opciones: { base?: string } = {}): () => void {
+  const base = opciones.base?.replace(/\/+$/, "");
+  const dentro = (camino: string) =>
+    !base || camino === base || camino.startsWith(`${base}/`);
+
   const alPulsar = (evento: Event) => {
     const click = evento as MouseEvent;
     if (click.defaultPrevented || click.button !== 0) return;
@@ -100,11 +109,12 @@ export function enlaces(raiz: Node = document): () => void {
     const href = destino.getAttribute("href");
     if (!href || href.startsWith("#")) return;
     if (destino.hasAttribute("download") || destino.hasAttribute("target")) return;
+    if (destino.relList.contains("external")) return;
     // Externo: dominio distinto, o un esquema que no es http(s).
     if (/^[a-z][a-z0-9+.-]*:/i.test(href) && !href.startsWith(location.origin)) return;
 
     const url = new URL(href, location.href);
-    if (url.origin !== location.origin) return;
+    if (url.origin !== location.origin || !dentro(url.pathname)) return;
 
     evento.preventDefault();
     navegar(url.pathname + url.search);

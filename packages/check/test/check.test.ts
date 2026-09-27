@@ -60,6 +60,13 @@ describe("ascua-check", () => {
     expect(existsSync(join(PROYECTO, ".ascua-check"))).toBe(false);
   });
 
+  it("si una plantilla no compila, dice cuál y por qué", async () => {
+    const roto = join(__dirname, "fixtures/roto/tsconfig.json");
+    await expect(comprobar({ proyecto: roto })).rejects.toThrow(
+      /src\/raiz\.ts: .*<Show> necesita un elemento donde anclarse/,
+    );
+  });
+
   it("sin tsconfig lo dice", async () => {
     await expect(comprobar({ proyecto: join(PROYECTO, "no-existe.json") })).rejects.toThrow(/no existe/);
   });

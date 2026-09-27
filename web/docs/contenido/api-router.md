@@ -7,7 +7,7 @@ descripcion: Las siete funciones del router, con su firma.
 import { coincide, enlaces, enrutarEn, navegar, query, ruta, sinQuery } from "ascua-router";
 ```
 
-0,98 kB gzip. Depende de `ascua`. La guía está en
+1,03 kB gzip. Depende de `ascua`. La guía está en
 [Rutas](/docs/router/).
 
 ## ruta
@@ -30,12 +30,13 @@ historial en vez de apilar una nueva.
 ## enlaces
 
 ```ts
-function enlaces(raiz?: Node): () => void;
+function enlaces(raiz?: Node, opciones?: { base?: string }): () => void;
 ```
 
 Intercepta los clicks en `<a href>` internos dentro de `raiz` —el documento,
 por defecto—. Deja pasar los clicks con modificadores, el botón central, los
-enlaces con `target` o `download` y los de otro origen. Devuelve cómo soltarlo.
+enlaces con `target`, `download` o `rel="external"`, los de otro origen y,
+con `base`, los que no cuelgan de ella. Devuelve cómo soltarlo.
 
 ## enrutarEn
 

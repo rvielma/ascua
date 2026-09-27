@@ -1,6 +1,6 @@
 # ascua-router
 
-El router de [Ascua](https://ascua.gitweave.run) en **0,98 kB** gzip. La ruta es
+El router de [Ascua](https://ascua.gitweave.run) en **1,03 kB** gzip. La ruta es
 un signal: leerla dentro de una closure hace que ese nodo siga a la URL, igual
 que con cualquier otro dato.
 
@@ -41,7 +41,7 @@ Devuelve cómo soltarla.
 |---|---|
 | `ruta()` | La ruta actual con su query. Reactiva. |
 | `navegar(destino, { reemplazar })` | Cambia de ruta. `reemplazar` no apila historial — lo que quieres tras un login. |
-| `enlaces(raiz?)` | Intercepta los clicks en enlaces internos. Devuelve cómo soltarlo. |
+| `enlaces(raiz?, { base? })` | Intercepta los clicks en enlaces internos. Devuelve cómo soltarlo. |
 | `coincide(patron, contra?)` | Los parámetros que captura, o `null`. |
 | `query()` | Un `URLSearchParams` con lo que va tras `?`. |
 | `sinQuery(valor)` | El camino a secas. |
@@ -54,6 +54,11 @@ con el resto. `/pedidos` y `/pedidos/` son la misma ruta; `/pedidos` y
 `enlaces()` respeta lo que un enlace significa: un click con ⌘ o ctrl, uno con
 el botón central, un `target` o un `download` siguen abriendo como siempre, y
 los enlaces externos no se tocan.
+
+Si la aplicación vive bajo un camino y el resto del sitio son otras páginas
+—la portada en `/`, el juego en `/jugar/`—, `enlaces(document, { base: "/jugar/" })`
+solo intercepta lo que cuelga de `/jugar/`: el enlace a `/` carga la portada.
+Para un enlace suelto, `rel="external"`.
 
 ## Al desplegar
 

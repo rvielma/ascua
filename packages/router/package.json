@@ -1,6 +1,6 @@
 {
   "name": "ascua-router",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "El router de Ascua: la ruta es un signal. Sin contexto, sin componente que instalar.",
   "keywords": [
     "router",

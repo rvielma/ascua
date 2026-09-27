@@ -227,3 +227,37 @@ describe("enlaces", () => {
     expect(ruta()).toBe("/");
   });
 });
+
+describe("enlaces fuera de la aplicación", () => {
+  function pulsar(nodo: Element): MouseEvent {
+    const evento = new MouseEvent("click", { bubbles: true, cancelable: true });
+    nodo.dispatchEvent(evento);
+    return evento;
+  }
+
+  it("con base, solo navega lo que cuelga de ella", () => {
+    document.body.innerHTML = `
+      <a id="portada" href="/">portada</a>
+      <a id="vecino" href="/jugarlo">otra página</a>
+      <a id="raiz" href="/jugar">raíz</a>
+      <a id="caso" href="/jugar/?caso=001">caso</a>`;
+    const soltar = enlaces(document, { base: "/jugar/" });
+
+    for (const id of ["portada", "vecino"]) {
+      expect(pulsar(document.querySelector(`#${id}`)!).defaultPrevented, id).toBe(false);
+    }
+    for (const id of ["raiz", "caso"]) {
+      expect(pulsar(document.querySelector(`#${id}`)!).defaultPrevented, id).toBe(true);
+    }
+    expect(ruta()).toBe("/jugar/?caso=001");
+    soltar();
+  });
+
+  it("rel=external no se intercepta", () => {
+    document.body.innerHTML = `<a href="/" rel="noopener external">portada</a>`;
+    const soltar = enlaces(document);
+
+    expect(pulsar(document.querySelector("a")!).defaultPrevented).toBe(false);
+    soltar();
+  });
+});

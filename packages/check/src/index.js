@@ -73,7 +73,14 @@ export async function comprobar({ proyecto = "tsconfig.json", cwd = process.cwd(
       mkdirSync(dirname(copia), { recursive: true });
       const fuente = readFileSync(original, "utf8");
       if (COMPILABLES.test(original) && !original.endsWith(".d.ts") && PLANTILLA.test(fuente)) {
-        const salida = compilar(fuente, relative(raiz, original));
+        let salida;
+        try {
+          salida = compilar(fuente, relative(raiz, original));
+        } catch (error) {
+          // El compilador en wasm lanza el mensaje como cadena, no como Error,
+          // y sin el archivo delante no hay por dónde empezar a buscar.
+          throw new Error(`${relative(cwd, original)}: ${error?.message ?? error}`);
+        }
         writeFileSync(copia, salida.code);
         mapas.set(copia, {
           original,
@@ -118,7 +125,7 @@ export async function principal(argumentos) {
   try {
     resultado = await comprobar({ proyecto, conservar });
   } catch (error) {
-    console.error(`ascua-check: ${error.message}`);
+    console.error(`ascua-check: ${error?.message ?? error}`);
     return 2;
   }
 
