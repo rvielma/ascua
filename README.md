@@ -19,6 +19,47 @@ traduce a operaciones directas de DOM. Una aplicación entera pesa 2,45 kB.
 **[documentación](https://ascua.gitweave.run/docs/)** · el compilador corre en tu
 pestaña: **[playground](https://ascua.gitweave.run/playground/)**
 
+## Empezar
+
+Basta con Node y [stil](https://stil.gitweave.run) —o npm—. **No hace falta
+Rust**: el compilador llega como `.wasm` dentro del paquete, y el mismo archivo
+vale para macOS, Linux y Windows.
+
+```sh
+stil add ascua
+stil add -D vite
+stil add -D vite-plugin-ascua
+```
+
+```ts
+// vite.config.ts
+import ascua from "vite-plugin-ascua";
+
+export default { plugins: [ascua({ sitio: true })] };
+```
+
+```ts
+// src/rutas/index.ts
+export const titulo = "Inicio";
+
+export default function Inicio() {
+  return view`<main><h1>Hola</h1></main>`;
+}
+```
+
+Con `"dev": "vite"` y `"build": "vite build"` en el `package.json`:
+
+```sh
+stil run dev      # cada página renderizada al vuelo, con recarga
+stil run build    # dist/: una página HTML por archivo de src/rutas/, lista para subir
+```
+
+Cada archivo de `src/rutas/` es una página; lo interactivo va en islas y es lo
+único que lleva JavaScript. Con `ascua({ sitio: { modo: "servidor" } })`, el
+build deja además un servidor Node con todo dentro. Sin `sitio`, el plugin
+solo compila las plantillas, para una aplicación de una página.
+[Guía de sitios](https://ascua.gitweave.run/docs/sitios/).
+
 ```ts
 export function Contador() {
   const count = signal(0);
@@ -126,7 +167,7 @@ Y lo que resuelven juntos:
 | Errores | `onError` por vista; los del compilador, con archivo y línea |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**380 tests** (167 en Rust, 213 en TypeScript), sin warnings de `clippy`, todo
+**381 tests** (167 en Rust, 214 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -218,11 +259,14 @@ JavaScript.
 
 ## Desarrollo
 
+Esto es para trabajar **en** Ascua, no para usarla. Aquí sí hace falta Rust
+(1.82 o posterior), porque el compilador está escrito en Rust.
+
 Todo lo que hay que comprobar antes de registrar un cambio, en un comando:
 
 ```sh
-bash scripts/verificar.sh            # Rust, MSRV, WASM, TypeScript, ascua-check y el ejemplo SSR
-bash scripts/verificar.sh --rapido   # sin MSRV ni el build del ejemplo SSR
+bash scripts/verificar.sh            # Rust, MSRV, WASM, TypeScript, ascua-check y los ejemplos
+bash scripts/verificar.sh --rapido   # sin MSRV ni el build de los ejemplos
 ```
 
 Los comandos de Node usan [**stil**](https://stil.gitweave.run), el gestor de
@@ -250,37 +294,15 @@ cd packages/router && stil run test     # 20 tests del router
 cd packages/testing && stil run test    # 13 tests del paquete de testing
 cd packages/check && stil run test      # 8 tests de ascua-check
 cd packages/ts-plugin && stil run test  # 17 tests del plugin del editor, con tsserver
-cd packages/vite-plugin && stil run test # 24 tests del plugin de Vite: sitio estático, desarrollo, servidor e hidratación
+cd packages/vite-plugin && stil run test # 25 tests del plugin de Vite: sitio estático, desarrollo, servidor e hidratación
 cd examples/panel-ts && stil run check  # ascua-check sobre el panel
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
 cd examples/ssr-ts && stil run test     # 8 tests del ejemplo con SSR
 cd examples/panel-ts && stil run dev
 ```
 
-El compilador como WebAssembly —**hay que rehacerlo cada vez que cambia el
-compilador**, o el plugin de Vite seguirá usando el artefacto de antes:
-
-```sh
-./scripts/compilar-wasm.sh   # pkg/ para Node, web/ para el navegador
-```
-
-Publicar los paquetes (pide `npm login`; `stil` no cubre `publish`):
-
-```sh
-./scripts/publicar-npm.sh --dry-run   # enseña qué subiría cada paquete
-./scripts/publicar-npm.sh
-```
-
-> **macOS**: esta plataforma tiene dos manías que no vienen del código y que
-> `.cargo/config.toml` ya sortea con
-> [`scripts/cargo-runner-macos.sh`](scripts/cargo-runner-macos.sh): invalida la
-> firma ad-hoc de los binarios que cargo copia a `target/` (el kernel los mata
-> con `signal: 9, SIGKILL` sin ninguna salida) y SIP borra las variables
-> `DYLD_*` al pasar por un intérprete protegido, lo que deja a los tests de
-> proc-macro sin encontrar `libstd`.
->
-> Los build scripts no pasan por ese runner. Si uno muere con SIGKILL, usar
-> [`./scripts/cargo.sh`](scripts/cargo.sh) en lugar de `cargo`.
+`verificar.sh` recompila el `.wasm` del compilador antes de probar nada, así
+que un cambio en el compilador llega solo al plugin de Vite y a los ejemplos.
 
 ## Lo que queda fuera, a propósito
 

@@ -22,6 +22,8 @@ import { buscar, caminoDe, componer, ESQUELETO, esNoExiste, esVariable, renderiz
 // No `virtual:ascua/…`: ese prefijo es el de las hojas del plugin de plantillas.
 const CLIENTE = "virtual:ascua-sitio/cliente";
 const SERVIDOR = "virtual:ascua-sitio/servidor";
+/** Para un sitio sin esqueleto ni islas: Vite necesita alguna entrada. */
+const VACIO = "virtual:ascua-sitio/vacio";
 const MODULO = /\.[mc]?[jt]s$/;
 const COMUN = fileURLToPath(new URL("./sitio-comun.js", import.meta.url));
 
@@ -346,6 +348,8 @@ export function sitio(opciones) {
       const indice = join(root, "index.html");
       if (existsSync(esqueleto)) entradas[esqueleto === indice ? "index" : "ascua-esqueleto"] = esqueleto;
       if (esqueleto !== indice && existsSync(indice)) entradas.index = indice;
+      // Sin ninguna, rolldown no construye; esta sale vacía y se borra.
+      if (Object.keys(entradas).length === 0) entradas["ascua-vacio"] = VACIO;
 
       return {
         // Sin el respaldo de SPA de Vite: lo que no es una ruta ni un archivo
@@ -363,12 +367,13 @@ export function sitio(opciones) {
     },
 
     resolveId(id) {
-      return id === CLIENTE || id === SERVIDOR ? `\0${id}` : null;
+      return id === CLIENTE || id === SERVIDOR || id === VACIO ? `\0${id}` : null;
     },
 
     load(id) {
       if (id === `\0${CLIENTE}`) return codigoCliente(ajustes.islas.replace(/^\/+|\/+$/g, ""));
       if (id === `\0${SERVIDOR}`) return codigoServidor(dirRutas());
+      if (id === `\0${VACIO}`) return "export {};";
       return null;
     },
 
@@ -376,6 +381,11 @@ export function sitio(opciones) {
       if (config.build.ssr) return;
       const dir = opcionesSalida.dir ?? resolve(raiz(), config.build.outDir);
       for (const parte of Object.values(bundle)) {
+        if (parte.type === "chunk" && parte.facadeModuleId === `\0${VACIO}`) {
+          rmSync(join(dir, parte.fileName), { force: true });
+          const carpeta = dirname(join(dir, parte.fileName));
+          if (existsSync(carpeta) && readdirSync(carpeta).length === 0) rmSync(carpeta, { recursive: true });
+        }
         if (parte.type === "chunk" && parte.isEntry && parte.facadeModuleId === `\0${CLIENTE}`) {
           scriptConstruido = `${config.base}${parte.fileName}`;
           hojasConstruidas = [...(parte.viteMetadata?.importedCss ?? [])].map((h) => `${config.base}${h}`);
@@ -469,8 +479,9 @@ export function sitio(opciones) {
       } finally {
         await vite.close();
       }
-      const otros = archivos ? ` y ${archivos} ${archivos === 1 ? "archivo" : "archivos"}` : "";
-      logger.info(`ascua: ${paginas} páginas${otros} en ${relative(root, salida) || "."}/`);
+      const cuantos = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
+      const otros = archivos ? ` y ${cuantos(archivos, "archivo", "archivos")}` : "";
+      logger.info(`ascua: ${cuantos(paginas, "página", "páginas")}${otros} en ${relative(root, salida) || "."}/`);
     },
 
     configureServer(servidor) {

@@ -2,3 +2,6 @@
 # `web/**` y no `web/`: sin barra interior el patrón vale a cualquier
 # profundidad y se llevaría también packages/compilador/web/.
 web/**
+
+# Solo para quien publica: npm, el WASM a mano, macOS.
+docs/mantenimiento.md
