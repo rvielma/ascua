@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-ascua",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Plugin de Vite que compila las plantillas de Ascua con el compilador en WebAssembly.",
   "keywords": [
     "vite",
@@ -14,13 +14,28 @@
   "type": "module",
   "main": "./index.js",
   "exports": {
-    ".": "./index.js"
+    ".": "./index.js",
+    "./sitio": {
+      "types": "./sitio.d.ts",
+      "default": "./sitio-comun.js"
+    }
   },
   "files": [
     "index.js",
+    "sitio.js",
+    "sitio-comun.js",
+    "sitio.d.ts",
     "LICENSE-MIT",
     "LICENSE-APACHE"
   ],
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.14.5",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1"
+  },
   "publishConfig": {
     "access": "public"
   },

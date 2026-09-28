@@ -1,0 +1,17 @@
+{
+  "name": "sitio-ts",
+  "private": true,
+  "type": "module",
+  "description": "Un sitio estático con islas: una página HTML por archivo de src/rutas/.",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node ../../packages/check/bin/ascua-check.js"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "terser": "^5.51.2",
+    "typescript": "^7.0.2"
+  }
+}

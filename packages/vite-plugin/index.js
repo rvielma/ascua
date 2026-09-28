@@ -14,6 +14,8 @@ import { execFileSync } from "node:child_process";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
+import { sitio } from "./sitio.js";
+
 const EXTENSIONES = /\.[jt]sx?$/;
 const PREFIJO = "virtual:ascua/";
 const PLANTILLA = /\b(?:view|html)`/;
@@ -59,10 +61,16 @@ function elegirCompilador(opciones) {
 }
 
 /**
- * @param {{ bin?: string }} [opciones]
+ * @param {{ bin?: string, sitio?: true | { rutas?: string, islas?: string } }} [opciones]
  *   `bin`: ruta a un `ascuac` nativo. Sin esto se usa el compilador WASM.
+ *   `sitio`: una página HTML por archivo de `src/rutas/`; ver `docs/sitio.md`.
  */
 export default function ascua(opciones = {}) {
+  const plantillas = compilador(opciones);
+  return opciones.sitio ? [plantillas, sitio(opciones.sitio)] : plantillas;
+}
+
+function compilador(opciones) {
   const compilar = elegirCompilador(opciones);
   /** Hojas extraídas, por id virtual. */
   const hojas = new Map();

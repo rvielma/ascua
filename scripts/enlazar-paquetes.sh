@@ -35,9 +35,11 @@ enlazar packages/router     runtime
 enlazar packages/testing    runtime
 enlazar packages/check      compilador
 enlazar packages/ts-plugin  compilador
+enlazar packages/vite-plugin compilador
 enlazar examples/contador-ts compilador vite-plugin
 enlazar examples/panel-ts   compilador vite-plugin router testing
 enlazar examples/ssr-ts     compilador vite-plugin
+enlazar examples/sitio-ts   compilador vite-plugin
 enlazar web                 compilador vite-plugin
 enlazar playground          compilador vite-plugin
 enlazar benchmarks/ascua    compilador vite-plugin

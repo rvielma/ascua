@@ -45,13 +45,13 @@ paso "Tipos del runtime"
 
 paso "Tests de TypeScript"
 for dir in packages/runtime packages/router packages/testing packages/check packages/ts-plugin \
-           examples/panel-ts examples/ssr-ts; do
+           packages/vite-plugin examples/panel-ts examples/ssr-ts; do
   printf '  %-22s' "$dir"
   (cd "$dir" && npx --no-install vitest run 2>&1 | grep -E "Tests " || { npx --no-install vitest run; exit 1; })
 done
 
 paso "ascua-check sobre los ejemplos"
-for dir in examples/panel-ts examples/ssr-ts; do
+for dir in examples/panel-ts examples/ssr-ts examples/sitio-ts; do
   printf '  %-22s' "$dir"
   (cd "$dir" && node ../../packages/check/bin/ascua-check.js | tail -1)
 done
@@ -61,6 +61,9 @@ if ! $rapido; then
   (cd examples/ssr-ts && npx --no-install vite build --outDir dist/cliente >/dev/null \
     && npx --no-install vite build --ssr src/entrada-servidor.ts --outDir dist/servidor >/dev/null)
   echo "  ok"
+
+  paso "Build del ejemplo de sitio estático"
+  (cd examples/sitio-ts && npx --no-install vite build 2>&1 | grep -E "páginas" | sed 's/^/  /')
 
   # El sitio no se publica en GitHub (.gwexportignore): en un clon no está.
   if [ -d web ]; then

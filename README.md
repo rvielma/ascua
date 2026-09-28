@@ -2,7 +2,7 @@
 
 [![npm](https://img.shields.io/npm/v/ascua?logo=npm&label=npm&color=e2703a&labelColor=12100d)](https://www.npmjs.com/package/ascua)
 [![runtime](https://img.shields.io/badge/runtime-2%2C25%20kB%20gzip-e2703a?labelColor=12100d)](https://ascua.gitweave.run/docs/como-funciona/#lo-que-cuesta)
-[![compilador](https://img.shields.io/badge/compilador-.wasm%20de%2088%20KB-f2b544?logo=webassembly&logoColor=white&labelColor=12100d)](https://ascua.gitweave.run/docs/compilador/)
+[![compilador](https://img.shields.io/badge/compilador-.wasm%20de%2091%20KB-f2b544?logo=webassembly&logoColor=white&labelColor=12100d)](https://ascua.gitweave.run/docs/compilador/)
 [![dependencias](https://img.shields.io/badge/dependencias-0-f2b544?labelColor=12100d)](packages/runtime/package.json)
 [![Rust](https://img.shields.io/badge/Rust-1.82%2B-6f6860?logo=rust&logoColor=white&labelColor=12100d)](Cargo.toml)
 [![licencia](https://img.shields.io/badge/licencia-MIT%20o%20Apache--2.0-6f6860?labelColor=12100d)](#licencia)
@@ -12,7 +12,7 @@ reactivo de 2,25 kB, un compilador de plantillas en **WebAssembly**, router,
 datos asíncronos, formularios, SSR con islas, tests y los tipos de dentro de
 las plantillas, en `tsc` y en el editor.
 
-Escribes **HTML dentro de TypeScript** y el compilador —un `.wasm` de 88 KB— lo
+Escribes **HTML dentro de TypeScript** y el compilador —un `.wasm` de 91 KB— lo
 traduce a operaciones directas de DOM. Una aplicación entera pesa 2,45 kB.
 
 **[ascua.gitweave.run](https://ascua.gitweave.run)** ·
@@ -103,8 +103,8 @@ CSS, gzip, la aplicación entera.
 | Paquete | Para qué | Peso |
 |---|---|---|
 | [`ascua`](packages/runtime) | Signals, DOM, `resource`, `bind:`, SSR e islas. Cero dependencias | 2,25 kB gzip |
-| [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 88 KB, en build |
-| [`vite-plugin-ascua`](packages/vite-plugin) | Compila las plantillas en Vite, con source maps | en build |
+| [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 91 KB, en build |
+| [`vite-plugin-ascua`](packages/vite-plugin) | Compila las plantillas en Vite; con `sitio: true`, una página HTML por archivo de `src/rutas/` | en build |
 | [`ascua-router`](packages/router) | La ruta como signal: parámetros, query, enlaces | 1,03 kB gzip |
 | [`ascua-testing`](packages/testing) | Montar, pulsar, escribir, arrastrar y desmontar en un test | en tests |
 | [`ascua-check`](packages/check) | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | en CI |
@@ -121,11 +121,12 @@ Y lo que resuelven juntos:
 | Estilos | `<style>` con scope, extraído al compilar: nada en tiempo de ejecución |
 | SVG y MathML | En su espacio de nombres, también al hidratar |
 | SSR | `renderToString`, islas e hidratación que adopta los nodos del servidor |
+| Sitios | `stil run build` deja un HTML por ruta, con datos de `cargar()`; solo las páginas con islas llevan JavaScript. O un servidor Node con `modo: "servidor"` |
 | Islas con props validados | `defineIsland`: el esquema se comprueba al compilar y al hidratar |
 | Errores | `onError` por vista; los del compilador, con archivo y línea |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**356 tests** (167 en Rust, 189 en TypeScript), sin warnings de `clippy`, todo
+**380 tests** (167 en Rust, 213 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -166,6 +167,7 @@ examples/
   contador-ts/      Una aplicación en la vía TypeScript
   panel-ts/         Un panel con acceso: componentes, regiones y lista con clave
   ssr-ts/           Páginas en el servidor con islas que se hidratan (Vite SSR)
+  sitio-ts/         Un sitio estático: una página por archivo de src/rutas/
   demo/             SSR + islas + router + hidratación (vía Rust)
   sitio-wasm/       El sitio anterior, en la vía Rust
 docs/               reactividad · plantillas-ts · templates · meta-framework
@@ -204,7 +206,7 @@ cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 88 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 91 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
@@ -248,6 +250,7 @@ cd packages/router && stil run test     # 20 tests del router
 cd packages/testing && stil run test    # 13 tests del paquete de testing
 cd packages/check && stil run test      # 8 tests de ascua-check
 cd packages/ts-plugin && stil run test  # 17 tests del plugin del editor, con tsserver
+cd packages/vite-plugin && stil run test # 24 tests del plugin de Vite: sitio estático, desarrollo, servidor e hidratación
 cd examples/panel-ts && stil run check  # ascua-check sobre el panel
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
 cd examples/ssr-ts && stil run test     # 8 tests del ejemplo con SSR
