@@ -220,8 +220,20 @@ Todo lo que hay que comprobar antes de registrar un cambio, en un comando:
 
 ```sh
 bash scripts/verificar.sh            # Rust, MSRV, WASM, TypeScript, ascua-check y el ejemplo SSR
-bash scripts/verificar.sh --rapido   # sin MSRV ni el build del sitio
+bash scripts/verificar.sh --rapido   # sin MSRV ni el build del ejemplo SSR
 ```
+
+Los comandos de Node usan [**stil**](https://stil.gitweave.run), el gestor de
+paquetes con el que se desarrolla Ascua: aísla los scripts de instalación,
+bloquea las versiones publicadas hace menos de siete días y consulta los avisos
+de seguridad de npm en cada install. Se instala con
+
+```sh
+curl -fsSL https://stil.gitweave.run/install.sh | bash
+```
+
+No es obligatorio: `stil run test` es `npm run test`, y
+`scripts/instalar-dependencias.sh` usa npm si no encuentra stil.
 
 Las dependencias de cada directorio se instalan con
 `bash scripts/instalar-dependencias.sh <dir>…`, que enlaza los paquetes
