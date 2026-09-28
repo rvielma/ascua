@@ -1,4 +1,4 @@
-import { resource, signal } from "ascua";
+import { resource, signal, type Present } from "ascua";
 
 interface Club {
   nombre: string;
@@ -32,4 +32,25 @@ export function Novedades() {
       <input bind:value=${cuenta}>
       <p>${() => datos() ?? 0}</p>
     </main>`;
+}
+
+// Lo que costó al adoptar la 0.3 en Letra Muerta.
+function EnCurso(r: () => number) {
+  return view`<p>${() => r()}</p>`;
+}
+
+export function Cargado<T>(props: { dato: () => T | undefined; hijo: (d: T) => Node }) {
+  return view`
+    <div>
+      <Show when=${props.dato}>${(d: () => Present<T>) => props.hijo(d())}</Show>
+    </div>`;
+}
+
+export function Adopcion() {
+  const datos = resource(async () => 1);
+  return view`
+    <div>
+      <Show when=${datos}>${(n) => view`<b>${() => n() + 1}</b>`}</Show>
+      <Show when=${datos}>${EnCurso}</Show>
+    </div>`;
 }

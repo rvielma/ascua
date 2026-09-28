@@ -1,6 +1,6 @@
 {
   "name": "ascua-compilador",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "El compilador de plantillas de Ascua, como módulo WebAssembly. Un solo artefacto para Node, Bun, Deno y el navegador.",
   "keywords": [
     "compilador",

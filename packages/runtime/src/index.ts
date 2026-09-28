@@ -50,6 +50,7 @@ export {
   show,
   showValue,
   staticAttribute,
+  staticText,
   text,
   type Children,
   type Hydrated,

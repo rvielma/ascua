@@ -46,6 +46,9 @@ describe("ascua-check", () => {
     expect(de("src/novedades.ts").map((e) => [e.linea, e.codigo])).toEqual([
       [29, "TS2345"], // <Pide/> sin su prop obligatoria
       [32, "TS2769"], // bind:value con un signal de número
+      // `when=${datos}` sin flecha y el parámetro anotado en un genérico
+      // pasan; un componente por nombre como hijo de <Show> no.
+      [54, "TS2345"],
     ]);
   });
 

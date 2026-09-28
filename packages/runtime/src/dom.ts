@@ -110,6 +110,17 @@ export function text(contenido = ""): Text {
   return doc().createTextNode(contenido);
 }
 
+/**
+ * El texto de un `${expr}` que no es una closure: se escribe una vez.
+ *
+ * Su tipo rechaza una función. Como texto, una función solo pinta su código
+ * fuente, y casi siempre es un despiste: `${EnCurso}` donde se quería
+ * `${(r) => EnCurso(r)}`, o `${cuenta}` donde se quería `${() => cuenta()}`.
+ */
+export function staticText<T>(valor: T extends (...args: never[]) => unknown ? never : T): Text {
+  return text(String(valor));
+}
+
 /** Nodo invisible que marca una posición: el ancla de las regiones dinámicas. */
 export function marker(): Comment {
   if (hidratando) {
@@ -351,7 +362,10 @@ export type Present<T> = Exclude<T, null | undefined | false>;
 export function showValue<T>(
   padre: Node,
   elegir: () => T,
-  construir: (valor: () => Present<T>) => Node | readonly Node[] | null,
+  // `NoInfer`: `T` sale de `elegir`. Si saliera también de aquí, anotar el
+  // parámetro dentro de un componente genérico —`(d: () => Present<U>) => …`—
+  // haría que TypeScript dedujera otra `T` y rechazara el `when`.
+  construir: NoInfer<(valor: () => Present<T>) => Node | readonly Node[] | null>,
   siNo: (() => Node | readonly Node[] | null) | null = null,
 ): void {
   const hay = (v: T): v is Present<T> => v !== null && v !== undefined && v !== false;

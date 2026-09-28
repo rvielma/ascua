@@ -15,6 +15,7 @@ use crate::plantilla::{Componente, Elemento, Nodo, Plantilla, Valor, ELSE, FOR, 
 /// Funciones del runtime, con el alias con el que se importan.
 const ELEMENT: (&str, &str) = ("element", "_$el");
 const TEXT: (&str, &str) = ("text", "_$txt");
+const STATIC_TEXT: (&str, &str) = ("staticText", "_$stxt");
 const DYNAMIC_TEXT: (&str, &str) = ("dynamicText", "_$dtxt");
 const STATIC_ATTRIBUTE: (&str, &str) = ("staticAttribute", "_$sattr");
 const ATTRIBUTE: (&str, &str) = ("attribute", "_$attr");
@@ -226,9 +227,11 @@ impl Generador {
             }
             Nodo::Estatico(expresion) => {
                 let variable = self.siguiente_variable();
-                let txt = self.usar(TEXT);
+                // `staticText` y no `text(String(…))`: su tipo rechaza una
+                // función, que como texto solo pinta su código fuente.
+                let txt = self.usar(STATIC_TEXT);
                 let expresion = self.sangrar(expresion);
-                lineas.push(self.linea(&format!("const {variable} = {txt}(String({expresion}));")));
+                lineas.push(self.linea(&format!("const {variable} = {txt}({expresion});")));
                 variable
             }
             Nodo::Dinamico(expresion) => {
@@ -456,25 +459,22 @@ impl Generador {
             .prop("when")
             .map_or_else(|| "false".to_string(), |valor| self.expresion(valor));
 
+        // Un texto no guarda su línea: la de lo que tenga dentro es la del
+        // `<Show>`, no la del elemento que lo contiene.
+        self.origen = componente.linea;
         let (entonces, si_no): (Vec<&Nodo>, Vec<&Nodo>) = particionar_ramas(&componente.hijos);
 
         // `<Show when=${() => club()}>${(club) => …}</Show>`: el hijo quiere el
         // valor, ya estrechado.
         if let [Nodo::Dinamico(render)] = entonces.as_slice() {
             if crate::plantilla::es_closure_con_parametros(render) {
-                // A un componente los props le llegan tal cual, closures
-                // incluidas: se mira el texto.
-                let cuando = match componente.prop("when") {
-                    Some(valor) => {
-                        let expresion = self.expresion(valor);
-                        if crate::plantilla::es_closure(&expresion) {
-                            expresion
-                        } else {
-                            format!("() => ({expresion})")
-                        }
-                    }
-                    None => "() => false".to_string(),
-                };
+                // `when` va tal cual, como en el `<Show>` de siempre: una
+                // closure o algo que se llama —un signal, un `resource`—. Lo
+                // que no se puede llamar es un error de tipos, no un «siempre
+                // hay».
+                let cuando = componente
+                    .prop("when")
+                    .map_or_else(|| "() => false".to_string(), |valor| self.expresion(valor));
                 let render = self.sangrar(render);
                 let si_no = if si_no.is_empty() {
                     "null".to_string()
@@ -661,7 +661,7 @@ mod tests {
         let entrada = format!("<p>{ABRE}0{CIERRA}</p>");
         let generado = compilar(&entrada, &["count()"]);
         assert!(
-            generado.codigo.contains("_$txt(String(count()))"),
+            generado.codigo.contains("_$stxt(count())"),
             "{}",
             generado.codigo
         );
@@ -1044,5 +1044,18 @@ mod tests {
         let codigo = &generado.codigo;
         assert!(codigo.contains("= _$comp(Menu);"), "{codigo}");
         assert!(codigo.contains("= Panel({ titulo: \"x\" });"), "{codigo}");
+    }
+
+    #[test]
+    fn show_con_valor_acepta_un_signal_sin_flecha() {
+        let entrada = format!("<div><Show when={ABRE}0{CIERRA}>{ABRE}1{CIERRA}</Show></div>");
+        let generado = compilar(&entrada, &["club", "(c) => Tarjeta(c)"]);
+        assert!(
+            generado
+                .codigo
+                .contains("_$showv(_n0, club, (c) => Tarjeta(c), null);"),
+            "{}",
+            generado.codigo
+        );
     }
 }
