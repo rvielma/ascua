@@ -2,10 +2,10 @@ import { LENGUAJES, slug } from "../../datos.js";
 
 const buscar = (lenguaje: string) => LENGUAJES.find((l) => slug(l) === lenguaje);
 
-export const titulo = ({ lenguaje }: { lenguaje: string }) => `${buscar(lenguaje)?.nombre} · Ascua`;
+export const title = ({ lenguaje }: { lenguaje: string }) => `${buscar(lenguaje)?.nombre} · Ascua`;
 
 /** Una página por lenguaje: sin esto, el build no sabría cuáles generar. */
-export function parametros() {
+export function paths() {
   return LENGUAJES.map((l) => ({ lenguaje: slug(l) }));
 }
 

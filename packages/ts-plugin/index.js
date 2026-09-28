@@ -442,7 +442,7 @@ function localizarCompilador(info) {
   for (const lugar of desde) {
     try {
       const wasm = createRequire(lugar)("ascua-compilador");
-      return (codigo, archivo) => wasm.compilar_json(codigo, archivo);
+      return (codigo, archivo) => wasm.compileJson(codigo, archivo);
     } catch {
       // Se prueba el siguiente.
     }

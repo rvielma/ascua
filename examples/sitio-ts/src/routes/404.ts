@@ -1,4 +1,4 @@
-export const titulo = "No existe · Ascua";
+export const title = "No existe · Ascua";
 
 export default function NoExiste() {
   return view`

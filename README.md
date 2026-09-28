@@ -35,12 +35,12 @@ stil add -D vite-plugin-ascua
 // vite.config.ts
 import ascua from "vite-plugin-ascua";
 
-export default { plugins: [ascua({ sitio: true })] };
+export default { plugins: [ascua({ site: true })] };
 ```
 
 ```ts
-// src/rutas/index.ts
-export const titulo = "Inicio";
+// src/routes/index.ts
+export const title = "Inicio";
 
 export default function Inicio() {
   return view`<main><h1>Hola</h1></main>`;
@@ -51,12 +51,12 @@ Con `"dev": "vite"` y `"build": "vite build"` en el `package.json`:
 
 ```sh
 stil run dev      # cada página renderizada al vuelo, con recarga
-stil run build    # dist/: una página HTML por archivo de src/rutas/, lista para subir
+stil run build    # dist/: una página HTML por archivo de src/routes/, lista para subir
 ```
 
-Cada archivo de `src/rutas/` es una página; lo interactivo va en islas y es lo
-único que lleva JavaScript. Con `ascua({ sitio: { modo: "servidor" } })`, el
-build deja además un servidor Node con todo dentro. Sin `sitio`, el plugin
+Cada archivo de `src/routes/` es una página; lo interactivo va en islas y es lo
+único que lleva JavaScript. Con `ascua({ site: { mode: "server" } })`, el
+build deja además un servidor Node con todo dentro. Sin `site`, el plugin
 solo compila las plantillas, para una aplicación de una página.
 [Guía de sitios](https://ascua.gitweave.run/docs/sitios/).
 
@@ -98,12 +98,12 @@ view`
 Las rutas son signals, con [`ascua-router`](packages/router):
 
 ```ts
-enlaces();   // los <a href="/…"> navegan sin recargar
+links();   // los <a href="/…"> navegan sin recargar
 
-enrutarEn(app.querySelector("main")!, [
-  { patron: "/pedidos", vista: Pedidos },
-  { patron: "/pedidos/:id", vista: ({ id }) => Pedido({ id }) },
-  { vista: NoEncontrado },
+mountRoutes(app.querySelector("main")!, [
+  { pattern: "/pedidos", view: Pedidos },
+  { pattern: "/pedidos/:id", view: ({ id }) => Pedido({ id }) },
+  { view: NoEncontrado },
 ]);
 ```
 
@@ -129,10 +129,10 @@ dentro del `<Show>`, `c()` ya es un `Club`, sin `?.`.
 Y los tests, con [`ascua-testing`](packages/testing):
 
 ```ts
-const { buscar, texto } = render(() => Acceso({ onentrar }));
-escribir(buscar<HTMLInputElement>("input[name=usuario]"), "ana");
-pulsar(buscar("button"));
-expect(texto(".error")).toBe("Falta la contraseña.");
+const { get, text } = render(() => Acceso({ onentrar }));
+input(get<HTMLInputElement>("input[name=usuario]"), "ana");
+click(get("button"));
+expect(text(".error")).toBe("Falta la contraseña.");
 ```
 
 Hay un panel con acceso, rutas, tabla filtrable y componentes con props en
@@ -145,9 +145,9 @@ CSS, gzip, la aplicación entera.
 |---|---|---|
 | [`ascua`](packages/runtime) | Signals, DOM, `resource`, `bind:`, SSR e islas. Cero dependencias | 2,25 kB gzip |
 | [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 91 KB, en build |
-| [`vite-plugin-ascua`](packages/vite-plugin) | Compila las plantillas en Vite; con `sitio: true`, una página HTML por archivo de `src/rutas/` | en build |
+| [`vite-plugin-ascua`](packages/vite-plugin) | Compila las plantillas en Vite; con `site: true`, una página HTML por archivo de `src/routes/` | en build |
 | [`ascua-router`](packages/router) | La ruta como signal: parámetros, query, enlaces | 1,03 kB gzip |
-| [`ascua-testing`](packages/testing) | Montar, pulsar, escribir, arrastrar y desmontar en un test | en tests |
+| [`ascua-testing`](packages/testing) | Montar, `click`, `input`, `drag`, `waitFor` y desmontar en un test | en tests |
 | [`ascua-check`](packages/check) | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | en CI |
 | [`ascua-ts-plugin`](packages/ts-plugin) | Lo mismo en el editor: errores, autocompletado, ir a la definición | en el editor |
 
@@ -162,12 +162,12 @@ Y lo que resuelven juntos:
 | Estilos | `<style>` con scope, extraído al compilar: nada en tiempo de ejecución |
 | SVG y MathML | En su espacio de nombres, también al hidratar |
 | SSR | `renderToString`, islas e hidratación que adopta los nodos del servidor |
-| Sitios | `stil run build` deja un HTML por ruta, con datos de `cargar()`; solo las páginas con islas llevan JavaScript. O un servidor Node con `modo: "servidor"` |
+| Sitios | `stil run build` deja un HTML por ruta, con datos de `load()`; solo las páginas con islas llevan JavaScript. O un servidor Node con `mode: "server"` |
 | Islas con props validados | `defineIsland`: el esquema se comprueba al compilar y al hidratar |
 | Errores | `onError` por vista; los del compilador, con archivo y línea |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**382 tests** (167 en Rust, 215 en TypeScript), sin warnings de `clippy`, todo
+**386 tests** (167 en Rust, 219 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -208,7 +208,7 @@ examples/
   contador-ts/      Una aplicación en la vía TypeScript
   panel-ts/         Un panel con acceso: componentes, regiones y lista con clave
   ssr-ts/           Páginas en el servidor con islas que se hidratan (Vite SSR)
-  sitio-ts/         Un sitio estático: una página por archivo de src/rutas/
+  sitio-ts/         Un sitio estático: una página por archivo de src/routes/
   demo/             SSR + islas + router + hidratación (vía Rust)
   sitio-wasm/       El sitio anterior, en la vía Rust
 docs/               reactividad · plantillas-ts · templates · meta-framework
@@ -291,7 +291,7 @@ cargo clippy --all-targets   # sin warnings
 
 cd packages/runtime && stil run test    # 116 tests del runtime
 cd packages/router && stil run test     # 20 tests del router
-cd packages/testing && stil run test    # 13 tests del paquete de testing
+cd packages/testing && stil run test    # 17 tests del paquete de testing
 cd packages/check && stil run test      # 8 tests de ascua-check
 cd packages/ts-plugin && stil run test  # 17 tests del plugin del editor, con tsserver
 cd packages/vite-plugin && stil run test # 26 tests del plugin de Vite: sitio estático, desarrollo, servidor e hidratación

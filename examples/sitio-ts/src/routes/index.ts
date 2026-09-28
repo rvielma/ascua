@@ -1,6 +1,6 @@
-import { IslaContador } from "../islas/index.js";
+import { IslaContador } from "../islands/index.js";
 
-export const titulo = "Inicio · Ascua";
+export const title = "Inicio · Ascua";
 
 export default function Inicio() {
   return view`

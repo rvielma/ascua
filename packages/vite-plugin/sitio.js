@@ -1,13 +1,13 @@
 /**
- * Sitios: de `src/rutas/` a páginas HTML.
+ * Sitios: de `src/routes/` a páginas HTML.
  *
  * Dos modos:
  *
- * - `estatico` (por defecto): `vite build` construye el cliente —el
+ * - `static` (por defecto): `vite build` construye el cliente —el
  *   esqueleto y el script que hidrata las islas— y, al cerrar, renderiza cada
  *   ruta con `renderToString` y la escribe en `dist/`.
- * - `servidor`: el cliente va a `dist/cliente/` y un segundo build deja en
- *   `dist/servidor/index.mjs` un servidor Node que renderiza en cada petición.
+ * - `server`: el cliente va a `dist/client/` y un segundo build deja en
+ *   `dist/server/index.mjs` un servidor Node que renderiza en cada petición.
  *
  * En desarrollo, en los dos, cada petición a una ruta se renderiza al vuelo.
  * El diseño está en `docs/sitio.md`.
@@ -20,10 +20,10 @@ import { fileURLToPath } from "node:url";
 import { buscar, caminoDe, componer, ESQUELETO, esNoExiste, esVariable, renderizar } from "./sitio-comun.js";
 
 // No `virtual:ascua/…`: ese prefijo es el de las hojas del plugin de plantillas.
-const CLIENTE = "virtual:ascua-sitio/cliente";
-const SERVIDOR = "virtual:ascua-sitio/servidor";
+const CLIENTE = "virtual:ascua-site/client";
+const SERVIDOR = "virtual:ascua-site/server";
 /** Para un sitio sin esqueleto ni islas: Vite necesita alguna entrada. */
-const VACIO = "virtual:ascua-sitio/vacio";
+const VACIO = "virtual:ascua-site/empty";
 const MODULO = /\.[mc]?[jt]s$/;
 const COMUN = fileURLToPath(new URL("./sitio-comun.js", import.meta.url));
 
@@ -31,12 +31,12 @@ const COMUN = fileURLToPath(new URL("./sitio-comun.js", import.meta.url));
  * Las rutas que hay en `dir`, las fijas antes que las variables —y las que
  * atrapan el resto, al final— para que `/pedidos/nuevo` gane a `/pedidos/:id`.
  *
- * Cada ruta lleva sus `marcos`: los `_marco.ts` de su carpeta y de las de
+ * Cada ruta lleva sus `marcos`: los `_layout.ts` de su carpeta y de las de
  * encima, del de fuera al de dentro.
  */
 export function descubrir(dir) {
   const rutas = [];
-  /** Carpeta relativa → su `_marco`. */
+  /** Carpeta relativa → su `_layout`. */
   const marcosPorCarpeta = new Map();
 
   const recorrer = (carpeta) => {
@@ -50,7 +50,7 @@ export function descubrir(dir) {
 
       const base = nombre.replace(MODULO, "");
       const relativo = relative(dir, carpeta);
-      if (base === "_marco") {
+      if (base === "_layout") {
         marcosPorCarpeta.set(relativo, completo);
         continue;
       }
@@ -64,7 +64,7 @@ export function descubrir(dir) {
       const segmentos = trozos.map((s, i) => {
         if (s.startsWith("[...") && s.endsWith("]")) {
           if (i !== trozos.length - 1) {
-            throw new Error(`${relative(process.cwd(), completo)}: [...resto] solo puede ir al final`);
+            throw new Error(`${relative(process.cwd(), completo)}: [...rest] solo puede ir al final`);
           }
           return `*${s.slice(4, -1)}`;
         }
@@ -105,7 +105,7 @@ const modulos = import.meta.glob(${JSON.stringify(`/${dir}/**/*.{ts,js,mts,mjs}`
 const islas = [];
 for (const modulo of Object.values(modulos)) {
   for (const valor of Object.values(modulo)) {
-    if (valor && typeof valor.nombre === "string" && typeof valor.preparar === "function") islas.push(valor);
+    if (valor && typeof valor.name === "string" && typeof valor.prepare === "function") islas.push(valor);
   }
 }
 hydrate(islas);
@@ -128,7 +128,7 @@ function codigoServidor(dirRutas) {
 import { createReadStream, readFileSync, statSync } from "node:fs";
 import { dirname, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { collectStyles, renderToString } from "ascua/servidor";
+import { collectStyles, renderToString } from "ascua/server";
 import { append } from "ascua";
 import { buscar, componer, esNoExiste, renderizar, tipoDe } from ${JSON.stringify(COMUN)};
 ${importes.join("\n")}
@@ -137,43 +137,43 @@ const RUTAS = [
 ${tabla.join("\n")}
 ];
 const aqui = dirname(fileURLToPath(import.meta.url));
-const SITIO = JSON.parse(readFileSync(join(aqui, "sitio.json"), "utf8"));
-const ESTATICOS = join(aqui, "..", "cliente");
+const SITIO = JSON.parse(readFileSync(join(aqui, "site.json"), "utf8"));
+const ESTATICOS = join(aqui, "..", "client");
 const ascua = { renderToString, collectStyles, append };
 
 const sinBase = (camino) =>
   SITIO.base !== "/" && camino.startsWith(SITIO.base) ? "/" + camino.slice(SITIO.base.length) : camino;
 
-/** De una URL a lo que se responde: estado, tipo y cuerpo. */
-export async function responder(url) {
+/** De una URL a lo que se responde: \`status\`, \`type\` y \`body\`. */
+export async function handle(url) {
   const direccion = new URL(url, "http://x");
   const camino = sinBase(direccion.pathname);
   const encontrada = buscar(RUTAS, camino);
-  if (!encontrada) return { estado: 404, tipo: "text/plain; charset=utf-8", cuerpo: "No existe" };
+  if (!encontrada) return { status: 404, type: "text/plain; charset=utf-8", body: "No existe" };
   let { ruta, parametros, estado } = encontrada;
   let pagina;
   try {
     pagina = await renderizar({ ruta, modulo: ruta.modulo, marcos: ruta.marcos, parametros, camino, ascua, contexto: { url: direccion } });
   } catch (error) {
-    // \`cargar()\` dijo que no existe: la página 404, si la hay.
+    // \`load()\` dijo que no existe: la página 404, si la hay.
     const noEncontrada = esNoExiste(error) && RUTAS.find((r) => r.es404);
     if (!esNoExiste(error)) throw error;
-    if (!noEncontrada) return { estado: 404, tipo: "text/plain; charset=utf-8", cuerpo: "No existe" };
+    if (!noEncontrada) return { status: 404, type: "text/plain; charset=utf-8", body: "No existe" };
     ruta = noEncontrada;
     parametros = {};
     estado = 404;
     pagina = await renderizar({ ruta, modulo: ruta.modulo, marcos: ruta.marcos, parametros, camino, ascua, contexto: { url: direccion } });
   }
-  if (ruta.archivo) return { estado, tipo: pagina.tipo, cuerpo: pagina.cuerpo };
+  if (ruta.archivo) return { status: estado, type: pagina.tipo, body: pagina.cuerpo };
   const cuerpo = componer(SITIO.esqueleto, {
     ...pagina,
     script: pagina.conIslas ? SITIO.script : null,
     hojas: pagina.conIslas ? SITIO.hojas : [],
   });
-  return { estado, tipo: pagina.tipo, cuerpo };
+  return { status: estado, type: pagina.tipo, body: cuerpo };
 }
 
-/** Lo de dist/cliente: el script de las islas, las hojas, lo de public/. */
+/** Lo de dist/client: el script de las islas, las hojas, lo de public/. */
 function estatico(peticion, respuesta) {
   let camino;
   try {
@@ -196,15 +196,15 @@ function estatico(peticion, respuesta) {
   return true;
 }
 
-/** Arranca el servidor; \`node dist/servidor/index.mjs\` lo hace solo. */
-export function servir(puerto = Number(process.env.PORT ?? 3000)) {
+/** Arranca el servidor; \`node dist/server/index.mjs\` lo hace solo. */
+export function serve(puerto = Number(process.env.PORT ?? 3000)) {
   const servidor = createServer((peticion, respuesta) => {
     if (estatico(peticion, respuesta)) return;
-    responder(peticion.url ?? "/").then(
-      ({ estado, tipo, cuerpo }) => {
-        respuesta.statusCode = estado;
-        respuesta.setHeader("content-type", tipo);
-        respuesta.end(peticion.method === "HEAD" ? undefined : cuerpo);
+    handle(peticion.url ?? "/").then(
+      ({ status, type, body }) => {
+        respuesta.statusCode = status;
+        respuesta.setHeader("content-type", type);
+        respuesta.end(peticion.method === "HEAD" ? undefined : body);
       },
       (error) => {
         console.error(error);
@@ -216,7 +216,7 @@ export function servir(puerto = Number(process.env.PORT ?? 3000)) {
   return servidor.listen(puerto, () => console.log("ascua: http://localhost:" + servidor.address().port));
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) servir();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) serve();
 `;
 }
 
@@ -230,34 +230,34 @@ function hayIslas(dir) {
 async function paginasDe(modulo, ruta, raiz) {
   if (!esVariable(ruta)) return [{}];
   const nombre = relative(raiz, ruta.modulo);
-  if (typeof modulo.parametros !== "function") {
-    throw new Error(`${nombre}: una ruta variable necesita export function parametros(), que diga qué páginas generar`);
+  if (typeof modulo.paths !== "function") {
+    throw new Error(`${nombre}: una ruta variable necesita export function paths(), que diga qué páginas generar`);
   }
-  const lista = await modulo.parametros();
-  if (!Array.isArray(lista)) throw new Error(`${nombre}: parametros() tiene que devolver una lista`);
+  const lista = await modulo.paths();
+  if (!Array.isArray(lista)) throw new Error(`${nombre}: paths() tiene que devolver una lista`);
   return lista;
 }
 
 /** Las piezas de Ascua del servidor de Vite: las mismas con las que se registraron los estilos. */
 async function ascuaDe(vite) {
-  const { renderToString, collectStyles } = await vite.ssrLoadModule("ascua/servidor");
+  const { renderToString, collectStyles } = await vite.ssrLoadModule("ascua/server");
   const { append } = await vite.ssrLoadModule("ascua");
   return { renderToString, collectStyles, append };
 }
 
 /**
- * @param {true | { rutas?: string, islas?: string, esqueleto?: string, modo?: "estatico" | "servidor" }} opciones
+ * @param {true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server" }} opciones
  */
 export function sitio(opciones) {
   const ajustes = {
-    rutas: "src/rutas",
-    islas: "src/islas",
-    esqueleto: "index.html",
-    modo: "estatico",
+    routes: "src/routes",
+    islands: "src/islands",
+    shell: "index.html",
+    mode: "static",
     ...(opciones === true ? {} : opciones),
   };
-  if (ajustes.modo !== "estatico" && ajustes.modo !== "servidor") {
-    throw new Error(`ascua: sitio.modo es "estatico" o "servidor", no ${JSON.stringify(ajustes.modo)}`);
+  if (ajustes.mode !== "static" && ajustes.mode !== "server") {
+    throw new Error(`ascua: site.mode es "static" o "server", no ${JSON.stringify(ajustes.mode)}`);
   }
 
   /** @type {import("vite").ResolvedConfig} */
@@ -269,8 +269,8 @@ export function sitio(opciones) {
   let hojasConstruidas = [];
 
   const raiz = () => config.root;
-  const dirRutas = () => resolve(raiz(), ajustes.rutas);
-  const archivoEsqueleto = (root) => resolve(root, ajustes.esqueleto);
+  const dirRutas = () => resolve(raiz(), ajustes.routes);
+  const archivoEsqueleto = (root) => resolve(root, ajustes.shell);
   const leerEsqueleto = () => {
     const archivo = archivoEsqueleto(raiz());
     return existsSync(archivo) ? readFileSync(archivo, "utf8") : ESQUELETO;
@@ -306,7 +306,7 @@ export function sitio(opciones) {
       pagina = await intentar();
     } catch (error) {
       if (!esNoExiste(error)) throw error;
-      // `cargar()` dijo que no existe: la página 404, si la hay; si no, que
+      // `load()` dijo que no existe: la página 404, si la hay; si no, que
       // siga Vite, que quizá lo tiene —`/docs/docs.css` encaja con
       // `/docs/:pagina` y es un archivo de public/—.
       const noEncontrada = rutas.find((r) => r.es404);
@@ -330,18 +330,18 @@ export function sitio(opciones) {
   }
 
   return {
-    name: "ascua:sitio",
+    name: "ascua:site",
 
     config(usuario, entorno) {
       delUsuario = usuario;
       // El build del servidor de la fase 3 trae su propia entrada, y lo lleva
-      // todo dentro: `node dist/servidor/index.mjs` no necesita node_modules.
+      // todo dentro: `node dist/server/index.mjs` no necesita node_modules.
       if (entorno.isSsrBuild) return { ssr: { noExternal: usuario.ssr?.noExternal ?? true } };
 
       const root = resolve(usuario.root ?? process.cwd());
       // Sin islas no hay nada que hidratar: ni script, ni un trozo de runtime
       // que Vite parta para compartirlo con otras entradas.
-      const entradas = hayIslas(resolve(root, ajustes.islas)) ? { "ascua-cliente": CLIENTE } : {};
+      const entradas = hayIslas(resolve(root, ajustes.islands)) ? { "ascua-client": CLIENTE } : {};
       const esqueleto = archivoEsqueleto(root);
       // Si el esqueleto es otro archivo, `index.html` sigue siendo lo que era:
       // una página más de Vite, como la portada de un sitio con documentación.
@@ -350,12 +350,12 @@ export function sitio(opciones) {
         // El nombre de la entrada es el del archivo: es el que lleva su hoja,
         // `esqueleto-….css`, y no uno inventado.
         const nombre = basename(esqueleto).replace(/\.html?$/i, "");
-        const libre = esqueleto === indice || nombre !== "index" ? nombre : "ascua-esqueleto";
+        const libre = esqueleto === indice || nombre !== "index" ? nombre : "ascua-shell";
         entradas[libre] = esqueleto;
       }
       if (esqueleto !== indice && existsSync(indice)) entradas.index = indice;
       // Sin ninguna, rolldown no construye; esta sale vacía y se borra.
-      if (Object.keys(entradas).length === 0) entradas["ascua-vacio"] = VACIO;
+      if (Object.keys(entradas).length === 0) entradas["ascua-empty"] = VACIO;
 
       return {
         // Sin el respaldo de SPA de Vite: lo que no es una ruta ni un archivo
@@ -363,7 +363,7 @@ export function sitio(opciones) {
         appType: usuario.appType ?? "mpa",
         build: {
           rollupOptions: { input: entradas },
-          ...(ajustes.modo === "servidor" && !usuario.build?.outDir ? { outDir: "dist/cliente" } : {}),
+          ...(ajustes.mode === "server" && !usuario.build?.outDir ? { outDir: "dist/client" } : {}),
         },
       };
     },
@@ -377,7 +377,7 @@ export function sitio(opciones) {
     },
 
     load(id) {
-      if (id === `\0${CLIENTE}`) return codigoCliente(ajustes.islas.replace(/^\/+|\/+$/g, ""));
+      if (id === `\0${CLIENTE}`) return codigoCliente(ajustes.islands.replace(/^\/+|\/+$/g, ""));
       if (id === `\0${SERVIDOR}`) return codigoServidor(dirRutas());
       if (id === `\0${VACIO}`) return "export {};";
       return null;
@@ -434,8 +434,8 @@ export function sitio(opciones) {
       };
       const dentro = conLaConfig({ root, mode: config.mode, logLevel: "error" });
 
-      if (ajustes.modo === "servidor") {
-        const dirServidor = resolve(salida, "..", "servidor");
+      if (ajustes.mode === "server") {
+        const dirServidor = resolve(salida, "..", "server");
         const { build } = await import("vite");
         await build({
           ...dentro,
@@ -448,7 +448,7 @@ export function sitio(opciones) {
             rollupOptions: { input: { index: SERVIDOR }, output: { entryFileNames: "index.mjs" } },
           },
         });
-        writeFileSync(join(dirServidor, "sitio.json"), JSON.stringify(construido));
+        writeFileSync(join(dirServidor, "site.json"), JSON.stringify(construido));
         logger.info(`ascua: servidor en ${relative(root, dirServidor)}/index.mjs`);
         return;
       }
@@ -459,7 +459,7 @@ export function sitio(opciones) {
       let archivos = 0;
       try {
         const { rutas } = descubrir(rutasDir);
-        if (rutas.length === 0) logger.warn(`ascua: no hay rutas en ${ajustes.rutas}/`);
+        if (rutas.length === 0) logger.warn(`ascua: no hay rutas en ${ajustes.routes}/`);
         const ascua = await ascuaDe(vite);
 
         for (const ruta of rutas) {

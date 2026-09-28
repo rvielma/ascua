@@ -40,8 +40,8 @@ pub fn iniciar() -> Result<(), JsValue> {
             &cuerpo,
             "data-hidratacion",
             &format!(
-                "adoptados={} creados={}",
-                estadisticas.adoptados, estadisticas.creados
+                "adopted={} created={}",
+                estadisticas.adopted, estadisticas.created
             ),
         );
     }

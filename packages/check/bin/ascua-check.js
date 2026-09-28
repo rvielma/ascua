@@ -1,4 +1,4 @@
 #!/usr/bin/env node
-import { principal } from "../src/index.js";
+import { main } from "../src/index.js";
 
-process.exitCode = await principal(process.argv.slice(2));
+process.exitCode = await main(process.argv.slice(2));

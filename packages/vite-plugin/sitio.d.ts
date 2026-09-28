@@ -1,9 +1,9 @@
 /**
- * Lo que una ruta de `src/rutas/` puede importar del sitio.
+ * Lo que una ruta de `src/routes/` puede importar del sitio.
  */
 
 /**
- * Lo que lanza `cargar()` cuando lo pedido no existe: en desarrollo y en modo
- * servidor, el sitio responde con la página 404.
+ * Lo que lanza `load()` cuando lo pedido no existe: en desarrollo y en modo
+ * `server`, el sitio responde con la página 404.
  */
-export function noExiste(): Error;
+export function notFound(): Error;

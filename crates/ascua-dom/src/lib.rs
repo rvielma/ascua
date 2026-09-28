@@ -52,7 +52,7 @@ mod web;
 pub use backend::{Backend, NodeKind};
 pub use children::Children;
 pub use dom::{Dom, IntoAttrValue, Mount};
-pub use hydrate::{hydrate_islands, Estadisticas, HydratedNode, HydratingBackend};
+pub use hydrate::{hydrate_islands, HydratedNode, HydratingBackend, HydrationStats};
 pub use list::keyed_list;
 pub use memory::{MemoryBackend, MemoryEvent, NodeRef, HYDRATION_ATTR};
 pub use ssr::{

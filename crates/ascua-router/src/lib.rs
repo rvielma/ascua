@@ -47,7 +47,7 @@ use std::rc::Rc;
 use ascua_dom::{Backend, Dom};
 use ascua_reactive::Signal;
 
-pub use history::{History, MemoryHistory, Oyente};
+pub use history::{History, Listener, MemoryHistory};
 pub use pattern::{match_path, Params};
 #[cfg(feature = "web")]
 pub use web::WebHistory;

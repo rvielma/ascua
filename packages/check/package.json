@@ -1,6 +1,6 @@
 {
   "name": "ascua-check",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Comprueba los tipos dentro de las plantillas de Ascua: props de componentes, manejadores y refs, con los errores en tu archivo.",
   "keywords": [
     "typescript",
@@ -36,7 +36,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "ascua-compilador": "^0.3.0"
+    "ascua-compilador": "^0.4.0"
   },
   "peerDependencies": {
     "typescript": ">=5.4"

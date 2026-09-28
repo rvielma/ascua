@@ -19,7 +19,7 @@ describe("los estilos de las páginas", () => {
   });
 
   it("solo los de lo que aparece: una página sin marco no los lleva", async () => {
-    const { collectStyles, renderToString } = await import("ascua/servidor");
+    const { collectStyles, renderToString } = await import("ascua/server");
     const { element } = await import("ascua");
     expect(collectStyles(renderToString(() => element("p")))).toBe("");
   });

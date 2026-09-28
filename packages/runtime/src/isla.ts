@@ -157,13 +157,13 @@ export const p = {
  */
 export interface Island<P> {
   (props: P): HTMLElement;
-  readonly nombre: string;
+  readonly name: string;
   /**
    * Para `hydrate`: lee los props que dejó el servidor y, si encajan, devuelve
    * cómo construir la isla. Si no encajan lo dice en la consola y devuelve
    * `undefined`, y la isla se queda estática.
    */
-  readonly preparar: (props: string) => (() => Node) | undefined;
+  readonly prepare: (props: string) => (() => Node) | undefined;
 }
 
 /**
@@ -192,11 +192,12 @@ export function defineIsland<S extends StandardSchema | Shape>(
 
   const isla = ((props: Props<S>) =>
     island(nombre, () => componente(props), JSON.stringify(props))) as Island<Props<S>> & {
-    nombre: string;
-    preparar: Island<Props<S>>["preparar"];
+    name: string;
+    prepare: Island<Props<S>>["prepare"];
   };
-  isla.nombre = nombre;
-  isla.preparar = (texto) => {
+  // `name` de una función es de solo lectura: hay que redefinirla.
+  Object.defineProperty(isla, "name", { value: nombre });
+  isla.prepare = (texto) => {
     let resultado: ResultadoEsquema<Props<S>>;
     try {
       resultado = validar(validador, JSON.parse(texto));

@@ -23,7 +23,7 @@ import { currentScope, effect, memo, onCleanup, root, withScope } from "./reacti
 export type Children = (padre: Node) => void;
 
 /** Lo que puede acabar dentro de un atributo. */
-export type ValorAtributo = string | number | boolean | null | undefined;
+export type AttributeValue = string | number | boolean | null | undefined;
 
 /** Atributo con el número de orden de un elemento, para hidratarlo. */
 export const HYDRATION_ATTR = "data-ascua-h";
@@ -219,7 +219,7 @@ export function dynamicText(calcular: () => unknown): Text {
  * `false`, `null` y `undefined` **quitan** el atributo: así se expresan los
  * booleanos del HTML, que existen o no existen. `true` lo pone vacío.
  */
-export function attribute(nodo: Element, nombre: string, calcular: () => ValorAtributo): void {
+export function attribute(nodo: Element, nombre: string, calcular: () => AttributeValue): void {
   effect(() => {
     const valor = calcular();
     if (valor === false || valor === null || valor === undefined) {
@@ -258,7 +258,7 @@ export function cssClass(nodo: Element, nombre: string, calcular: () => unknown)
 }
 
 /** Atributo que no cambia nunca. */
-export function staticAttribute(nodo: Element, nombre: string, valor: ValorAtributo): void {
+export function staticAttribute(nodo: Element, nombre: string, valor: AttributeValue): void {
   if (valor === false || valor === null || valor === undefined) return;
   nodo.setAttribute(nombre, valor === true ? "" : String(valor));
 }
@@ -569,17 +569,17 @@ export function island(nombre: string, construir: () => Node, props = ""): HTMLE
 }
 
 /** Lo que `hydrate` necesita de una isla de `defineIsland`. */
-export interface IslaHidratable {
-  readonly nombre: string;
-  readonly preparar: (props: string) => (() => Node) | undefined;
+export interface HydratableIsland {
+  readonly name: string;
+  readonly prepare: (props: string) => (() => Node) | undefined;
 }
 
 /** Lo que dejó la hidratación: cuántos nodos se adoptaron y cuántos se crearon. */
 export interface Hydrated {
-  adoptados: number;
-  creados: number;
+  adopted: number;
+  created: number;
   /** Apaga las islas: libera sus efectos y listeners, y deja el HTML. */
-  desmontar: () => void;
+  unmount: () => void;
 }
 
 /**
@@ -603,10 +603,10 @@ export interface Hydrated {
  * props en texto, sin validar nada.
  */
 export function hydrate(
-  islas: readonly IslaHidratable[] | Record<string, (props: string) => Node>,
+  islas: readonly HydratableIsland[] | Record<string, (props: string) => Node>,
   raiz: ParentNode = document,
 ): Hydrated {
-  const resultado: Hydrated = { adoptados: 0, creados: 0, desmontar: () => {} };
+  const resultado: Hydrated = { adopted: 0, created: 0, unmount: () => {} };
   const liberaciones: (() => void)[] = [];
 
   for (const contenedor of Array.from(raiz.querySelectorAll(`[${ISLAND_ATTR}]`))) {
@@ -618,17 +618,17 @@ export function hydrate(
     // isla cuyos props no encajan tiene que quedarse como vino.
     const sinValidar = (islas as Record<string, (props: string) => Node>)[nombre];
     const construir = Array.isArray(islas)
-      ? (islas as readonly IslaHidratable[]).find((isla) => isla.nombre === nombre)?.preparar(props)
+      ? (islas as readonly HydratableIsland[]).find((isla) => isla.name === nombre)?.prepare(props)
       : sinValidar && (() => sinValidar(props));
     if (!construir) continue;
 
     const [estado, liberar] = root(() => hidratarEn(contenedor, construir));
-    resultado.adoptados += estado.adoptados;
-    resultado.creados += estado.creados;
+    resultado.adopted += estado.adoptados;
+    resultado.created += estado.creados;
     liberaciones.push(liberar);
   }
 
-  resultado.desmontar = () => {
+  resultado.unmount = () => {
     for (const liberar of liberaciones) liberar();
   };
   return resultado;

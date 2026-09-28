@@ -9,9 +9,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { element, on, onCleanup, property, signal, text, dynamicText, append } from "ascua";
-import { arrastrar, enviar, escribir, esperar, limpiar, marcar, pulsar, render } from "../src/index.js";
+import { check, cleanup, click, drag, input, render, submit, wait, waitFor } from "../src/index.js";
 
-afterEach(limpiar);
+afterEach(cleanup);
 
 function Contador() {
   const cuenta = signal(0);
@@ -29,48 +29,48 @@ function Contador() {
 
 describe("render", () => {
   it("monta en el documento", () => {
-    const { contenedor, texto } = render(Contador);
+    const { container, text } = render(Contador);
 
-    expect(contenedor.isConnected).toBe(true);
-    expect(texto("output")).toBe("0");
+    expect(container.isConnected).toBe(true);
+    expect(text("output")).toBe("0");
   });
 
   it("lo que pasa tras pulsar ya está al volver", () => {
     // Los efectos de Ascua corren al escribir el signal, no en un tick
     // posterior: el test no espera a nada.
-    const { buscar, texto } = render(Contador);
+    const { get, text } = render(Contador);
 
-    pulsar(buscar("button"));
-    expect(texto("output")).toBe("1");
+    click(get("button"));
+    expect(text("output")).toBe("1");
 
-    pulsar(buscar("button"));
-    pulsar(buscar("button"));
-    expect(texto("output")).toBe("3");
+    click(get("button"));
+    click(get("button"));
+    expect(text("output")).toBe("3");
   });
 
   it("dice qué hay montado cuando no encuentra algo", () => {
-    const { buscar } = render(Contador);
-    expect(() => buscar(".no-existe")).toThrow(/no hay ningún ".no-existe"/);
+    const { get } = render(Contador);
+    expect(() => get(".no-existe")).toThrow(/no hay ningún ".no-existe"/);
   });
 
-  it("desmontar libera los efectos", () => {
+  it("unmount libera los efectos", () => {
     const soltado = vi.fn();
-    const { desmontar, contenedor } = render(() => {
+    const { unmount, container } = render(() => {
       onCleanup(soltado);
       return element("p");
     });
 
-    desmontar();
+    unmount();
     expect(soltado).toHaveBeenCalledTimes(1);
-    expect(contenedor.isConnected).toBe(false);
+    expect(container.isConnected).toBe(false);
   });
 
-  it("limpiar se lleva todo lo que quedó montado", () => {
+  it("cleanup se lleva todo lo que quedó montado", () => {
     render(Contador);
     render(Contador);
     expect(document.body.children.length).toBe(2);
 
-    limpiar();
+    cleanup();
     expect(document.body.children.length).toBe(0);
   });
 });
@@ -101,32 +101,32 @@ describe("los gestos", () => {
     return form;
   }
 
-  it("escribir avisa al que escucha", () => {
-    const { buscar, texto } = render(() => Formulario(() => {}));
+  it("input avisa al que escucha", () => {
+    const { get, text } = render(() => Formulario(() => {}));
 
-    escribir(buscar<HTMLInputElement>("input"), "hola");
-    expect(texto("p")).toBe("hola");
+    input(get<HTMLInputElement>("input"), "hola");
+    expect(text("p")).toBe("hola");
   });
 
-  it("marcar dispara el change", () => {
-    const { buscarTodos, texto } = render(() => Formulario(() => {}));
+  it("check dispara el change", () => {
+    const { getAll, text } = render(() => Formulario(() => {}));
 
-    marcar(buscarTodos<HTMLInputElement>("input")[1]!);
-    expect(texto("p")).toBe(" ✓");
+    check(getAll<HTMLInputElement>("input")[1]!);
+    expect(text("p")).toBe(" ✓");
   });
 
-  it("enviar llega con lo que había escrito", () => {
+  it("submit llega con lo que había escrito", () => {
     const recibido = vi.fn();
-    const { buscar } = render(() => Formulario(recibido));
+    const { get } = render(() => Formulario(recibido));
 
-    escribir(buscar<HTMLInputElement>("input"), "Ana");
-    enviar(buscar<HTMLFormElement>("form"));
+    input(get<HTMLInputElement>("input"), "Ana");
+    submit(get<HTMLFormElement>("form"));
 
     expect(recibido).toHaveBeenCalledWith("Ana");
   });
 });
 
-describe("arrastrar", () => {
+describe("drag", () => {
   function Lienzo(registro: string[]) {
     const lienzo = element("div");
     for (const tipo of ["pointerdown", "pointermove", "pointerup", "pointercancel"]) {
@@ -140,9 +140,9 @@ describe("arrastrar", () => {
 
   it("baja en el primero, se mueve y suelta en el último", () => {
     const registro: string[] = [];
-    const { contenedor } = render(() => Lienzo(registro));
+    const { container } = render(() => Lienzo(registro));
 
-    arrastrar(contenedor.firstElementChild!, [
+    drag(container.firstElementChild!, [
       { x: 14, y: 14 },
       { x: 44, y: 44 },
       { x: 74, y: 74 },
@@ -158,12 +158,12 @@ describe("arrastrar", () => {
 
   it("acepta el dedo y la cancelación", () => {
     const registro: string[] = [];
-    const { contenedor } = render(() => Lienzo(registro));
+    const { container } = render(() => Lienzo(registro));
 
-    arrastrar(contenedor.firstElementChild!, [{ x: 0, y: 0 }, { x: 5, y: 5 }], {
+    drag(container.firstElementChild!, [{ x: 0, y: 0 }, { x: 5, y: 5 }], {
       pointerId: 7,
       pointerType: "touch",
-      cancelar: true,
+      cancel: true,
     });
 
     expect(registro.at(-1)).toBe("pointercancel@5,5#7:touch");
@@ -171,31 +171,70 @@ describe("arrastrar", () => {
 
   it("un solo punto es un toque", () => {
     const registro: string[] = [];
-    const { contenedor } = render(() => Lienzo(registro));
+    const { container } = render(() => Lienzo(registro));
 
-    arrastrar(contenedor.firstElementChild!, [{ x: 3, y: 3 }]);
+    drag(container.firstElementChild!, [{ x: 3, y: 3 }]);
     expect(registro).toEqual(["pointerdown@3,3#1:mouse", "pointerup@3,3#1:mouse"]);
   });
 
   it("sin puntos falla", () => {
-    const { contenedor } = render(() => Lienzo([]));
-    expect(() => arrastrar(contenedor, [])).toThrow(/al menos un punto/);
+    const { container } = render(() => Lienzo([]));
+    expect(() => drag(container, [])).toThrow(/al menos un punto/);
   });
 });
 
-describe("esperar", () => {
+describe("wait", () => {
   it("cede el turno a lo que estaba pendiente", async () => {
     const estado = signal("cargando");
-    const { texto } = render(() => {
+    const { text } = render(() => {
       const p = element("p");
       append(p, dynamicText(() => estado()));
       return p;
     });
 
     void Promise.resolve().then(() => estado.set("listo"));
-    expect(texto()).toBe("cargando");
+    expect(text()).toBe("cargando");
 
-    await esperar();
-    expect(texto()).toBe("listo");
+    await wait();
+    expect(text()).toBe("listo");
+  });
+});
+
+describe("waitFor", () => {
+  function Tardio(ms: number) {
+    const listo = signal(false);
+    const caja = element("div");
+    append(caja, dynamicText(() => (listo() ? "" : "cargando")));
+    setTimeout(() => {
+      listo.set(true);
+      const hecho = element("p");
+      hecho.className = "hecho";
+      append(hecho, text("listo"));
+      append(caja, hecho);
+    }, ms);
+    return caja;
+  }
+
+  it("devuelve el nodo en cuanto aparece", async () => {
+    const { waitFor: esperarNodo } = render(() => Tardio(20));
+
+    const hecho = await esperarNodo(".hecho");
+    expect(hecho.textContent).toBe("listo");
+  });
+
+  it("si ya está, no espera", async () => {
+    const { container } = render(() => element("span"));
+    await expect(waitFor("span", { within: container })).resolves.toBe(container.firstElementChild);
+  });
+
+  it("falla al acabarse el plazo, con lo que había", async () => {
+    render(() => Tardio(500));
+    await expect(waitFor(".hecho", { timeout: 30 })).rejects.toThrow(/"\.hecho" no apareció en 30 ms:[\s\S]*cargando/);
+  });
+
+  it("con within no ve lo de fuera", async () => {
+    render(() => Tardio(10));
+    const { waitFor: soloAqui } = render(() => element("section"));
+    await expect(soloAqui(".hecho", { timeout: 60 })).rejects.toThrow(/no apareció/);
   });
 });

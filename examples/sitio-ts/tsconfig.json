@@ -12,7 +12,7 @@
     // vite.config.ts. Una aplicación de verdad los tendría en node_modules.
     "paths": {
       "ascua": ["../../packages/runtime/src/index.ts"],
-      "ascua/servidor": ["../../packages/runtime/src/servidor.ts"],
+      "ascua/server": ["../../packages/runtime/src/server.ts"],
       "ascua-router": ["../../packages/router/src/index.ts"],
       "ascua-testing": ["../../packages/testing/src/index.ts"]
     }

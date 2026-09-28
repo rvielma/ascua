@@ -4,11 +4,11 @@ const paquete = (ruta) => new URL(`../../../../${ruta}`, import.meta.url).pathna
 
 // Lo mínimo del README: sin index.html y sin islas.
 export default {
-  plugins: [ascua({ sitio: true })],
+  plugins: [ascua({ site: true })],
   resolve: {
     alias: [
       { find: /^ascua$/, replacement: paquete("runtime/src/index.ts") },
-      { find: /^ascua\/servidor$/, replacement: paquete("runtime/src/servidor.ts") },
+      { find: /^ascua\/server$/, replacement: paquete("runtime/src/server.ts") },
     ],
   },
 };

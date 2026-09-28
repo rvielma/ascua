@@ -37,7 +37,7 @@ el source map del compilador. Al terminar, borra la copia.
 | Opción | Qué hace |
 |---|---|
 | `-p`, `--project RUTA` | El tsconfig. Por defecto, `tsconfig.json`. |
-| `--conservar` | No borra `.ascua-check/`: se ve lo que comprobó `tsc`. |
+| `--keep` | No borra `.ascua-check/`: se ve lo que comprobó `tsc`. |
 
 Sale con `0` si no hay errores, `1` si los hay y `2` si no pudo comprobar.
 

@@ -1,7 +1,7 @@
 import { LENGUAJES } from "../../datos.js";
-import { IslaBuscador } from "../../islas/index.js";
+import { IslaBuscador } from "../../islands/index.js";
 
-export const titulo = "Lenguajes · Ascua";
+export const title = "Lenguajes · Ascua";
 
 export default function Lenguajes() {
   return view`

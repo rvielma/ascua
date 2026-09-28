@@ -22,7 +22,7 @@ import {
   text,
 } from "../src/dom.js";
 import { signal } from "../src/reactivo.js";
-import { collectStyles, island, registerStyle, renderToString } from "../src/servidor.js";
+import { collectStyles, island, registerStyle, renderToString } from "../src/server.js";
 
 describe("renderToString", () => {
   it("no necesita un navegador", () => {

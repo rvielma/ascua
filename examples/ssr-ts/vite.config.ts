@@ -6,10 +6,10 @@ export default {
   plugins: [ascua()],
   resolve: {
     // Con expresiones y no con claves: `ascua` como clave también
-    // capturaría `ascua/servidor`.
+    // capturaría `ascua/server`.
     alias: [
       { find: /^ascua$/, replacement: paquete("runtime/src/index.ts") },
-      { find: /^ascua\/servidor$/, replacement: paquete("runtime/src/servidor.ts") },
+      { find: /^ascua\/server$/, replacement: paquete("runtime/src/server.ts") },
     ],
   },
   build: { minify: "terser", target: "es2022" },

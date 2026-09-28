@@ -54,9 +54,9 @@ export {
   text,
   type Children,
   type Hydrated,
-  type IslaHidratable,
+  type HydratableIsland,
   type Present,
-  type ValorAtributo,
+  type AttributeValue,
   type Writable,
 } from "./dom.js";
 

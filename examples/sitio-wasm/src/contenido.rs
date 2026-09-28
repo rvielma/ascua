@@ -494,7 +494,7 @@ let html = render_to_string_hydratable(|dom| {
 
 // navegador, en WASM
 let (montajes, stats) = hydrate_islands(backend, &islas);
-// Estadisticas { adoptados: 37, creados: 0 }"#;
+// HydrationStats { adopted: 37, created: 0 }"#;
 
 const CODIGO_INSTALAR: &str = r#"[dependencies]
 ascua = "0.1"

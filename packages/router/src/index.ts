@@ -6,7 +6,7 @@
  * dato, y no hace falta ningún concepto nuevo.
  *
  * No hay componente `<Router>` ni contexto que instalar. Una aplicación monta
- * su vista dentro de un elemento con `enrutarEn`, que por dentro es el mismo
+ * su vista dentro de un elemento con `mountRoutes`, que por dentro es el mismo
  * `show` del runtime: al cambiar de ruta se libera el scope de la vista
  * anterior —efectos, listeners, `onCleanup`— y se construye la otra.
  */
@@ -14,22 +14,22 @@
 import { memo, root, show, signal, untrack } from "ascua";
 
 /** Los parámetros que captura un patrón: `/pedidos/:id` → `{ id: "4821" }`. */
-export type Parametros = Record<string, string>;
+export type Params = Record<string, string>;
 
-export interface Ruta {
+export interface Route {
   /**
    * `/pedidos`, `/pedidos/:id`, `/archivos/*`. Sin patrón, la ruta hace de
    * fallback: se usa cuando ninguna de las anteriores coincide.
    */
-  patron?: string;
+  pattern?: string;
   /** Construye la vista. Recibe los parámetros que capturó el patrón. */
-  vista: (parametros: Parametros) => Node;
+  view: (params: Params) => Node;
 }
 
 const camino = signal(leerCamino());
 
 if (typeof window !== "undefined") {
-  // Atrás y adelante del navegador: la URL cambia sin pasar por `navegar`.
+  // Atrás y adelante del navegador: la URL cambia sin pasar por `navigate`.
   window.addEventListener("popstate", () => camino.set(leerCamino()));
 }
 
@@ -48,12 +48,12 @@ function normalizar(valor: string): string {
 }
 
 /** La ruta actual, con su query. Leerla dentro de una closure es reactivo. */
-export function ruta(): string {
+export function path(): string {
   return camino();
 }
 
-/** Solo el camino, sin la query: lo que compara `coincide`. */
-export function sinQuery(valor: string): string {
+/** Solo el camino, sin la query: lo que compara `match`. */
+export function stripQuery(valor: string): string {
   const interrogante = valor.indexOf("?");
   return interrogante === -1 ? valor : valor.slice(0, interrogante);
 }
@@ -68,14 +68,14 @@ export function query(): URLSearchParams {
 /**
  * Cambia de ruta sin recargar la página.
  *
- * `reemplazar` sustituye la entrada actual del historial en vez de apilar
+ * `replace` sustituye la entrada actual del historial en vez de apilar
  * otra: es lo que quieres tras un login, para que el botón atrás no devuelva
  * al formulario.
  */
-export function navegar(destino: string, opciones: { reemplazar?: boolean } = {}): void {
+export function navigate(destino: string, options: { replace?: boolean } = {}): void {
   const normalizado = normalizar(destino);
   if (typeof history !== "undefined") {
-    if (opciones.reemplazar) history.replaceState(null, "", normalizado);
+    if (options.replace) history.replaceState(null, "", normalizado);
     else history.pushState(null, "", normalizado);
   }
   camino.set(normalizado);
@@ -93,8 +93,8 @@ export function navegar(destino: string, opciones: { reemplazar?: boolean } = {}
  * a `/` carga la portada de verdad. Para un enlace suelto basta
  * `rel="external"`.
  */
-export function enlaces(raiz: Node = document, opciones: { base?: string } = {}): () => void {
-  const base = opciones.base?.replace(/\/+$/, "");
+export function links(raiz: Node = document, options: { base?: string } = {}): () => void {
+  const base = options.base?.replace(/\/+$/, "");
   const dentro = (camino: string) =>
     !base || camino === base || camino.startsWith(`${base}/`);
 
@@ -117,7 +117,7 @@ export function enlaces(raiz: Node = document, opciones: { base?: string } = {})
     if (url.origin !== location.origin || !dentro(url.pathname)) return;
 
     evento.preventDefault();
-    navegar(url.pathname + url.search);
+    navigate(url.pathname + url.search);
   };
 
   raiz.addEventListener("click", alPulsar);
@@ -130,16 +130,16 @@ export function enlaces(raiz: Node = document, opciones: { base?: string } = {})
  * `:nombre` captura un segmento y `*` el resto del camino. Sin comodines, la
  * comparación es exacta: un patrón no coincide con una ruta más profunda.
  */
-export function coincide(patron: string, contra: string = sinQuery(camino())): Parametros | null {
+export function match(patron: string, contra: string = stripQuery(camino())): Params | null {
   const esperados = normalizar(patron).split("/");
   const reales = normalizar(contra).split("/");
-  const parametros: Parametros = {};
+  const parametros: Params = {};
 
   for (let i = 0; i < esperados.length; i++) {
     const esperado = esperados[i]!;
 
     if (esperado === "*") {
-      parametros["resto"] = reales.slice(i).join("/");
+      parametros["rest"] = reales.slice(i).join("/");
       return parametros;
     }
     const real = reales[i];
@@ -157,14 +157,14 @@ export function coincide(patron: string, contra: string = sinQuery(camino())): P
 }
 
 /** La ruta que toca ahora, con sus parámetros ya resueltos. */
-function resolver(rutas: readonly Ruta[]): { indice: number; parametros: Parametros } {
-  const actual = sinQuery(camino());
+function resolver(rutas: readonly Route[]): { indice: number; parametros: Params } {
+  const actual = stripQuery(camino());
 
   for (let i = 0; i < rutas.length; i++) {
-    const { patron } = rutas[i]!;
+    const { pattern: patron } = rutas[i]!;
     if (patron === undefined) return { indice: i, parametros: {} };
 
-    const parametros = coincide(patron, actual);
+    const parametros = match(patron, actual);
     if (parametros) return { indice: i, parametros };
   }
   return { indice: -1, parametros: {} };
@@ -179,12 +179,12 @@ function resolver(rutas: readonly Ruta[]): { indice: number; parametros: Paramet
  * siguiente. Navegar a `/pedidos/2` desde `/pedidos/1` sí reconstruye, porque
  * los parámetros forman parte de lo que identifica a la vista.
  */
-export function enrutarEn(padre: Node, rutas: readonly Ruta[]): () => void {
+export function mountRoutes(padre: Node, rutas: readonly Route[]): () => void {
   const [, liberar] = root(() => montarRutas(padre, rutas));
   return liberar;
 }
 
-function montarRutas(padre: Node, rutas: readonly Ruta[]): void {
+function montarRutas(padre: Node, rutas: readonly Route[]): void {
   const activa = memo(() => resolver(rutas));
   // La clave es una cadena a propósito: `show` compara con `Object.is`, y un
   // objeto nuevo en cada lectura reconstruiría la vista en cada cambio de
@@ -197,6 +197,6 @@ function montarRutas(padre: Node, rutas: readonly Ruta[]): void {
   show(padre, clave, () => {
     const { indice, parametros } = untrack(activa);
     const ruta = rutas[indice];
-    return ruta ? ruta.vista(parametros) : null;
+    return ruta ? ruta.view(parametros) : null;
   });
 }

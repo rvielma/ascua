@@ -101,7 +101,7 @@ impl ascua_router::History for HistorialCompartido {
     fn replace(&self, path: &str) {
         self.0.replace(path);
     }
-    fn listen(&self, callback: ascua_router::Oyente) {
+    fn listen(&self, callback: ascua_router::Listener) {
         self.0.listen(callback);
     }
 }

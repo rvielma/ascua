@@ -1,5 +1,5 @@
 /** Atrapa todo lo que cuelga de /docs/. */
-export function parametros() {
+export function paths() {
   return [{ ruta: "guia/inicio" }, { ruta: "api" }];
 }
 

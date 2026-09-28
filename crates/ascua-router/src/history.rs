@@ -9,7 +9,7 @@ use std::rc::Rc;
 /// el router entero sin navegador, y para que renderizar en servidor sea usar
 /// otra implementación, no otro router.
 /// Callback al que se avisa cuando la ruta cambia por fuera de la aplicación.
-pub type Oyente = Rc<dyn Fn(String)>;
+pub type Listener = Rc<dyn Fn(String)>;
 
 pub trait History {
     /// Ruta actual, incluida la query si la hay.
@@ -23,14 +23,14 @@ pub trait History {
 
     /// Avisa cuando el usuario navega por fuera de la aplicación (botón atrás
     /// del navegador). El callback recibe la ruta nueva.
-    fn listen(&self, callback: Oyente);
+    fn listen(&self, callback: Listener);
 }
 
 /// Historial en memoria: para tests y para renderizar en servidor, donde la
 /// ruta viene de la petición.
 pub struct MemoryHistory {
     entradas: RefCell<Vec<String>>,
-    oyentes: RefCell<Vec<Oyente>>,
+    oyentes: RefCell<Vec<Listener>>,
 }
 
 impl MemoryHistory {
@@ -96,7 +96,7 @@ impl History for MemoryHistory {
         }
     }
 
-    fn listen(&self, callback: Oyente) {
+    fn listen(&self, callback: Listener) {
         self.oyentes.borrow_mut().push(callback);
     }
 }

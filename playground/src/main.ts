@@ -3,7 +3,7 @@
 // El compilador que traduce las plantillas es un módulo WebAssembly de 82 KB,
 // y aquí corre en la pestaña: no hay servidor que compile nada.
 
-import init, { compilar_json, version } from "ascua-compilador/web";
+import init, { compileJson, version } from "ascua-compilador/web";
 import { effect, memo, mount, on, signal } from "ascua";
 
 const EJEMPLO = `import { signal } from "ascua";
@@ -37,7 +37,7 @@ const listo = signal(false);
 function compilar(codigo: string): Resultado {
   const empezó = performance.now();
   try {
-    const salida = JSON.parse(compilar_json(codigo)) as { code: string; css: string };
+    const salida = JSON.parse(compileJson(codigo)) as { code: string; css: string };
     return { ...salida, ms: performance.now() - empezó, error: null };
   } catch (error) {
     return { code: "", css: "", ms: performance.now() - empezó, error: String(error) };

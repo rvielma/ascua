@@ -14,7 +14,7 @@ const DIST = join(PROYECTO, "dist");
 
 afterAll(() => rmSync(DIST, { recursive: true, force: true }));
 
-it("construye con solo src/rutas/index.ts, y no deja nada más que la página", async () => {
+it("construye con solo src/routes/index.ts, y no deja nada más que la página", async () => {
   await build({ root: PROYECTO, logLevel: "silent" });
   expect(readdirSync(DIST)).toEqual(["index.html"]);
   const html = readFileSync(join(DIST, "index.html"), "utf8");

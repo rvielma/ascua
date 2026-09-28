@@ -1,6 +1,6 @@
 {
   "name": "ascua",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "description": "Runtime reactivo de Ascua: signals, effects y operaciones directas de DOM. Sin Virtual DOM.",
   "keywords": [
     "reactividad",
@@ -21,9 +21,9 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
-    "./servidor": {
-      "types": "./dist/servidor.d.ts",
-      "import": "./dist/servidor.js"
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js"
     }
   },
   "files": [

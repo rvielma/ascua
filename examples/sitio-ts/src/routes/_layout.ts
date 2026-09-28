@@ -1,9 +1,9 @@
 import type { Children } from "ascua";
 
 /** Envuelve todas las páginas. Es un componente con hijos como cualquier otro. */
-export default function Marco(props: { ruta: string; children: Children }) {
+export default function Marco(props: { path: string; children: Children }) {
   const actual = (prefijo: string) =>
-    props.ruta === prefijo || (prefijo !== "/" && props.ruta.startsWith(prefijo)) ? "page" : false;
+    props.path === prefijo || (prefijo !== "/" && props.path.startsWith(prefijo)) ? "page" : false;
   const pagina = view`
     <div class="pagina">
       <header>

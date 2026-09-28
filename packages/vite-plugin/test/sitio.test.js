@@ -1,5 +1,5 @@
 /**
- * `ascua({ sitio: true })` sobre un proyecto de verdad: se construye con Vite
+ * `ascua({ site: true })` sobre un proyecto de verdad: se construye con Vite
  * y se mira lo que queda en `dist/`, y se levanta el servidor de desarrollo y
  * se le piden páginas.
  */
@@ -18,10 +18,10 @@ const DIST = join(PROYECTO, "dist");
 const leer = (archivo) => readFileSync(join(DIST, archivo), "utf8");
 
 describe("descubrir y encajar", () => {
-  const { rutas, marco } = descubrir(join(PROYECTO, "src/rutas"));
+  const { rutas, marco } = descubrir(join(PROYECTO, "src/routes"));
 
   it("una ruta por archivo; el marco y lo que empieza por _ no lo son", () => {
-    expect(marco).toMatch(/_marco\.ts$/);
+    expect(marco).toMatch(/_layout\.ts$/);
     expect(rutas.map((r) => (r.es404 ? "404" : `/${r.segmentos.join("/")}`)).sort()).toEqual([
       "/",
       "/acerca",
@@ -47,7 +47,7 @@ describe("descubrir y encajar", () => {
 
   it("cada ruta lleva los marcos de su carpeta y de las de encima", () => {
     const variable = rutas.find((r) => r.segmentos[1] === ":nombre");
-    expect(variable.marcos.map((m) => m.split("/rutas/")[1])).toEqual(["_marco.ts", "lenguajes/_marco.ts"]);
+    expect(variable.marcos.map((m) => m.split("/routes/")[1])).toEqual(["_layout.ts", "lenguajes/_layout.ts"]);
     expect(rutas.find((r) => r.segmentos[0] === "acerca").marcos).toHaveLength(1);
   });
 });
@@ -84,7 +84,7 @@ describe("vite build", () => {
   });
 
   it("solo las páginas con islas llevan JavaScript", () => {
-    expect(leer("index.html")).toMatch(/<script type="module" src="\/assets\/ascua-cliente-[\w-]+\.js"><\/script>/);
+    expect(leer("index.html")).toMatch(/<script type="module" src="\/assets\/ascua-client-[\w-]+\.js"><\/script>/);
     expect(leer("acerca/index.html")).not.toContain("<script");
     expect(leer("lenguajes/rust/index.html")).not.toContain("<script");
   });
@@ -96,7 +96,7 @@ describe("vite build", () => {
     expect(leer("404.html")).toContain("<h1>No existe</h1>");
   });
 
-  it("cargar() corre al construir y sus datos llegan a la página y a su descripción", () => {
+  it("load() corre al construir y sus datos llegan a la página y a su descripción", () => {
     expect(leer("lenguajes/rust/index.html")).toContain('<meta name="description" content="rust tiene 11 años">');
   });
 
@@ -138,9 +138,9 @@ describe("vite en desarrollo", () => {
     expect(respuesta.status).toBe(200);
     const html = await respuesta.text();
     expect(html).toContain('data-ascua-island="contador"');
-    expect(html).toContain('<script type="module" src="/@id/virtual:ascua-sitio/cliente"></script>');
+    expect(html).toContain('<script type="module" src="/@id/virtual:ascua-site/client"></script>');
 
-    const script = await fetch(`${origen}/@id/virtual:ascua-sitio/cliente`);
+    const script = await fetch(`${origen}/@id/virtual:ascua-site/client`);
     expect(script.status).toBe(200);
     expect(await script.text()).toContain("hydrate");
   });
@@ -151,7 +151,7 @@ describe("vite en desarrollo", () => {
     expect(html).not.toContain("<script type=\"module\" src=\"/@id/");
   });
 
-  it("en desarrollo, cargar() corre en cada petición y las rutas-archivo llevan su tipo", async () => {
+  it("en desarrollo, load() corre en cada petición y las rutas-archivo llevan su tipo", async () => {
     const html = await (await fetch(`${origen}/lenguajes/zig`)).text();
     expect(html).toContain('<meta name="description" content="zig tiene 10 años">');
 
@@ -165,7 +165,7 @@ describe("vite en desarrollo", () => {
     expect(html).toContain("<h1>docs: uno/dos/tres</h1>");
   });
 
-  it("noExiste() en cargar() da la página 404", async () => {
+  it("notFound() en load() da la página 404", async () => {
     const respuesta = await fetch(`${origen}/lenguajes/cobol`);
     expect(respuesta.status).toBe(404);
     expect(await respuesta.text()).toContain("<h1>No existe</h1>");

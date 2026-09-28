@@ -9,20 +9,20 @@ import { join, relative } from "node:path";
 
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { comprobar } from "../src/index.js";
+import { check } from "../src/index.js";
 
 const PROYECTO = join(__dirname, "fixtures/proyecto");
 
-type Resultado = Awaited<ReturnType<typeof comprobar>>;
+type Resultado = Awaited<ReturnType<typeof check>>;
 let resultado: Resultado;
 
 const de = (archivo: string) =>
-  resultado.diagnosticos
-    .filter((d) => relative(PROYECTO, d.archivo) === archivo)
-    .map((d) => ({ linea: d.linea, columna: d.columna, codigo: d.codigo, mensaje: d.mensaje.split("\n")[0] }));
+  resultado.diagnostics
+    .filter((d) => relative(PROYECTO, d.file) === archivo)
+    .map((d) => ({ linea: d.line, columna: d.column, codigo: d.code, mensaje: d.message.split("\n")[0] }));
 
 beforeAll(async () => {
-  resultado = await comprobar({ proyecto: join(PROYECTO, "tsconfig.json") });
+  resultado = await check({ project: join(PROYECTO, "tsconfig.json") });
 });
 
 describe("ascua-check", () => {
@@ -65,19 +65,19 @@ describe("ascua-check", () => {
   });
 
   it("cuenta lo que hizo y no deja la copia", () => {
-    expect(resultado.archivos).toBe(4);
-    expect(resultado.conPlantillas).toBe(4);
+    expect(resultado.files).toBe(4);
+    expect(resultado.withTemplates).toBe(4);
     expect(existsSync(join(PROYECTO, ".ascua-check"))).toBe(false);
   });
 
   it("si una plantilla no compila, dice cuál y por qué", async () => {
     const roto = join(__dirname, "fixtures/roto/tsconfig.json");
-    await expect(comprobar({ proyecto: roto })).rejects.toThrow(
+    await expect(check({ project: roto })).rejects.toThrow(
       /src\/raiz\.ts: .*<Show> necesita un elemento donde anclarse/,
     );
   });
 
   it("sin tsconfig lo dice", async () => {
-    await expect(comprobar({ proyecto: join(PROYECTO, "no-existe.json") })).rejects.toThrow(/no existe/);
+    await expect(check({ project: join(PROYECTO, "no-existe.json") })).rejects.toThrow(/no existe/);
   });
 });

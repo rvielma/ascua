@@ -7,7 +7,7 @@ import { hydrate } from "ascua";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { render } from "../src/entrada-servidor.js";
-import { ISLAS } from "../src/islas/index.js";
+import { ISLAS } from "../src/islands/index.js";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -45,9 +45,9 @@ describe("hydrate", () => {
     servir("/");
     const salida = document.querySelector("output")!;
 
-    const { adoptados, creados } = hydrate(ISLAS);
-    expect(creados).toBe(0);
-    expect(adoptados).toBe(4);
+    const { adopted, created } = hydrate(ISLAS);
+    expect(created).toBe(0);
+    expect(adopted).toBe(4);
 
     (document.querySelector("[aria-label=sumar]") as HTMLElement).click();
     expect(document.querySelector("output")).toBe(salida);
@@ -58,8 +58,8 @@ describe("hydrate", () => {
     servir("/lenguajes");
     const rust = [...document.querySelectorAll("li")].find((li) => li.textContent!.startsWith("Rust"));
 
-    const { creados } = hydrate(ISLAS);
-    expect(creados).toBe(0);
+    const { created } = hydrate(ISLAS);
+    expect(created).toBe(0);
 
     const campo = document.querySelector("input")!;
     campo.value = "ru";
@@ -78,8 +78,8 @@ describe("hydrate", () => {
     isla.setAttribute("data-ascua-props", isla.getAttribute("data-ascua-props")!.replace(/"año":(\d+)/, '"año":"$1"'));
     const antes = document.body.innerHTML;
 
-    const { adoptados } = hydrate(ISLAS);
-    expect(adoptados).toBe(0);
+    const { adopted } = hydrate(ISLAS);
+    expect(adopted).toBe(0);
     expect(document.body.innerHTML).toBe(antes);
     expect(error).toHaveBeenCalledWith(expect.stringContaining('lenguajes[0].año: se esperaba number, llegó string "1957"'));
     error.mockRestore();

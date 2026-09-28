@@ -93,10 +93,10 @@ fn hidratar_adopta_los_nodos_en_vez_de_crearlos() {
 
     assert_eq!(montajes.len(), 1);
     assert_eq!(
-        estadisticas.creados, 0,
+        estadisticas.created, 0,
         "no debería haber hecho falta crear ni un nodo: {estadisticas:?}"
     );
-    assert!(estadisticas.adoptados >= 7, "{estadisticas:?}");
+    assert!(estadisticas.adopted >= 7, "{estadisticas:?}");
 
     // La prueba de que es hidratación y no un remontaje: el párrafo que ahora
     // alimenta el efecto es exactamente el nodo que escribió el servidor.
@@ -196,7 +196,7 @@ fn si_el_html_no_encaja_se_construye_lo_que_falte() {
 
     assert_eq!(montajes.len(), 1);
     assert!(
-        estadisticas.creados > 0,
+        estadisticas.created > 0,
         "lo que no encaja se crea: {estadisticas:?}"
     );
 
@@ -252,7 +252,7 @@ fn una_lista_tambien_se_hidrata_entera() {
     let (_montajes, estadisticas) = hydrate_islands(Rc::clone(&backend), &islas);
 
     assert_eq!(
-        estadisticas.creados, 0,
+        estadisticas.created, 0,
         "ni los <li> ni el marcador de la lista deberían crearse de nuevo: {estadisticas:?}"
     );
 

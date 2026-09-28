@@ -16,7 +16,7 @@ stil run test
 | Archivo | Qué hace | Dónde corre |
 |---|---|---|
 | `src/paginas.ts` | Las páginas y el marco común | Solo servidor |
-| `src/islas/` | Los componentes interactivos y cómo se envuelven | Los dos |
+| `src/islands/` | Los componentes interactivos y cómo se envuelven | Los dos |
 | `src/entrada-servidor.ts` | De una URL a HTML con `renderToString` | Servidor |
 | `src/entrada-cliente.ts` | `hydrate(ISLAS)` y nada más | Navegador |
 | `servidor.js` | HTTP con Node: Vite como middleware en desarrollo, `dist/` en producción | Servidor |
@@ -49,10 +49,10 @@ están en lugar de crearlos:
 
 ```ts
 hydrate({ contador: (props) => Contador(JSON.parse(props)) });
-// { adoptados: 4, creados: 0 }
+// { adopted: 4, created: 0 }
 ```
 
-En desarrollo, la consola muestra esas dos cifras. Si `creados` deja de ser
+En desarrollo, la consola muestra esas dos cifras. Si `created` deja de ser
 cero, el servidor y el cliente construyeron cosas distintas; la página sigue
 funcionando, pero conviene mirar por qué.
 

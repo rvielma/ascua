@@ -1,5 +1,5 @@
 /**
- * # ascua/servidor
+ * # ascua/server
  *
  * Renderizar en servidor no necesita un runtime aparte: es el mismo código de
  * componentes sobre otro documento. Este construye el árbol en memoria y lo

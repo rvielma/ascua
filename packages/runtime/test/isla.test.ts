@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ISLAND_PROPS_ATTR, append, dynamicText, element, hydrate, on, text } from "../src/dom.js";
 import { defineIsland, p, type StandardSchema } from "../src/isla.js";
 import { signal } from "../src/reactivo.js";
-import { renderToString } from "../src/servidor.js";
+import { renderToString } from "../src/server.js";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -51,9 +51,9 @@ describe("defineIsland", () => {
     const isla = servir(() => IslaContador({ inicial: 3 }));
     const boton = isla.querySelector("button")!;
 
-    const { adoptados, creados } = hydrate([IslaContador]);
-    expect(creados).toBe(0);
-    expect(adoptados).toBeGreaterThan(0);
+    const { adopted, created } = hydrate([IslaContador]);
+    expect(created).toBe(0);
+    expect(adopted).toBeGreaterThan(0);
 
     boton.click();
     expect(isla.querySelector("button")).toBe(boton);
@@ -73,8 +73,8 @@ describe("defineIsland", () => {
     conProps(isla, '{"inicial":"5"}');
     const antes = isla.outerHTML;
 
-    const { adoptados, creados } = hydrate([IslaContador]);
-    expect(adoptados + creados).toBe(0);
+    const { adopted, created } = hydrate([IslaContador]);
+    expect(adopted + created).toBe(0);
 
     // Sin hidratar, el click no hace nada: no hay "51".
     isla.querySelector("button")!.click();
@@ -122,7 +122,7 @@ describe("defineIsland", () => {
 
   it("toma el nombre de la definición: no hay dos textos que puedan diferir", () => {
     const isla = servir(() => IslaContador({ inicial: 0 }));
-    expect(IslaContador.nombre).toBe("contador");
+    expect(IslaContador.name).toBe("contador");
     hydrate([IslaContador]);
     isla.querySelector("button")!.click();
     expect(isla.textContent).toBe("1");

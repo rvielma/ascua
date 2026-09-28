@@ -24,7 +24,7 @@ import {
   text,
 } from "../src/dom.js";
 import { signal } from "../src/reactivo.js";
-import { renderToString } from "../src/servidor.js";
+import { renderToString } from "../src/server.js";
 
 afterEach(() => {
   document.body.innerHTML = "";
@@ -112,11 +112,11 @@ describe("hydrate", () => {
     servir();
     const antes = [...document.querySelectorAll(`[${HYDRATION_ATTR}]`)];
 
-    const { adoptados, creados, app } = hidratar();
+    const { adopted, created, app } = hidratar();
 
-    expect(creados).toBe(0);
+    expect(created).toBe(0);
     // 10 elementos y 2 marcadores.
-    expect(adoptados).toBe(12);
+    expect(adopted).toBe(12);
     expect(app.raiz).toBe(antes[0]);
     // Los mismos objetos, en el mismo orden.
     const despues = [...document.querySelectorAll(".app, .app *")];
@@ -196,9 +196,9 @@ describe("hydrate", () => {
     document.querySelector("footer")!.remove();
     document.querySelector("li")!.setAttribute(HYDRATION_ATTR, "999");
 
-    const { creados } = hidratar();
+    const { created } = hidratar();
 
-    expect(creados).toBeGreaterThan(0);
+    expect(created).toBeGreaterThan(0);
     expect(document.querySelectorAll("footer")).toHaveLength(1);
     expect([...document.querySelectorAll("li")].map((li) => li.textContent)).toEqual(["a", "b", "c"]);
     expect(document.querySelector("footer")!.textContent).toBe("3 items · fin");
@@ -208,15 +208,15 @@ describe("hydrate", () => {
     servir();
     const antes = document.body.innerHTML;
     const resultado = hydrate({ otra: () => element("p") });
-    expect(resultado.adoptados).toBe(0);
+    expect(resultado.adopted).toBe(0);
     expect(document.body.innerHTML).toBe(antes);
   });
 
-  it("desmontar apaga los efectos y deja el HTML", () => {
+  it("unmount apaga los efectos y deja el HTML", () => {
     servir();
-    const { desmontar } = hidratar();
+    const { unmount } = hidratar();
     const salida = document.querySelector("output")!;
-    desmontar();
+    unmount();
     (document.querySelector(".mas") as HTMLElement).click();
     expect(salida.textContent).toBe("Cuenta: 0");
   });
@@ -240,9 +240,9 @@ describe("hydrate", () => {
     document.body.innerHTML = renderToString(() => island("exterior", Exterior));
     const boton = document.querySelector("button")!;
 
-    const { adoptados, creados } = hydrate({ exterior: Exterior, hoja: Hoja });
-    expect(creados).toBe(0);
-    expect(adoptados).toBe(4); // div, h2, la isla interior y su botón
+    const { adopted, created } = hydrate({ exterior: Exterior, hoja: Hoja });
+    expect(created).toBe(0);
+    expect(adopted).toBe(4); // div, h2, la isla interior y su botón
     expect(document.querySelector("button")).toBe(boton);
     boton.click();
     expect(boton.textContent).toBe("1");
@@ -277,10 +277,10 @@ describe("SVG", () => {
 
     document.body.innerHTML = html;
     const antes = document.querySelector("circle");
-    const { adoptados, creados } = hydrate({ dibujo: Dibujo });
+    const { adopted, created } = hydrate({ dibujo: Dibujo });
 
-    expect(creados).toBe(0);
-    expect(adoptados).toBe(3);
+    expect(created).toBe(0);
+    expect(adopted).toBe(3);
     expect(document.querySelector("circle")).toBe(antes);
   });
 });

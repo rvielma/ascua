@@ -29,18 +29,24 @@ reactividad, no empaqueta y no resuelve módulos.
 ## Sitios estáticos
 
 ```js
-export default { plugins: [ascua({ sitio: true })] };
+export default { plugins: [ascua({ site: true })] };
 ```
 
-Cada archivo de `src/rutas/` pasa a ser una página: `vite` la sirve en
+Cada archivo de `src/routes/` pasa a ser una página: `vite` la sirve en
 desarrollo y `vite build` escribe un HTML por ruta en `dist/`, con sus estilos
 dentro y, solo si tiene islas, el script que las hidrata. Rutas con parámetros
-(`[id].ts` con `parametros()`), datos con `cargar()`, un marco común
-(`_marco.ts`), `404.ts` y rutas que son archivos (`sitemap.xml.ts`).
+(`[id].ts` con `paths()`), datos con `load()` —que la página recibe en la
+prop `data`, o `notFound()` de `vite-plugin-ascua/site` para dar un 404—, un
+layout común (`_layout.ts`), `title`, `description` y `head` por ruta,
+`404.ts` y rutas que son archivos (`sitemap.xml.ts`). Las islas van en
+`src/islands/`; las carpetas se cambian con `site: { routes, islands }` y el
+esqueleto HTML con `site: { shell }`.
 
-Con `ascua({ sitio: { modo: "servidor" } })`, el build deja además
-`dist/servidor/index.mjs`, un servidor Node con todo dentro que renderiza en
-cada petición. Guía en
+Con `ascua({ site: { mode: "server" } })`, el build deja el cliente en
+`dist/client/` y además `dist/server/index.mjs`, un servidor Node con todo
+dentro que renderiza en cada petición: `node dist/server/index.mjs` lo
+arranca, y el módulo exporta `serve(puerto)` y `handle(url)`, que devuelve
+`{ status, type, body }` para montarlo en otro servidor. Guía en
 [ascua.gitweave.run/docs/sitios](https://ascua.gitweave.run/docs/sitios/).
 
 ## Licencia

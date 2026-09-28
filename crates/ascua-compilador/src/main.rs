@@ -29,7 +29,7 @@ fn main() -> ExitCode {
     // si no hay, se lee de la entrada estándar.
     let valor_de_origen = argumentos
         .iter()
-        .position(|a| a == "--origen")
+        .position(|a| a == "--source")
         .map(|i| i + 1);
     let ruta = argumentos
         .iter()
@@ -46,7 +46,7 @@ fn main() -> ExitCode {
     // El nombre que llevará el archivo dentro del source map.
     let origen = argumentos
         .iter()
-        .position(|a| a == "--origen")
+        .position(|a| a == "--source")
         .and_then(|i| argumentos.get(i + 1))
         .map(String::as_str)
         .or(ruta)
@@ -124,6 +124,6 @@ USO:
 
 OPCIONES:
         --json            escribe {\"code\", \"css\", \"map\"} en vez de solo el código
-        --origen RUTA     el nombre del archivo dentro del source map
+        --source RUTA     el nombre del archivo dentro del source map
     -h, --help            muestra esta ayuda
     -V, --version         muestra la versión";

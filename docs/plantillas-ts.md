@@ -284,7 +284,7 @@ ninguna parte.
 Con el plugin de Vite no hay que hacer nada. A mano:
 
 ```sh
-ascuac --json --origen src/panel.ts src/panel.ts
+ascuac --json --source src/panel.ts src/panel.ts
 # {"code": "...", "css": "...", "map": {"version": 3, ...}}
 ```
 

@@ -6,7 +6,7 @@
  * archivos.
  */
 
-import { collectStyles, renderToString } from "ascua/servidor";
+import { collectStyles, renderToString } from "ascua/server";
 
 import { paginaPara } from "./paginas.js";
 

@@ -28,7 +28,7 @@ it("la isla adopta el nodo del servidor y funciona", async () => {
   const boton = document.querySelector("button.contador");
   expect(boton.textContent).toBe("3");
 
-  const script = readdirSync(join(DIST, "assets")).find((a) => a.startsWith("ascua-cliente-"));
+  const script = readdirSync(join(DIST, "assets")).find((a) => a.startsWith("ascua-client-"));
   await import(join(DIST, "assets", script));
 
   // El mismo nodo, no uno nuevo.

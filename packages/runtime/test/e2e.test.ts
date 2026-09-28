@@ -13,7 +13,7 @@ import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { hydrate, island } from "../src/index.js";
-import { renderToString } from "../src/servidor.js";
+import { renderToString } from "../src/server.js";
 
 const RAIZ = resolve(__dirname, "../../..");
 const ASCUAC = join(RAIZ, "target/debug/ascuac");
@@ -111,9 +111,9 @@ describe("el componente compilado, del servidor al cliente", () => {
     const salida = document.querySelector("output")!;
     const mas = document.querySelector(".mas") as HTMLElement;
 
-    const { adoptados, creados } = hydrate({ contador: (props) => modulo.Contador(Number(props)) });
-    expect(creados).toBe(0);
-    expect(adoptados).toBe(document.querySelectorAll(".caja, .caja *").length);
+    const { adopted, created } = hydrate({ contador: (props) => modulo.Contador(Number(props)) });
+    expect(created).toBe(0);
+    expect(adopted).toBe(document.querySelectorAll(".caja, .caja *").length);
 
     mas.click();
     expect(document.querySelector("output")).toBe(salida);

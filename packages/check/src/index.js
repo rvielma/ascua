@@ -33,24 +33,24 @@ const IGNORADOS = new Set(["node_modules", "dist", "build", "coverage", ".ascua-
 const SOMBRA = ".ascua-check";
 
 /**
- * @typedef {object} Diagnostico
- * @property {string} archivo   Ruta absoluta del archivo original, o "" si es global.
- * @property {number} linea     Desde 1.
- * @property {number} columna   Desde 1.
- * @property {string} codigo    `TS2322`.
- * @property {"error" | "warning"} gravedad
- * @property {string} mensaje   Con sus líneas de detalle, si las hay.
+ * @typedef {object} Diagnostic
+ * @property {string} file      Ruta absoluta del archivo original, o "" si es global.
+ * @property {number} line      Desde 1.
+ * @property {number} column    Desde 1.
+ * @property {string} code      `TS2322`.
+ * @property {"error" | "warning"} severity
+ * @property {string} message   Con sus líneas de detalle, si las hay.
  */
 
 /**
  * Comprueba un proyecto y devuelve los diagnósticos, ya en los archivos
  * originales.
  *
- * @param {{ proyecto?: string, cwd?: string, conservar?: boolean }} [opciones]
- * @returns {Promise<{ diagnosticos: Diagnostico[], archivos: number, conPlantillas: number, raiz: string }>}
+ * @param {{ project?: string, cwd?: string, keep?: boolean }} [opciones]
+ * @returns {Promise<{ diagnostics: Diagnostic[], files: number, withTemplates: number, root: string }>}
  */
-export async function comprobar({ proyecto = "tsconfig.json", cwd = process.cwd(), conservar = false } = {}) {
-  const config = resolve(cwd, proyecto);
+export async function check({ project = "tsconfig.json", cwd = process.cwd(), keep = false } = {}) {
+  const config = resolve(cwd, project);
   if (!existsSync(config)) throw new Error(`no existe ${relative(cwd, config) || config}`);
   const raiz = dirname(config);
   const tsc = localizarTsc(config);
@@ -105,25 +105,25 @@ export async function comprobar({ proyecto = "tsconfig.json", cwd = process.cwd(
     const salida = `${ejecucion.stdout ?? ""}${ejecucion.stderr ?? ""}`;
     const diagnosticos = leerDiagnosticos(salida, raiz).map((d) => devolver(d, raiz, sombra, mapas));
 
-    return { diagnosticos, archivos, conPlantillas: mapas.size, raiz };
+    return { diagnostics: diagnosticos, files: archivos, withTemplates: mapas.size, root: raiz };
   } finally {
-    if (!conservar) rmSync(sombra, { recursive: true, force: true });
+    if (!keep) rmSync(sombra, { recursive: true, force: true });
   }
 }
 
 /** La línea de comandos. Devuelve el código de salida. */
-export async function principal(argumentos) {
+export async function main(argumentos) {
   if (argumentos.includes("-h") || argumentos.includes("--help")) {
     console.log(AYUDA);
     return 0;
   }
   const indice = argumentos.findIndex((a) => a === "-p" || a === "--project");
   const proyecto = indice >= 0 ? argumentos[indice + 1] : "tsconfig.json";
-  const conservar = argumentos.includes("--conservar");
+  const keep = argumentos.includes("--keep");
 
   let resultado;
   try {
-    resultado = await comprobar({ proyecto, conservar });
+    resultado = await check({ project: proyecto, keep });
   } catch (error) {
     console.error(`ascua-check: ${error?.message ?? error}`);
     return 2;
@@ -131,16 +131,16 @@ export async function principal(argumentos) {
 
   const color = process.stdout.isTTY && !process.env.NO_COLOR;
   const pintar = (codigo, texto) => (color ? `\x1b[${codigo}m${texto}\x1b[0m` : texto);
-  const { diagnosticos, archivos, conPlantillas, raiz } = resultado;
+  const { diagnostics: diagnosticos, files: archivos, withTemplates: conPlantillas, root: raiz } = resultado;
 
   for (const d of diagnosticos) console.log(`${formatear(d, raiz, pintar)}\n`);
 
-  const errores = diagnosticos.filter((d) => d.gravedad === "error");
+  const errores = diagnosticos.filter((d) => d.severity === "error");
   if (errores.length === 0) {
     console.log(pintar(32, `✓ sin errores de tipos`) + ` · ${archivos} archivos, ${conPlantillas} con plantillas`);
     return 0;
   }
-  const enArchivos = new Set(errores.map((d) => d.archivo)).size;
+  const enArchivos = new Set(errores.map((d) => d.file)).size;
   console.log(
     pintar(31, `✗ ${errores.length} ${errores.length === 1 ? "error" : "errores"}`) +
       ` en ${enArchivos} ${enArchivos === 1 ? "archivo" : "archivos"}`,
@@ -155,7 +155,7 @@ USO:
 
 OPCIONES:
     -p, --project RUTA   el tsconfig del proyecto (por defecto, tsconfig.json)
-        --conservar      no borra .ascua-check/ al terminar: se ve lo que comprobó tsc
+        --keep           no borra .ascua-check/ al terminar: se ve lo que comprobó tsc
     -h, --help           muestra esta ayuda
 
 Usa el typescript instalado en el proyecto, sea el 5 o el 7.`;
@@ -180,7 +180,7 @@ function localizarCompilador(config) {
   for (const desde of [config, import.meta.url]) {
     try {
       const wasm = createRequire(desde)("ascua-compilador");
-      return (codigo, archivo) => JSON.parse(wasm.compilar_json(codigo, archivo));
+      return (codigo, archivo) => JSON.parse(wasm.compileJson(codigo, archivo));
     } catch {
       // Se prueba el siguiente.
     }
@@ -271,18 +271,18 @@ function leerDiagnosticos(salida, raiz) {
     if (conLugar) {
       const [, archivo, fila, columna, gravedad, codigo, mensaje] = conLugar;
       diagnosticos.push({
-        archivo: resolve(raiz, archivo),
-        linea: Number(fila),
-        columna: Number(columna),
-        gravedad,
-        codigo,
-        mensaje,
+        file: resolve(raiz, archivo),
+        line: Number(fila),
+        column: Number(columna),
+        severity: gravedad,
+        code: codigo,
+        message: mensaje,
       });
     } else if (sinLugar) {
       const [, gravedad, codigo, mensaje] = sinLugar;
-      diagnosticos.push({ archivo: "", linea: 0, columna: 0, gravedad, codigo, mensaje });
+      diagnosticos.push({ file: "", line: 0, column: 0, severity: gravedad, code: codigo, message: mensaje });
     } else if (linea.startsWith("  ") && diagnosticos.length > 0) {
-      diagnosticos[diagnosticos.length - 1].mensaje += `\n${linea}`;
+      diagnosticos[diagnosticos.length - 1].message += `\n${linea}`;
     }
   }
   return diagnosticos;
@@ -290,17 +290,17 @@ function leerDiagnosticos(salida, raiz) {
 
 /** Del archivo de la copia al original. */
 function devolver(diagnostico, raiz, sombra, mapas) {
-  if (!diagnostico.archivo || !dentro(sombra, diagnostico.archivo)) return diagnostico;
+  if (!diagnostico.file || !dentro(sombra, diagnostico.file)) return diagnostico;
   // Un error del tsconfig generado es un error del tuyo, pero sus líneas no
   // son las tuyas: se da sin posición.
-  if (diagnostico.archivo === join(sombra, "tsconfig.json")) {
-    return { ...diagnostico, archivo: "", mensaje: `en la configuración: ${diagnostico.mensaje}` };
+  if (diagnostico.file === join(sombra, "tsconfig.json")) {
+    return { ...diagnostico, file: "", message: `en la configuración: ${diagnostico.message}` };
   }
-  const original = join(raiz, relative(sombra, diagnostico.archivo));
-  const mapa = mapas.get(diagnostico.archivo);
-  if (!mapa?.origen) return { ...diagnostico, archivo: original };
+  const original = join(raiz, relative(sombra, diagnostico.file));
+  const mapa = mapas.get(diagnostico.file);
+  if (!mapa?.origen) return { ...diagnostico, file: original };
 
-  const indice = diagnostico.linea - 1;
+  const indice = diagnostico.line - 1;
   const linea = (mapa.origen[indice] ?? 0) + 1;
   const generada = mapa.lineasGeneradas[indice] ?? "";
   const escrita = mapa.lineasOriginales[linea - 1] ?? "";
@@ -309,29 +309,29 @@ function devolver(diagnostico, raiz, sombra, mapas) {
   // la generó el compilador, se busca en la original lo mismo que señala el
   // error —el nombre de un prop, un manejador— y si no aparece, el principio
   // de la línea.
-  let columna = diagnostico.columna;
+  let columna = diagnostico.column;
   if (generada !== escrita) {
-    const senalado = /^[\w$.]+/.exec(generada.slice(diagnostico.columna - 1))?.[0] ?? "";
+    const senalado = /^[\w$.]+/.exec(generada.slice(diagnostico.column - 1))?.[0] ?? "";
     const donde = senalado ? escrita.indexOf(senalado) : -1;
     columna = donde >= 0 ? donde + 1 : escrita.search(/\S/) + 1 || 1;
   }
-  return { ...diagnostico, archivo: original, linea, columna };
+  return { ...diagnostico, file: original, line: linea, column: columna };
 }
 
 function formatear(d, raiz, pintar) {
-  const gravedad = d.gravedad === "error" ? pintar(31, "error") : pintar(33, "warning");
-  if (!d.archivo) return `${gravedad} ${pintar(90, d.codigo)}: ${d.mensaje}`;
+  const gravedad = d.severity === "error" ? pintar(31, "error") : pintar(33, "warning");
+  if (!d.file) return `${gravedad} ${pintar(90, d.code)}: ${d.message}`;
 
-  const ruta = relative(raiz, d.archivo);
-  const cabecera = `${pintar(36, ruta)}:${pintar(33, d.linea)}:${pintar(33, d.columna)} - ${gravedad} ${pintar(90, d.codigo)}: ${d.mensaje}`;
+  const ruta = relative(raiz, d.file);
+  const cabecera = `${pintar(36, ruta)}:${pintar(33, d.line)}:${pintar(33, d.column)} - ${gravedad} ${pintar(90, d.code)}: ${d.message}`;
 
   let texto = "";
   try {
-    texto = readFileSync(d.archivo, "utf8").split("\n")[d.linea - 1] ?? "";
+    texto = readFileSync(d.file, "utf8").split("\n")[d.line - 1] ?? "";
   } catch {
     return cabecera;
   }
-  const numero = String(d.linea);
-  const marca = " ".repeat(Math.max(0, d.columna - 1)) + pintar(31, "~");
+  const numero = String(d.line);
+  const marca = " ".repeat(Math.max(0, d.column - 1)) + pintar(31, "~");
   return `${cabecera}\n\n${pintar(90, numero)} ${texto}\n${" ".repeat(numero.length)} ${marca}`;
 }

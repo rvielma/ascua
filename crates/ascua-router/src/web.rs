@@ -3,7 +3,7 @@
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
 
-use crate::history::{History, Oyente};
+use crate::history::{History, Listener};
 
 /// Historial respaldado por la barra de direcciones.
 pub struct WebHistory {
@@ -40,7 +40,7 @@ impl History for WebHistory {
         }
     }
 
-    fn listen(&self, callback: Oyente) {
+    fn listen(&self, callback: Listener) {
         let window = self.window.clone();
         let closure = Closure::wrap(Box::new(move |_evento: web_sys::Event| {
             let location = window.location();

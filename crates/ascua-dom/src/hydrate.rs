@@ -81,9 +81,9 @@ impl<B: Backend> PartialEq for HydratedNode<B> {
 
 /// Cuántos nodos se adoptaron del servidor y cuántos hubo que crear.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Estadisticas {
-    pub adoptados: usize,
-    pub creados: usize,
+pub struct HydrationStats {
+    pub adopted: usize,
+    pub created: usize,
 }
 
 /// Backend que envuelve a otro y adopta el HTML existente mientras construye.
@@ -93,8 +93,8 @@ pub struct HydratingBackend<B: Backend> {
     /// una sola vez: buscar en el documento por cada elemento sería cuadrático.
     candidatos: RefCell<HashMap<u32, B::Node>>,
     contador: Cell<u32>,
-    adoptados: Cell<usize>,
-    creados: Cell<usize>,
+    adopted: Cell<usize>,
+    created: Cell<usize>,
 }
 
 impl<B: Backend> HydratingBackend<B> {
@@ -111,8 +111,8 @@ impl<B: Backend> HydratingBackend<B> {
             inner,
             candidatos: RefCell::new(candidatos),
             contador: Cell::new(0),
-            adoptados: Cell::new(0),
-            creados: Cell::new(0),
+            adopted: Cell::new(0),
+            created: Cell::new(0),
         }
     }
 
@@ -122,10 +122,10 @@ impl<B: Backend> HydratingBackend<B> {
     }
 
     #[must_use]
-    pub fn estadisticas(&self) -> Estadisticas {
-        Estadisticas {
-            adoptados: self.adoptados.get(),
-            creados: self.creados.get(),
+    pub fn stats(&self) -> HydrationStats {
+        HydrationStats {
+            adopted: self.adopted.get(),
+            created: self.created.get(),
         }
     }
 
@@ -137,7 +137,7 @@ impl<B: Backend> HydratingBackend<B> {
 
     fn envolver(&self, pendiente: Pendiente, real: Option<B::Node>) -> HydratedNode<B> {
         if real.is_some() {
-            self.adoptados.set(self.adoptados.get() + 1);
+            self.adopted.set(self.adopted.get() + 1);
         }
         HydratedNode(Rc::new(RefCell::new(Slot {
             real,
@@ -163,7 +163,7 @@ impl<B: Backend> HydratingBackend<B> {
             Pendiente::Text(data) => self.inner.create_text(data),
             Pendiente::Marker => self.inner.create_marker(),
         };
-        self.creados.set(self.creados.get() + 1);
+        self.created.set(self.created.get() + 1);
 
         handle.0.borrow_mut().real = Some(real.clone());
         self.aplicar(&real, diferidas);
@@ -192,7 +192,7 @@ impl<B: Backend> HydratingBackend<B> {
             slot.real = Some(real.clone());
             std::mem::take(&mut slot.diferidas)
         };
-        self.adoptados.set(self.adoptados.get() + 1);
+        self.adopted.set(self.adopted.get() + 1);
         self.aplicar(&real, diferidas);
     }
 
@@ -428,11 +428,11 @@ impl<B: Backend> HydratingBackend<B> {
 pub fn hydrate_islands<B: Backend>(
     backend: Rc<B>,
     islas: &[(&str, IslandBuilder<HydratingBackend<B>>)],
-) -> (Vec<Mount<HydratingBackend<B>>>, Estadisticas) {
+) -> (Vec<Mount<HydratingBackend<B>>>, HydrationStats) {
     let mut montajes = Vec::new();
-    let mut total = Estadisticas {
-        adoptados: 0,
-        creados: 0,
+    let mut total = HydrationStats {
+        adopted: 0,
+        created: 0,
     };
 
     for contenedor in backend.query_all(&format!("[{ISLAND_ATTR}]")) {
@@ -454,9 +454,9 @@ pub fn hydrate_islands<B: Backend>(
         // Sin vaciar el contenedor: eso es justo lo que se quiere evitar.
         montajes.push(dom.mount(&contenedor, |dom| constructor(dom, &props)));
 
-        let parcial = hidratante.estadisticas();
-        total.adoptados += parcial.adoptados;
-        total.creados += parcial.creados;
+        let parcial = hidratante.stats();
+        total.adopted += parcial.adopted;
+        total.created += parcial.created;
     }
 
     (montajes, total)

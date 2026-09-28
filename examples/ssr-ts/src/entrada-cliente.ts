@@ -7,10 +7,10 @@
 
 import { hydrate } from "ascua";
 
-import { ISLAS } from "./islas/index.js";
+import { ISLAS } from "./islands/index.js";
 
-const { adoptados, creados } = hydrate(ISLAS);
+const { adopted, created } = hydrate(ISLAS);
 
-// Si el servidor y el cliente se desincronizan, aquí se ve: `creados` deja de
+// Si el servidor y el cliente se desincronizan, aquí se ve: `created` deja de
 // ser cero. No rompe nada —lo que no encaja se crea—, pero conviene saberlo.
-if (import.meta.env.DEV) console.info(`[ascua] hidratación: ${adoptados} adoptados, ${creados} creados`);
+if (import.meta.env.DEV) console.info(`[ascua] hidratación: ${adopted} adoptados, ${created} creados`);

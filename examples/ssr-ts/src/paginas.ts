@@ -10,7 +10,7 @@
 import type { Children } from "ascua";
 
 import { LENGUAJES } from "./datos.js";
-import { IslaBuscador, IslaContador } from "./islas/index.js";
+import { IslaBuscador, IslaContador } from "./islands/index.js";
 
 export interface Pagina {
   titulo: string;

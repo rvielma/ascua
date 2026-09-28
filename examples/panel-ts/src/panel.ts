@@ -12,7 +12,7 @@
  */
 
 import { memo, signal, type Signal } from "ascua";
-import { enrutarEn, navegar, ruta, sinQuery } from "ascua-router";
+import { mountRoutes, navigate, path, stripQuery } from "ascua-router";
 
 import { Metrica, Tarjeta, Campo } from "./componentes.js";
 import { pesos, siguienteEstado, type Estado, type Pedido } from "./datos.js";
@@ -31,7 +31,7 @@ export function Panel(props: { sesion: () => Sesion; onsalir: () => void; pedido
 
   // La sección es la URL, no un signal aparte: se puede compartir el enlace,
   // el botón atrás funciona y recargar deja la vista donde estaba.
-  const seccion = memo(() => (sinQuery(ruta()).startsWith("/pedidos") ? "pedidos" : "resumen"));
+  const seccion = memo(() => (stripQuery(path()).startsWith("/pedidos") ? "pedidos" : "resumen"));
   const busqueda = signal("");
   const columna = signal<Columna>("id");
   const soloPendientes = signal(false);
@@ -238,11 +238,11 @@ export function Panel(props: { sesion: () => Sesion; onsalir: () => void; pedido
       </style>
     </div>`;
 
-  // Una ruta, una vista. `enrutarEn` libera la anterior entera al cambiar, así
+  // Una ruta, una vista. `mountRoutes` libera la anterior entera al cambiar, así
   // que salir de /pedidos se lleva sus efectos y sus listeners.
-  enrutarEn(panel.querySelector("main")!, [
-    { patron: "/pedidos", vista: Pedidos },
-    { vista: Resumen },
+  mountRoutes(panel.querySelector("main")!, [
+    { pattern: "/pedidos", view: Pedidos },
+    { view: Resumen },
   ]);
 
   return panel;

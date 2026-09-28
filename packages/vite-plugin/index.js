@@ -32,7 +32,7 @@ function elegirCompilador(opciones) {
   if (opciones.bin) {
     return (codigo, archivo) =>
       JSON.parse(
-        execFileSync(opciones.bin, ["--json", "--origen", archivo], {
+        execFileSync(opciones.bin, ["--json", "--source", archivo], {
           input: codigo,
           encoding: "utf8",
         }),
@@ -44,7 +44,7 @@ function elegirCompilador(opciones) {
   for (const desde of [join(process.cwd(), "index.js"), import.meta.url]) {
     try {
       const wasm = createRequire(desde)("ascua-compilador");
-      return (codigo, archivo) => JSON.parse(wasm.compilar_json(codigo, archivo));
+      return (codigo, archivo) => JSON.parse(wasm.compileJson(codigo, archivo));
     } catch {
       // Se prueba el siguiente.
     }
@@ -53,7 +53,7 @@ function elegirCompilador(opciones) {
   // Sin el paquete WebAssembly, queda el binario del PATH.
   return (codigo, archivo) =>
     JSON.parse(
-      execFileSync("ascuac", ["--json", "--origen", archivo], {
+      execFileSync("ascuac", ["--json", "--source", archivo], {
         input: codigo,
         encoding: "utf8",
       }),
@@ -61,13 +61,13 @@ function elegirCompilador(opciones) {
 }
 
 /**
- * @param {{ bin?: string, sitio?: true | { rutas?: string, islas?: string } }} [opciones]
+ * @param {{ bin?: string, site?: true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server" } }} [opciones]
  *   `bin`: ruta a un `ascuac` nativo. Sin esto se usa el compilador WASM.
- *   `sitio`: una página HTML por archivo de `src/rutas/`; ver `docs/sitio.md`.
+ *   `site`: una página HTML por archivo de `src/routes/`; ver `docs/sitio.md`.
  */
 export default function ascua(opciones = {}) {
   const plantillas = compilador(opciones);
-  return opciones.sitio ? [plantillas, sitio(opciones.sitio)] : plantillas;
+  return opciones.site ? [plantillas, sitio(opciones.site)] : plantillas;
 }
 
 function compilador(opciones) {
@@ -118,7 +118,7 @@ function compilador(opciones) {
       // En el servidor, el CSS no puede ir a un módulo de estilos: una página
       // que solo se renderiza aquí nunca entra en el bundle del cliente, y sus
       // estilos se perderían. Se registra, y `collectStyles` de
-      // `ascua/servidor` devuelve los que usa cada página.
+      // `ascua/server` devuelve los que usa cada página.
       //
       // `ssr` llega en las opciones en el servidor de desarrollo; en el build
       // con Rolldown no, y lo que dice dónde se está es el entorno.
@@ -127,7 +127,7 @@ function compilador(opciones) {
         const mapa = salida.map ? { ...salida.map, mappings: `;;${salida.map.mappings}` } : null;
         return {
           code:
-            `import { registerStyle as _$estilo } from "ascua/servidor";\n` +
+            `import { registerStyle as _$estilo } from "ascua/server";\n` +
             `_$estilo(${JSON.stringify(salida.css)});\n${salida.code}`,
           map: mapa,
         };

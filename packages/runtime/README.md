@@ -64,7 +64,7 @@ import { defineIsland, p } from "ascua";
 export const IslaContador = defineIsland("contador", { inicial: p.number }, Contador);
 
 // servidor
-import { collectStyles, renderToString } from "ascua/servidor";
+import { collectStyles, renderToString } from "ascua/server";
 
 const html = renderToString(() => IslaContador({ inicial: 3 }));
 const css = collectStyles(html);   // el CSS con scope de lo que aparece
@@ -73,7 +73,7 @@ const css = collectStyles(html);   // el CSS con scope de lo que aparece
 import { hydrate } from "ascua";
 
 hydrate([IslaContador]);
-// { adoptados: 4, creados: 0 }
+// { adopted: 4, created: 0, unmount }
 ```
 
 Los props viajan como JSON y se comprueban contra el esquema antes de hidratar:

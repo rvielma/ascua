@@ -7,22 +7,22 @@
 export const ISLA = "data-ascua-island";
 
 /**
- * Lo que lanza `cargar()` cuando lo pedido no existe: el sitio responde con la
+ * Lo que lanza `load()` cuando lo pedido no existe: el sitio responde con la
  * página 404 en vez de con un error.
  *
  * ```ts
- * import { noExiste } from "vite-plugin-ascua/sitio";
+ * import { notFound } from "vite-plugin-ascua/site";
  *
- * export async function cargar({ id }: { id: string }) {
+ * export async function load({ id }: { id: string }) {
  *   const pedido = await buscarPedido(id);
- *   if (!pedido) throw noExiste();
+ *   if (!pedido) throw notFound();
  *   return pedido;
  * }
  * ```
  */
-export function noExiste() {
+export function notFound() {
   const error = new Error("no existe");
-  error.name = "NoExiste";
+  error.name = "NotFound";
   // Una marca y no `instanceof`: el servidor puede llevar dentro su propia
   // copia de este módulo.
   error.ascuaNoExiste = true;
@@ -69,8 +69,8 @@ export const tipoDe = (nombre) => TIPOS[/\.[a-z0-9]+$/i.exec(nombre)?.[0]?.toLow
 
 /**
  * @typedef {object} Ruta
- * @property {string[]} segmentos  `["pedidos", ":id"]`; vacío para `/`. `*resto`
- *   atrapa lo que queda de la URL: `[...resto].ts`.
+ * @property {string[]} segmentos  `["pedidos", ":id"]`; vacío para `/`. `*rest`
+ *   atrapa lo que queda de la URL: `[...rest].ts`.
  * @property {boolean} es404
  * @property {boolean} archivo    `busqueda.js.ts`: no es una página, es ese archivo.
  */
@@ -132,7 +132,7 @@ const escapar = (texto) =>
   String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Mete una página en el esqueleto. */
-export function componer(esqueleto, { html, css, titulo, descripcion, cabeza: extra, script, hojas = [] }) {
+export function componer(esqueleto, { html, css, title: titulo, description: descripcion, head: extra, script, hojas = [] }) {
   let salida = esqueleto;
   // Con funciones y no con texto: `replace` interpreta `$&` en el reemplazo.
   if (titulo !== undefined && titulo !== null) {
@@ -143,7 +143,7 @@ export function componer(esqueleto, { html, css, titulo, descripcion, cabeza: ex
 
   const cabeza = [
     descripcion ? `<meta name="description" content="${escapar(descripcion)}">` : "",
-    // `cabeza` es HTML tal cual, como lo escribió la ruta.
+    // `head` es HTML tal cual, como lo escribió la ruta.
     extra ? String(extra).trim() : "",
     ...hojas.map((h) => `<link rel="stylesheet" href="${h}">`),
     css ? `<style>${css}</style>` : "",
@@ -160,8 +160,8 @@ export function componer(esqueleto, { html, css, titulo, descripcion, cabeza: ex
 
 /** Lo que recibe la página, su título y su descripción: parámetros y datos. */
 async function propsDe(modulo, parametros, contexto) {
-  if (typeof modulo.cargar !== "function") return { ...parametros };
-  return { ...parametros, datos: await modulo.cargar({ ...parametros }, contexto) };
+  if (typeof modulo.load !== "function") return { ...parametros };
+  return { ...parametros, data: await modulo.load({ ...parametros }, contexto) };
 }
 
 const valorDe = (campo, props) => (typeof campo === "function" ? campo(props) : campo);
@@ -176,7 +176,7 @@ const valorDe = (campo, props) => (typeof campo === "function" ? campo(props) : 
  * para que en el build sean los del servidor de Vite —los mismos con los que
  * se registraron los estilos— y en el servidor, los de su bundle.
  *
- * @returns {Promise<{ tipo: string, cuerpo: string | Uint8Array, conIslas?: boolean, html?: string, css?: string, titulo?: string, descripcion?: string }>}
+ * @returns {Promise<{ tipo: string, cuerpo: string | Uint8Array, conIslas?: boolean, html?: string, css?: string, title?: string, description?: string }>}
  */
 export async function renderizar({ ruta, modulo, marcos = [], parametros, camino, ascua, contexto = {} }) {
   const props = await propsDe(modulo, parametros, contexto);
@@ -193,15 +193,15 @@ export async function renderizar({ ruta, modulo, marcos = [], parametros, camino
   const envolver = (i) =>
     i === marcos.length
       ? modulo.default(props)
-      : marcos[i]({ ruta: camino, parametros, children: (padre) => ascua.append(padre, envolver(i + 1)) });
+      : marcos[i]({ path: camino, params: parametros, children: (padre) => ascua.append(padre, envolver(i + 1)) });
   const html = ascua.renderToString(() => envolver(0));
   return {
     tipo: TIPOS[".html"],
     html,
     css: ascua.collectStyles(html),
-    titulo: valorDe(modulo.titulo, props),
-    descripcion: valorDe(modulo.descripcion, props),
-    cabeza: valorDe(modulo.cabeza, props),
+    title: valorDe(modulo.title, props),
+    description: valorDe(modulo.description, props),
+    head: valorDe(modulo.head, props),
     conIslas: html.includes(ISLA),
   };
 }

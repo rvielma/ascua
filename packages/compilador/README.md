@@ -10,12 +10,12 @@ stil add -D ascua-compilador      # o npm install -D ascua-compilador
 ```
 
 ```js
-const { compilar_json } = require("ascua-compilador");
+const { compileJson } = require("ascua-compilador");
 
-const { code, css } = JSON.parse(compilar_json(fuente));
+const { code, css } = JSON.parse(compileJson(fuente));
 ```
 
-`compilar_json` recibe un archivo TypeScript, sustituye sus plantillas
+`compileJson` recibe un archivo TypeScript, sustituye sus plantillas
 `` view`…` `` por las llamadas de DOM que las construyen y devuelve el código y
 el CSS que se extrajo de los `<style>`, ya scopeado. Lo que no es plantilla se
 copia sin tocar: esto no transpila TypeScript.
@@ -23,7 +23,7 @@ copia sin tocar: esto no transpila TypeScript.
 En el navegador, el mismo .wasm con el envoltorio de `./web`:
 
 ```js
-import init, { compilar_json } from "ascua-compilador/web";
+import init, { compileJson } from "ascua-compilador/web";
 
 await init();
 ```

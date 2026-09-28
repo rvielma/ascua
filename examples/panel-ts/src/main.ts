@@ -8,7 +8,7 @@
  */
 
 import { mount, signal } from "ascua";
-import { enlaces, navegar } from "ascua-router";
+import { links, navigate } from "ascua-router";
 
 import { PEDIDOS } from "./datos.js";
 import { Login } from "./login.js";
@@ -20,7 +20,7 @@ function Aplicacion() {
 
   // Los <a href="/…"> del panel navegan sin recargar. Un click con ⌘, un
   // enlace externo o uno con target siguen comportándose como siempre.
-  enlaces();
+  links();
 
   return view`
     <div class="raiz">
@@ -32,9 +32,9 @@ function Aplicacion() {
         <Else>
           <Login onentrar=${(nueva: Sesion) => {
             sesion.set(nueva);
-            // `reemplazar`: el botón atrás no debe devolver al formulario de
+            // `replace`: el botón atrás no debe devolver al formulario de
             // alguien que ya entró.
-            navegar("/", { reemplazar: true });
+            navigate("/", { replace: true });
           }}/>
         </Else>
       </Show>

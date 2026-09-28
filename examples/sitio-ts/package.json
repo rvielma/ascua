@@ -2,7 +2,7 @@
   "name": "sitio-ts",
   "private": true,
   "type": "module",
-  "description": "Un sitio estático con islas: una página HTML por archivo de src/rutas/.",
+  "description": "Un sitio estático con islas: una página HTML por archivo de src/routes/.",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

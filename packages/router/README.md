@@ -9,28 +9,28 @@ stil add ascua-router      # o npm install ascua-router
 ```
 
 ```ts
-import { enlaces, enrutarEn, navegar, ruta } from "ascua-router";
+import { links, mountRoutes, path } from "ascua-router";
 
-enlaces();   // los <a href="/…"> navegan sin recargar
+links();   // los <a href="/…"> navegan sin recargar
 
 const app = view`
   <div class="app">
     <nav>
-      <a href="/" class=${() => (ruta() === "/" ? "activa" : "")}>Inicio</a>
+      <a href="/" class=${() => (path() === "/" ? "activa" : "")}>Inicio</a>
       <a href="/pedidos">Pedidos</a>
     </nav>
     <main></main>
   </div>`;
 
-enrutarEn(app.querySelector("main")!, [
-  { patron: "/", vista: () => Inicio() },
-  { patron: "/pedidos", vista: () => Pedidos() },
-  { patron: "/pedidos/:id", vista: ({ id }) => Pedido({ id }) },
-  { vista: () => NoEncontrado() },          // sin patrón: el fallback
+mountRoutes(app.querySelector("main")!, [
+  { pattern: "/", view: () => Inicio() },
+  { pattern: "/pedidos", view: () => Pedidos() },
+  { pattern: "/pedidos/:id", view: ({ id }) => Pedido({ id }) },
+  { view: () => NoEncontrado() },           // sin patrón: el fallback
 ]);
 ```
 
-`enrutarEn` es el `show` del runtime por debajo: mientras la ruta resuelva a lo
+`mountRoutes` es el `show` del runtime por debajo: mientras la ruta resuelva a lo
 mismo no se toca el DOM, y al cambiar se libera la vista anterior entera
 —efectos, memos, listeners, `onCleanup`— antes de construir la siguiente.
 Devuelve cómo soltarla.
@@ -39,24 +39,24 @@ Devuelve cómo soltarla.
 
 | | |
 |---|---|
-| `ruta()` | La ruta actual con su query. Reactiva. |
-| `navegar(destino, { reemplazar })` | Cambia de ruta. `reemplazar` no apila historial — lo que quieres tras un login. |
-| `enlaces(raiz?, { base? })` | Intercepta los clicks en enlaces internos. Devuelve cómo soltarlo. |
-| `coincide(patron, contra?)` | Los parámetros que captura, o `null`. |
+| `path()` | La ruta actual con su query. Reactiva. |
+| `navigate(destino, { replace })` | Cambia de ruta. `replace` no apila historial — lo que quieres tras un login. |
+| `links(raiz?, { base? })` | Intercepta los clicks en enlaces internos. Devuelve cómo soltarlo. |
+| `match(pattern, contra?)` | Los parámetros que captura, o `null`. |
 | `query()` | Un `URLSearchParams` con lo que va tras `?`. |
-| `sinQuery(valor)` | El camino a secas. |
-| `enrutarEn(padre, rutas)` | Monta la vista de la ruta actual. |
+| `stripQuery(valor)` | El camino a secas. |
+| `mountRoutes(padre, rutas)` | Monta la vista de la ruta actual. |
 
 Los patrones admiten `:nombre` para capturar un segmento y `*` para quedarse
-con el resto. `/pedidos` y `/pedidos/` son la misma ruta; `/pedidos` y
+con el resto, que llega como `rest`. `/pedidos` y `/pedidos/` son la misma ruta; `/pedidos` y
 `/pedidos/4821` no.
 
-`enlaces()` respeta lo que un enlace significa: un click con ⌘ o ctrl, uno con
+`links()` respeta lo que un enlace significa: un click con ⌘ o ctrl, uno con
 el botón central, un `target` o un `download` siguen abriendo como siempre, y
 los enlaces externos no se tocan.
 
 Si la aplicación vive bajo un camino y el resto del sitio son otras páginas
-—la portada en `/`, el juego en `/jugar/`—, `enlaces(document, { base: "/jugar/" })`
+—la portada en `/`, el juego en `/jugar/`—, `links(document, { base: "/jugar/" })`
 solo intercepta lo que cuelga de `/jugar/`: el enlace a `/` carga la portada.
 Para un enlace suelto, `rel="external"`.
 

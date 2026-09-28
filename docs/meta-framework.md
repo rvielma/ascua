@@ -193,7 +193,7 @@ cada nodo se adopta o se crea por su cuenta.
 
 ```rust
 let (montajes, estadisticas) = hydrate_islands(backend, &islas);
-// Estadisticas { adoptados: 37, creados: 0 }
+// HydrationStats { adopted: 37, created: 0 }
 ```
 
 En el demo, esas son las cifras reales medidas en el navegador: **37 nodos
@@ -209,7 +209,7 @@ El diseño es el mismo; cambia quién hace de backend. En el servidor,
 runtime —sin navegador, sin happy-dom ni jsdom— y lo serializa:
 
 ```ts
-import { renderToString, island } from "ascua/servidor";
+import { renderToString, island } from "ascua/server";
 
 const html = renderToString(() => island("contador", () => Contador(2), "2"));
 ```
@@ -219,10 +219,10 @@ En el cliente, `hydrate` recorre las islas y adopta lo que encuentra:
 ```ts
 import { hydrate } from "ascua";
 
-const { adoptados, creados } = hydrate({
+const { adopted, created } = hydrate({
   contador: (props) => Contador(Number(props)),
 });
-// { adoptados: 5, creados: 0 }
+// { adopted: 5, created: 0 }
 ```
 
 Los componentes son los que ya se compilan con `view`: el compilador no sabe
