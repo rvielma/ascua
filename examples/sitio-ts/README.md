@@ -23,4 +23,7 @@ eso lo pone `ascua({ site: true })` en `vite.config.ts`. Compáralo con
 | `src/routes/404.ts` | `404.html` |
 | `src/routes/_layout.ts` | el marco de todas |
 
+Cada isla está en su archivo de `src/islands/`, con su `defineIsland`: la
+portada descarga solo el contador y `/lenguajes` solo el buscador.
+
 El diseño está en [`docs/sitio.md`](../../docs/sitio.md).

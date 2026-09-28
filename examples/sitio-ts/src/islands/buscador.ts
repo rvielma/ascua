@@ -1,4 +1,4 @@
-import { memo, signal } from "ascua";
+import { defineIsland, memo, p, signal } from "ascua";
 
 import type { Lenguaje } from "../datos.js";
 
@@ -28,3 +28,10 @@ export function Buscador(props: { lenguajes: Lenguaje[] }) {
       </ul>
     </div>`;
 }
+
+/** La isla: el buscador, con el esquema de sus props. */
+export const IslaBuscador = defineIsland(
+  "buscador",
+  { lenguajes: p.array(p.object({ nombre: p.string, año: p.number })) },
+  Buscador,
+);

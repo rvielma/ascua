@@ -49,7 +49,12 @@ describe("vite build en modo servidor", () => {
     expect(zig.body).toContain('<meta name="description" content="zig tiene 10 años">');
     // Los marcos anidados también viajan en el servidor.
     expect(zig.body).toContain('<section class="lenguajes">');
-    expect((await modulo.handle("/docs/x/y")).body).toContain("<h1>docs: x/y</h1>");
+    const docs = (await modulo.handle("/docs/x/y")).body;
+    expect(docs).toContain("<h1>docs: x/y</h1>");
+    // Solo la isla de esta página, también en el servidor.
+    expect(docs).toContain('<script type="application/json" id="ascua-islands">["/src/islands/saludo.ts"]</script>');
+    expect(docs).toMatch(/<link rel="modulepreload" crossorigin href="\/assets\/saludo-[\w-]+\.js">/);
+    expect(docs).not.toMatch(/href="\/assets\/contador-/);
 
     const json = await modulo.handle("/lenguajes.json");
     expect(json.type).toContain("application/json");

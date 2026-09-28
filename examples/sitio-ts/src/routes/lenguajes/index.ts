@@ -1,5 +1,5 @@
 import { LENGUAJES } from "../../datos.js";
-import { IslaBuscador } from "../../islands/index.js";
+import { IslaBuscador } from "../../islands/buscador.js";
 
 export const title = "Lenguajes · Ascua";
 

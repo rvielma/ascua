@@ -1,4 +1,4 @@
-import { IslaContador } from "../islands/index.js";
+import { IslaContador } from "../islands/contador.js";
 
 export const title = "Inicio · Ascua";
 

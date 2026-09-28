@@ -5,6 +5,55 @@
  */
 
 export const ISLA = "data-ascua-island";
+/** El `id` del `<script type="application/json">` con las islas de una página. */
+export const LISTA = "ascua-islands";
+
+/** Los nombres de las islas que hay en un HTML ya renderizado. */
+export function islasEn(html) {
+  const nombres = new Set();
+  for (const [, nombre] of html.matchAll(new RegExp(`${ISLA}="([^"]*)"`, "g"))) nombres.add(nombre);
+  return nombres;
+}
+
+/** Las islas de `defineIsland` que exporta un módulo, por su nombre. */
+export function nombresDe(modulo) {
+  const nombres = [];
+  for (const valor of Object.values(modulo)) {
+    if (valor && typeof valor.name === "string" && typeof valor.prepare === "function") nombres.push(valor.name);
+  }
+  return nombres;
+}
+
+/**
+ * De los nombres que usa una página a los módulos que hay que cargar, con
+ * `mapa` yendo del nombre al módulo. Una isla que no está en el mapa —hecha
+ * con `island()` a mano— no tiene nada que hidratar aquí.
+ */
+export function modulosDe(nombres, mapa) {
+  return [...new Set([...nombres].map((n) => mapa[n]).filter(Boolean))].sort();
+}
+
+/**
+ * Lo que una página con islas añade al esqueleto: el script que las hidrata,
+ * la lista de módulos que tiene que cargar, y sus chunks y hojas por delante
+ * para que no haya cascada ni parpadeo. Sin islas que hidratar, nada.
+ *
+ * `construido` es lo que dejó el build del cliente —o, en desarrollo, solo el
+ * script—: `islas` va de la clave de cada módulo a sus chunks y sus hojas.
+ */
+export function conIslas(nombres, mapa, { script, precargas = [], hojas = [], islas = {} }) {
+  const modulos = modulosDe(nombres ?? [], mapa);
+  if (!script || modulos.length === 0) return { script: null };
+  const chunks = new Set(precargas);
+  const estilos = new Set(hojas);
+  for (const modulo of modulos) {
+    for (const chunk of islas[modulo]?.precargas ?? []) chunks.add(chunk);
+    for (const hoja of islas[modulo]?.hojas ?? []) estilos.add(hoja);
+  }
+  // El script ya se pide con su `<script>`: precargarlo es pedirlo dos veces.
+  chunks.delete(script);
+  return { script, islas: modulos, precargas: [...chunks], hojas: [...estilos] };
+}
 
 /**
  * Lo que lanza `load()` cuando lo pedido no existe: el sitio responde con la
@@ -132,7 +181,7 @@ const escapar = (texto) =>
   String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Mete una página en el esqueleto. */
-export function componer(esqueleto, { html, css, title: titulo, description: descripcion, head: extra, script, hojas = [] }) {
+export function componer(esqueleto, { html, css, title: titulo, description: descripcion, head: extra, script, islas = [], precargas = [], hojas = [] }) {
   let salida = esqueleto;
   // Con funciones y no con texto: `replace` interpreta `$&` en el reemplazo.
   if (titulo !== undefined && titulo !== null) {
@@ -145,6 +194,7 @@ export function componer(esqueleto, { html, css, title: titulo, description: des
     descripcion ? `<meta name="description" content="${escapar(descripcion)}">` : "",
     // `head` es HTML tal cual, como lo escribió la ruta.
     extra ? String(extra).trim() : "",
+    ...precargas.map((p) => `<link rel="modulepreload" crossorigin href="${p}">`),
     ...hojas.map((h) => `<link rel="stylesheet" href="${h}">`),
     css ? `<style>${css}</style>` : "",
   ].filter(Boolean);
@@ -154,7 +204,16 @@ export function componer(esqueleto, { html, css, title: titulo, description: des
     ? salida.replace(HUECO, () => html)
     : salida.replace(/<body[^>]*>/, (apertura) => `${apertura}\n${html}`);
 
-  if (script) salida = salida.replace("</body>", () => `  <script type="module" src="${script}"></script>\n  </body>`);
+  if (script) {
+    // `<` escapado: el JSON va dentro de un `<script>` y no puede cerrarlo.
+    const lista = JSON.stringify(islas).replace(/</g, "\\u003c");
+    salida = salida.replace(
+      "</body>",
+      () =>
+        `  <script type="application/json" id="${LISTA}">${lista}</script>\n` +
+        `  <script type="module" src="${script}"></script>\n  </body>`,
+    );
+  }
   return salida;
 }
 
@@ -176,7 +235,7 @@ const valorDe = (campo, props) => (typeof campo === "function" ? campo(props) : 
  * para que en el build sean los del servidor de Vite —los mismos con los que
  * se registraron los estilos— y en el servidor, los de su bundle.
  *
- * @returns {Promise<{ tipo: string, cuerpo: string | Uint8Array, conIslas?: boolean, html?: string, css?: string, title?: string, description?: string }>}
+ * @returns {Promise<{ tipo: string, cuerpo: string | Uint8Array, nombresIslas?: Set<string>, html?: string, css?: string, title?: string, description?: string }>}
  */
 export async function renderizar({ ruta, modulo, marcos = [], parametros, camino, ascua, contexto = {} }) {
   const props = await propsDe(modulo, parametros, contexto);
@@ -202,6 +261,6 @@ export async function renderizar({ ruta, modulo, marcos = [], parametros, camino
     title: valorDe(modulo.title, props),
     description: valorDe(modulo.description, props),
     head: valorDe(modulo.head, props),
-    conIslas: html.includes(ISLA),
+    nombresIslas: islasEn(html),
   };
 }

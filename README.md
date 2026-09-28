@@ -167,7 +167,7 @@ Y lo que resuelven juntos:
 | Errores | `onError` por vista; los del compilador, con archivo y línea |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**386 tests** (167 en Rust, 219 en TypeScript), sin warnings de `clippy`, todo
+**387 tests** (167 en Rust, 220 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -294,7 +294,7 @@ cd packages/router && stil run test     # 20 tests del router
 cd packages/testing && stil run test    # 17 tests del paquete de testing
 cd packages/check && stil run test      # 8 tests de ascua-check
 cd packages/ts-plugin && stil run test  # 17 tests del plugin del editor, con tsserver
-cd packages/vite-plugin && stil run test # 26 tests del plugin de Vite: sitio estático, desarrollo, servidor e hidratación
+cd packages/vite-plugin && stil run test # 27 tests del plugin de Vite: sitio estático, desarrollo, servidor e hidratación
 cd examples/panel-ts && stil run check  # ascua-check sobre el panel
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
 cd examples/ssr-ts && stil run test     # 8 tests del ejemplo con SSR

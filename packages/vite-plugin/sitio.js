@@ -17,7 +17,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buscar, caminoDe, componer, ESQUELETO, esNoExiste, esVariable, renderizar } from "./sitio-comun.js";
+import { buscar, caminoDe, componer, conIslas, ESQUELETO, esNoExiste, esVariable, LISTA, nombresDe, renderizar } from "./sitio-comun.js";
 
 // No `virtual:ascua/…`: ese prefijo es el de las hojas del plugin de plantillas.
 const CLIENTE = "virtual:ascua-site/client";
@@ -98,28 +98,63 @@ async function marcosDe(ruta, cargar) {
   return Promise.all(ruta.marcos.map(async (archivo) => (await cargar(archivo)).default));
 }
 
-/** El código del cliente: todas las islas de `dir`, hidratadas. */
-function codigoCliente(dir) {
-  return `import { hydrate } from "ascua";
-const modulos = import.meta.glob(${JSON.stringify(`/${dir}/**/*.{ts,js,mts,mjs}`)}, { eager: true });
-const islas = [];
-for (const modulo of Object.values(modulos)) {
-  for (const valor of Object.values(modulo)) {
-    if (valor && typeof valor.name === "string" && typeof valor.prepare === "function") islas.push(valor);
-  }
+/** Los módulos de la carpeta de las islas, sin tipos ni tests. */
+function archivosDeIslas(dir) {
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir, { recursive: true })
+    .map(String)
+    .filter((f) => MODULO.test(f) && !f.endsWith(".d.ts") && !f.includes(".test."))
+    .sort()
+    .map((f) => join(dir, f));
 }
-hydrate(islas);
+
+/** Cómo se llama un módulo de islas en el cliente: la clave de `import.meta.glob`. */
+const claveDe = (root, archivo) => `/${relative(root, archivo).split(sep).join("/")}`;
+
+/** Del nombre de cada isla a la clave de su módulo, cargándolos con `cargar`. */
+async function mapaDeIslas(dir, root, cargar) {
+  const mapa = {};
+  for (const archivo of archivosDeIslas(dir)) {
+    for (const nombre of nombresDe(await cargar(archivo))) mapa[nombre] ??= claveDe(root, archivo);
+  }
+  return mapa;
+}
+
+/**
+ * El código del cliente. Cada módulo de `dir` es su propio chunk, cargado
+ * cuando hace falta: la página dice en un `<script type="application/json">`
+ * cuáles usa, y solo esos viajan. Sin la lista —una página que no pasó por el
+ * kit—, se cargan todos.
+ */
+function codigoCliente(dir) {
+  const patrones = [`/${dir}/**/*.{ts,js,mts,mjs}`, `!/${dir}/**/*.d.ts`, `!/${dir}/**/*.test.*`];
+  return `import { hydrate } from "ascua";
+const modulos = import.meta.glob(${JSON.stringify(patrones)});
+const lista = document.getElementById(${JSON.stringify(LISTA)});
+const claves = lista ? JSON.parse(lista.textContent) : Object.keys(modulos);
+Promise.all(claves.map((clave) => modulos[clave]?.())).then((cargados) => {
+  const islas = [];
+  for (const modulo of cargados) {
+    for (const valor of Object.values(modulo ?? {})) {
+      if (valor && typeof valor.name === "string" && typeof valor.prepare === "function") islas.push(valor);
+    }
+  }
+  hydrate(islas);
+});
 `;
 }
 
 /** El servidor de la fase 3: todas las rutas dentro, y el `http` de Node. */
-function codigoServidor(dirRutas) {
+function codigoServidor(dirRutas, dirIslas, root) {
   const { rutas } = descubrir(dirRutas);
   const marcos = [...new Set(rutas.flatMap((r) => r.marcos))];
+  const islas = archivosDeIslas(dirIslas);
   const importes = [
     ...rutas.map((r, i) => `import * as m${i} from ${JSON.stringify(r.modulo)};`),
     ...marcos.map((m, i) => `import k${i} from ${JSON.stringify(m)};`),
+    ...islas.map((a, i) => `import * as i${i} from ${JSON.stringify(a)};`),
   ];
+  const tablaIslas = islas.map((a, i) => `  [${JSON.stringify(claveDe(root, a))}, i${i}],`);
   const tabla = rutas.map((r, i) => {
     const suyos = r.marcos.map((m) => `k${marcos.indexOf(m)}`).join(", ");
     return `  { segmentos: ${JSON.stringify(r.segmentos)}, es404: ${r.es404}, archivo: ${r.archivo}, modulo: m${i}, marcos: [${suyos}] },`;
@@ -130,7 +165,7 @@ import { dirname, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { collectStyles, renderToString } from "ascua/server";
 import { append } from "ascua";
-import { buscar, componer, esNoExiste, renderizar, tipoDe } from ${JSON.stringify(COMUN)};
+import { buscar, componer, conIslas, esNoExiste, nombresDe, renderizar, tipoDe } from ${JSON.stringify(COMUN)};
 ${importes.join("\n")}
 
 const RUTAS = [
@@ -140,6 +175,14 @@ const aqui = dirname(fileURLToPath(import.meta.url));
 const SITIO = JSON.parse(readFileSync(join(aqui, "site.json"), "utf8"));
 const ESTATICOS = join(aqui, "..", "client");
 const ascua = { renderToString, collectStyles, append };
+
+/** Del nombre de cada isla al módulo que la define. */
+const ISLAS = {};
+for (const [clave, modulo] of [
+${tablaIslas.join("\n")}
+]) {
+  for (const nombre of nombresDe(modulo)) ISLAS[nombre] ??= clave;
+}
 
 const sinBase = (camino) =>
   SITIO.base !== "/" && camino.startsWith(SITIO.base) ? "/" + camino.slice(SITIO.base.length) : camino;
@@ -165,11 +208,7 @@ export async function handle(url) {
     pagina = await renderizar({ ruta, modulo: ruta.modulo, marcos: ruta.marcos, parametros, camino, ascua, contexto: { url: direccion } });
   }
   if (ruta.archivo) return { status: estado, type: pagina.tipo, body: pagina.cuerpo };
-  const cuerpo = componer(SITIO.esqueleto, {
-    ...pagina,
-    script: pagina.conIslas ? SITIO.script : null,
-    hojas: pagina.conIslas ? SITIO.hojas : [],
-  });
+  const cuerpo = componer(SITIO.esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, ISLAS, SITIO) });
   return { status: estado, type: pagina.tipo, body: cuerpo };
 }
 
@@ -222,8 +261,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
 
 /** ¿Hay algún módulo en la carpeta de las islas? */
 function hayIslas(dir) {
-  if (!existsSync(dir)) return false;
-  return readdirSync(dir, { recursive: true }).some((f) => MODULO.test(String(f)) && !String(f).endsWith(".d.ts"));
+  return archivosDeIslas(dir).length > 0;
 }
 
 /** Los parámetros de cada página de una ruta variable. */
@@ -266,10 +304,14 @@ export function sitio(opciones) {
   let delUsuario = {};
   let esqueletoConstruido = null;
   let scriptConstruido = null;
-  let hojasConstruidas = [];
+  /** Lo que importa el script de las islas: el runtime, en su chunk. */
+  let precargasConstruidas = [];
+  /** De la clave de cada módulo de islas a sus chunks y sus hojas. */
+  let islasConstruidas = {};
 
   const raiz = () => config.root;
   const dirRutas = () => resolve(raiz(), ajustes.routes);
+  const dirIslas = () => resolve(raiz(), ajustes.islands);
   const archivoEsqueleto = (root) => resolve(root, ajustes.shell);
   const leerEsqueleto = () => {
     const archivo = archivoEsqueleto(raiz());
@@ -325,7 +367,9 @@ export function sitio(opciones) {
     }
 
     const esqueleto = await servidor.transformIndexHtml(url, leerEsqueleto());
-    respuesta.end(componer(esqueleto, { ...pagina, script: pagina.conIslas ? `${config.base}@id/${CLIENTE}` : null }));
+    const mapa = await mapaDeIslas(dirIslas(), raiz(), cargar);
+    const script = `${config.base}@id/${CLIENTE}`;
+    respuesta.end(componer(esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, mapa, { script }) }));
     return true;
   }
 
@@ -378,7 +422,7 @@ export function sitio(opciones) {
 
     load(id) {
       if (id === `\0${CLIENTE}`) return codigoCliente(ajustes.islands.replace(/^\/+|\/+$/g, ""));
-      if (id === `\0${SERVIDOR}`) return codigoServidor(dirRutas());
+      if (id === `\0${SERVIDOR}`) return codigoServidor(dirRutas(), dirIslas(), raiz());
       if (id === `\0${VACIO}`) return "export {};";
       return null;
     },
@@ -386,6 +430,27 @@ export function sitio(opciones) {
     writeBundle(opcionesSalida, bundle) {
       if (config.build.ssr) return;
       const dir = opcionesSalida.dir ?? resolve(raiz(), config.build.outDir);
+      const chunks = Object.fromEntries(
+        Object.values(bundle)
+          .filter((parte) => parte.type === "chunk")
+          .map((parte) => [parte.fileName, parte]),
+      );
+      /** Un chunk y lo que importa, sin repetir. */
+      const conLoQueImporta = (nombre, vistos = new Set()) => {
+        if (vistos.has(nombre)) return vistos;
+        vistos.add(nombre);
+        for (const importado of chunks[nombre]?.imports ?? []) conLoQueImporta(importado, vistos);
+        return vistos;
+      };
+      const islas = new Map(archivosDeIslas(dirIslas()).map((archivo) => [archivo, claveDe(raiz(), archivo)]));
+      for (const parte of Object.values(chunks)) {
+        if (!parte.isDynamicEntry || !islas.has(parte.facadeModuleId)) continue;
+        const suyos = [...conLoQueImporta(parte.fileName)];
+        islasConstruidas[islas.get(parte.facadeModuleId)] = {
+          precargas: suyos.map((f) => `${config.base}${f}`),
+          hojas: suyos.flatMap((f) => [...(chunks[f].viteMetadata?.importedCss ?? [])]).map((h) => `${config.base}${h}`),
+        };
+      }
       for (const parte of Object.values(bundle)) {
         if (parte.type === "chunk" && parte.facadeModuleId === `\0${VACIO}`) {
           rmSync(join(dir, parte.fileName), { force: true });
@@ -394,7 +459,9 @@ export function sitio(opciones) {
         }
         if (parte.type === "chunk" && parte.isEntry && parte.facadeModuleId === `\0${CLIENTE}`) {
           scriptConstruido = `${config.base}${parte.fileName}`;
-          hojasConstruidas = [...(parte.viteMetadata?.importedCss ?? [])].map((h) => `${config.base}${h}`);
+          precargasConstruidas = [...conLoQueImporta(parte.fileName)]
+            .filter((f) => f !== parte.fileName)
+            .map((f) => `${config.base}${f}`);
         }
       }
       // El esqueleto procesado —con sus hojas ya con hash— es la base de cada
@@ -430,7 +497,8 @@ export function sitio(opciones) {
         base: config.base,
         esqueleto: esqueletoConstruido ?? ESQUELETO,
         script: scriptConstruido,
-        hojas: hojasConstruidas,
+        precargas: precargasConstruidas,
+        islas: islasConstruidas,
       };
       const dentro = conLaConfig({ root, mode: config.mode, logLevel: "error" });
 
@@ -461,6 +529,7 @@ export function sitio(opciones) {
         const { rutas } = descubrir(rutasDir);
         if (rutas.length === 0) logger.warn(`ascua: no hay rutas en ${ajustes.routes}/`);
         const ascua = await ascuaDe(vite);
+        const mapa = await mapaDeIslas(dirIslas(), root, (archivo) => vite.ssrLoadModule(archivo));
 
         for (const ruta of rutas) {
           const modulo = await vite.ssrLoadModule(ruta.modulo);
@@ -478,8 +547,7 @@ export function sitio(opciones) {
               archivo = ruta.es404 ? join(salida, "404.html") : join(salida, ...partes, "index.html");
               contenido = componer(construido.esqueleto, {
                 ...pagina,
-                script: pagina.conIslas ? construido.script : null,
-                hojas: pagina.conIslas ? construido.hojas : [],
+                ...conIslas(pagina.nombresIslas, mapa, construido),
               });
             }
             mkdirSync(dirname(archivo), { recursive: true });

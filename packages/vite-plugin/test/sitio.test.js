@@ -89,6 +89,28 @@ describe("vite build", () => {
     expect(leer("lenguajes/rust/index.html")).not.toContain("<script");
   });
 
+  it("cada página carga solo las islas que usa, con sus chunks y hojas por delante", () => {
+    const lista = (html) => JSON.parse(/<script type="application\/json" id="ascua-islands">(.*?)<\/script>/.exec(html)[1]);
+    const chunk = (html, nombre) => new RegExp(`<link rel="modulepreload" crossorigin href="/assets/${nombre}-[\\w-]+\\.js">`).test(html);
+
+    const inicio = leer("index.html");
+    expect(lista(inicio)).toEqual(["/src/islands/contador.ts"]);
+    expect(chunk(inicio, "contador")).toBe(true);
+    expect(chunk(inicio, "saludo")).toBe(false);
+    expect(inicio).not.toMatch(/href="\/assets\/saludo-[\w-]+\.css"/);
+
+    const api = leer("docs/api/index.html");
+    expect(lista(api)).toEqual(["/src/islands/saludo.ts"]);
+    expect(chunk(api, "saludo")).toBe(true);
+    expect(chunk(api, "contador")).toBe(false);
+    // Los estilos de la isla, en el <head>: sin esperar a que llegue su chunk.
+    expect(api).toMatch(/<link rel="stylesheet" href="\/assets\/saludo-[\w-]+\.css">[\s\S]*<\/head>/);
+
+    // El mismo script para todas: lo que cambia es la lista.
+    const script = (html) => /<script type="module" src="([^"]+)">/.exec(html)[1];
+    expect(script(api)).toBe(script(inicio));
+  });
+
   it("los títulos y el contenido dependen de los parámetros", () => {
     const zig = leer("lenguajes/zig/index.html");
     expect(zig).toContain("<title>Lenguaje zig</title>");
@@ -139,6 +161,7 @@ describe("vite en desarrollo", () => {
     const html = await respuesta.text();
     expect(html).toContain('data-ascua-island="contador"');
     expect(html).toContain('<script type="module" src="/@id/virtual:ascua-site/client"></script>');
+    expect(html).toContain('<script type="application/json" id="ascua-islands">["/src/islands/contador.ts"]</script>');
 
     const script = await fetch(`${origen}/@id/virtual:ascua-site/client`);
     expect(script.status).toBe(200);

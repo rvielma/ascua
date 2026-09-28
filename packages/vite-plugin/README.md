@@ -34,7 +34,9 @@ export default { plugins: [ascua({ site: true })] };
 
 Cada archivo de `src/routes/` pasa a ser una página: `vite` la sirve en
 desarrollo y `vite build` escribe un HTML por ruta en `dist/`, con sus estilos
-dentro y, solo si tiene islas, el script que las hidrata. Rutas con parámetros
+dentro y, solo si tiene islas, el script que las hidrata y los módulos de las
+islas que usa —una isla por archivo en `src/islands/`, y cada página descarga
+solo las suyas—. Rutas con parámetros
 (`[id].ts` con `paths()`), datos con `load()` —que la página recibe en la
 prop `data`, o `notFound()` de `vite-plugin-ascua/site` para dar un 404—, un
 layout común (`_layout.ts`), `title`, `description` y `head` por ruta,

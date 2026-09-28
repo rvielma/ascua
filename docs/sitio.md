@@ -101,24 +101,32 @@ A cada página se le añaden:
 - el `<title>`, si la ruta define `title`;
 - un `<style>` con los estilos de los componentes que aparecen en ella, y solo
   esos (`collectStyles`);
-- **si tiene islas**, el script que las hidrata y su CSS. Una página sin islas
-  sale sin una línea de JavaScript.
+- **si tiene islas**, el script que las hidrata, la lista de los módulos de
+  islas que usa (`<script type="application/json" id="ascua-islands">`) y, por
+  delante, un `modulepreload` de sus chunks y sus hojas. Solo viajan los
+  módulos de las islas de esa página. Una página sin islas sale sin una línea
+  de JavaScript.
 
 ## Cómo construye
 
 ```mermaid
 flowchart TD
     build["vite build"] --> cliente["build del cliente:<br/>index.html + virtual:ascua-site/client"]
-    cliente --> guarda["generateBundle: guarda el esqueleto<br/>y el nombre del script de islas"]
+    cliente --> guarda["writeBundle: guarda el esqueleto, el script de islas<br/>y los chunks y hojas de cada módulo de islas"]
     guarda --> cierre["closeBundle"]
     cierre --> rutas["descubre src/routes/"]
     rutas --> params["paths() de las rutas variables"]
     params --> render["cada ruta: ssrLoadModule + renderToString"]
-    render --> escribe["dist/ruta/index.html<br/>con título, estilos y, si hay islas, el script"]
+    render --> escribe["dist/ruta/index.html<br/>con título, estilos y, si hay islas,<br/>el script y la lista de sus módulos"]
 ```
 
-- **El cliente** es un módulo virtual que importa todo `src/islands/` con
-  `import.meta.glob`, recoge lo que sea una isla y llama a `hydrate`.
+- **El cliente** es un módulo virtual con un `import.meta.glob` perezoso de
+  `src/islands/`: cada módulo queda en su propio chunk. Lee la lista de la
+  página, importa esos módulos, recoge lo que sea una isla y llama a `hydrate`.
+- **Qué módulos usa cada página** sale del HTML renderizado: los nombres de
+  `data-ascua-island`, y de cada nombre, el módulo que lo define (cargando los
+  de `src/islands/` en el servidor). La granularidad es el **módulo**: una isla
+  por archivo, y cada página descarga solo las suyas.
 - **El prerender** carga las páginas con un servidor de Vite en modo
   middleware, el mismo camino que usa hoy la documentación del sitio de Ascua.
   Así las plantillas pasan por el mismo plugin y `registerStyle` recoge los
@@ -140,10 +148,11 @@ navegador. Las islas tienen su recarga de siempre.
 - **El prerender con el servidor de Vite y no con un segundo build.** El código
   de las páginas no se publica, así que no gana nada minificado, y se evita
   mantener dos configuraciones.
-- **Todas las islas en un solo script.** Más simple, y hoy los sitios tienen
-  pocas. Partirlo por página es una mejora posible, no un cambio de diseño.
-  Sin islas no hay entrada de cliente: ni script, ni un trozo de runtime
-  compartido con otras entradas de Vite.
+- **Un script para todas las páginas, y las islas por módulo.** El script es
+  el mismo en todo el sitio —el runtime y el cargador, cacheados una vez— y lo
+  que cambia de una página a otra es la lista. Hasta vite-plugin-ascua 0.5
+  iban todas las islas en un solo script. Sin islas no hay entrada de cliente:
+  ni script, ni un trozo de runtime compartido con otras entradas de Vite.
 - **`load()` y no datos en el componente.** El componente sigue siendo
   síncrono, como todos en Ascua; lo asíncrono va antes, y su resultado llega
   como props. En el build y con servidor es el mismo código.
