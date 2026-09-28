@@ -14,7 +14,7 @@
  */
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { buscar, caminoDe, componer, ESQUELETO, esNoExiste, esVariable, renderizar } from "./sitio-comun.js";
@@ -346,7 +346,13 @@ export function sitio(opciones) {
       // Si el esqueleto es otro archivo, `index.html` sigue siendo lo que era:
       // una página más de Vite, como la portada de un sitio con documentación.
       const indice = join(root, "index.html");
-      if (existsSync(esqueleto)) entradas[esqueleto === indice ? "index" : "ascua-esqueleto"] = esqueleto;
+      if (existsSync(esqueleto)) {
+        // El nombre de la entrada es el del archivo: es el que lleva su hoja,
+        // `esqueleto-….css`, y no uno inventado.
+        const nombre = basename(esqueleto).replace(/\.html?$/i, "");
+        const libre = esqueleto === indice || nombre !== "index" ? nombre : "ascua-esqueleto";
+        entradas[libre] = esqueleto;
+      }
       if (esqueleto !== indice && existsSync(indice)) entradas.index = indice;
       // Sin ninguna, rolldown no construye; esta sale vacía y se borra.
       if (Object.keys(entradas).length === 0) entradas["ascua-vacio"] = VACIO;
@@ -399,6 +405,12 @@ export function sitio(opciones) {
       if (bundle[nombre] && existsSync(escrito)) {
         esqueletoConstruido = readFileSync(escrito, "utf8");
         rmSync(escrito);
+        // Si estaba en una subcarpeta —`src/landing/esqueleto.html`—, Vite la
+        // creó solo para él: se quitan las que queden vacías.
+        for (let carpeta = dirname(escrito); carpeta.startsWith(dir + sep); carpeta = dirname(carpeta)) {
+          if (readdirSync(carpeta).length > 0) break;
+          rmSync(carpeta, { recursive: true });
+        }
       }
     },
 
