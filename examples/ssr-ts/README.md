@@ -22,8 +22,8 @@ stil run test
 | `servidor.js` | HTTP con Node: Vite como middleware en desarrollo, `dist/` en producción | Servidor |
 
 Las páginas no se importan desde el cliente, así que su código no viaja. El
-bundle es el runtime más los componentes de las islas: **3,1 kB gzip** para
-el contador y el buscador juntos.
+bundle es el runtime más los componentes de las islas y la validación de sus
+props: **4,2 kB gzip** para el contador y el buscador juntos.
 
 ## Los estilos de las páginas
 
@@ -35,24 +35,28 @@ queda lo global: las variables y la tipografía.
 
 ## Una isla, paso a paso
 
-En el servidor, el componente se envuelve y sus props viajan en JSON:
+Una isla se define una vez, con el esquema de sus props (`src/islands/index.ts`):
 
 ```ts
-export function IslaContador(props: { inicial: number }) {
-  return island("contador", () => Contador(props), JSON.stringify(props));
-}
+export const IslaContador = defineIsland("contador", { inicial: p.number }, Contador);
 ```
 
-En el cliente, `hydrate` encuentra `<ascua-island data-ascua-island="contador">`
-y reconstruye el componente con esos props, **adoptando** los nodos que ya
-están en lugar de crearlos:
+En el servidor se usa como un componente más —`<IslaContador inicial=${3}/>`—
+y deja sus props en JSON dentro de `<ascua-island data-ascua-island="contador">`.
+
+En el cliente, `hydrate` recibe la lista de islas, comprueba los props de cada
+una contra su esquema y reconstruye el componente **adoptando** los nodos que
+ya están en lugar de crearlos:
 
 ```ts
-hydrate({ contador: (props) => Contador(JSON.parse(props)) });
+const { adopted, created } = hydrate([IslaContador, IslaBuscador]);
 // { adopted: 4, created: 0 }
 ```
 
-En desarrollo, la consola muestra esas dos cifras. Si `created` deja de ser
+Si los props no encajan con el esquema —otra versión del servidor, un dato mal
+convertido—, la isla se queda estática y la consola dice qué campo falló.
+
+En desarrollo, la consola muestra las dos cifras. Si `created` deja de ser
 cero, el servidor y el cliente construyeron cosas distintas; la página sigue
 funcionando, pero conviene mirar por qué.
 
