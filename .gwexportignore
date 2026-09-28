@@ -1,0 +1,4 @@
+# Versionado en gw, fuera de GitHub.
+# `web/**` y no `web/`: sin barra interior el patrón vale a cualquier
+# profundidad y se llevaría también packages/compilador/web/.
+web/**

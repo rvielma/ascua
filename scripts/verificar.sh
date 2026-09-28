@@ -62,8 +62,11 @@ if ! $rapido; then
     && npx --no-install vite build --ssr src/entrada-servidor.ts --outDir dist/servidor >/dev/null)
   echo "  ok"
 
-  paso "Sitio y documentación"
-  sh web/build.sh | grep -E "páginas"
+  # El sitio no se publica en GitHub (.gwexportignore): en un clon no está.
+  if [ -d web ]; then
+    paso "Sitio y documentación"
+    sh web/build.sh | grep -E "páginas"
+  fi
 fi
 
 printf '\n\033[32m✓ todo en orden\033[0m\n'
