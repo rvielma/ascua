@@ -83,8 +83,10 @@ pub fn compilar(fuente: &str) -> Result<Salida, Error> {
 pub fn compilar_con_origen(fuente: &str, origen: &str) -> Result<Salida, Error> {
     let mut importes: BTreeSet<(&'static str, &'static str)> = BTreeSet::new();
     let mut hojas: Vec<String> = Vec::new();
+    let mut plantillas: Vec<String> = Vec::new();
 
-    let (codigo, mut procedencia) = compilar_en(fuente, &mut importes, &mut hojas)?;
+    let (codigo, mut procedencia) =
+        compilar_en(fuente, &mut importes, &mut hojas, &mut plantillas)?;
     if importes.is_empty() {
         return Ok(Salida {
             codigo,
@@ -99,7 +101,7 @@ pub fn compilar_con_origen(fuente: &str, origen: &str) -> Result<Salida, Error> 
     procedencia.insert(0, 0);
 
     Ok(Salida {
-        codigo: format!("{}\n{codigo}", declaracion_import(&importes)),
+        codigo: format!("{}\n{codigo}", cabecera(&importes, &plantillas)),
         css: hojas.join("\n"),
         mapa: mapa::construir(origen, fuente, &procedencia),
     })
@@ -114,6 +116,7 @@ fn compilar_en(
     fuente: &str,
     importes: &mut BTreeSet<(&'static str, &'static str)>,
     hojas: &mut Vec<String>,
+    plantillas: &mut Vec<String>,
 ) -> Result<(String, Vec<usize>), Error> {
     let ocurrencias = escaner::buscar(fuente);
     if ocurrencias.is_empty() {
@@ -143,7 +146,7 @@ fn compilar_en(
         let mut hojas_internas = Vec::new();
         let mut expresiones = Vec::with_capacity(ocurrencia.expresiones.len());
         for expresion in &ocurrencia.expresiones {
-            let (compilada, _) = compilar_en(expresion, importes, &mut hojas_internas)?;
+            let (compilada, _) = compilar_en(expresion, importes, &mut hojas_internas, plantillas)?;
             expresiones.push(compilada);
         }
 
@@ -161,8 +164,9 @@ fn compilar_en(
                 }
             })?;
 
-        let generado = codegen::generar(&plantilla);
+        let generado = codegen::generar(&plantilla, plantillas.len());
         importes.extend(generado.importes);
+        plantillas.extend(generado.plantillas);
         if !generado.css.is_empty() {
             hojas.push(generado.css);
         }
@@ -205,6 +209,17 @@ fn marcar(partes: &[String]) -> String {
         }
     }
     salida
+}
+
+/// La primera línea: el import del runtime y, en la misma línea para no
+/// descuadrar el source map, las plantillas del archivo.
+fn cabecera(importes: &BTreeSet<(&'static str, &'static str)>, plantillas: &[String]) -> String {
+    let import = declaracion_import(importes);
+    if plantillas.is_empty() {
+        import
+    } else {
+        format!("{import} const {};", plantillas.join(", "))
+    }
 }
 
 fn declaracion_import(importes: &BTreeSet<(&'static str, &'static str)>) -> String {
@@ -250,13 +265,21 @@ export function Contador() {
         let salida = compilar(fuente).expect("debería compilar").codigo;
 
         assert!(salida.starts_with("import {"), "{salida}");
-        assert!(salida.contains("element as _$el"), "{salida}");
-        assert!(salida.contains("dynamicText as _$dtxt"), "{salida}");
+        assert!(salida.contains("cloneTemplate as _$clone"), "{salida}");
+        assert!(salida.contains("bindText as _$bindtxt"), "{salida}");
+        // Las plantillas, en la misma línea que el import: el mapa no se descuadra.
+        assert!(
+            salida
+                .lines()
+                .next()
+                .is_some_and(|l| l.contains(r#"const _$t0 = _$tpl(["button",0,["Clicks: ",""]]"#)),
+            "{salida}"
+        );
         assert!(
             salida.contains("_$on(_n0, \"click\", () => count.set(count() + 1))"),
             "{salida}"
         );
-        assert!(salida.contains("_$dtxt(() => count())"), "{salida}");
+        assert!(salida.contains("_$bindtxt(_n1, () => count())"), "{salida}");
         // Lo que no es plantilla no se toca.
         assert!(salida.contains("const count = signal(0);"), "{salida}");
         assert!(!salida.contains("view`"), "{salida}");
@@ -266,7 +289,15 @@ export function Contador() {
     fn compila_varias_plantillas_del_mismo_archivo() {
         let fuente = "const a = view`<p>uno</p>`;\nconst b = view`<p>dos</p>`;\n";
         let salida = compilar(fuente).expect("debería compilar").codigo;
-        assert_eq!(salida.matches("_$el(\"p\")").count(), 2, "{salida}");
+        // Una plantilla cada una, numeradas en el orden del archivo.
+        assert!(
+            salida.contains(r#"_$t0 = _$tpl(["p",0,["uno"]]"#),
+            "{salida}"
+        );
+        assert!(
+            salida.contains(r#"_$t1 = _$tpl(["p",0,["dos"]]"#),
+            "{salida}"
+        );
         assert!(!salida.contains("view`"), "{salida}");
     }
 
@@ -295,7 +326,7 @@ export function Contador() {
 
         assert!(!salida.contains("view`"), "{salida}");
         assert!(salida.contains("_$list("), "{salida}");
-        assert!(salida.contains("_$el(\"li\")"), "{salida}");
+        assert!(salida.contains(r#"_$tpl(["li",0,[""]]"#), "{salida}");
         // Un solo import, con todo lo que hace falta.
         assert_eq!(salida.matches("from \"ascua\"").count(), 1, "{salida}");
     }
@@ -374,7 +405,7 @@ export function Contador() {
         let generadas = salida
             .codigo
             .lines()
-            .filter(|l| l.contains("_$el("))
+            .filter(|l| l.contains("_$clone(") || l.contains("_$bindtxt("))
             .count();
         assert!(generadas >= 1, "{}", salida.codigo);
         assert!(
@@ -406,8 +437,10 @@ export function Contador() {
                       </section>`;\n";
         let salida = compilar(fuente).expect("debería compilar");
 
-        assert_eq!(origen_de(&salida, "_$el(\"section\")"), 1);
-        assert_eq!(origen_de(&salida, "_$el(\"h2\")"), 2);
+        // Cada elemento con plantilla propia se clona en su línea: la
+        // `<section>` es `_$t0`, y su `<h2>`, `_$t1`.
+        assert_eq!(origen_de(&salida, "_$clone(_$t0)"), 1);
+        assert_eq!(origen_de(&salida, "_$clone(_$t1)"), 2);
         assert_eq!(origen_de(&salida, "Metrica("), 3);
         assert_eq!(origen_de(&salida, "_$on("), 4);
     }
@@ -418,10 +451,10 @@ export function Contador() {
                       <p onclick=${() => {\n\
                       hacer();\n\
                       }}>uno</p>\n\
-                      <b>dos</b>\n\
+                      <b title=${t}>dos</b>\n\
                       </div>`;\n";
         let salida = compilar(fuente).expect("debería compilar");
-        assert_eq!(origen_de(&salida, "_$el(\"b\")"), 4);
+        assert_eq!(origen_de(&salida, "_$sattr("), 4);
     }
 
     #[test]

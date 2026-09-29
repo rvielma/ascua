@@ -10,8 +10,8 @@ for d in vanilla ascua solid svelte react; do
   (cd $d && stil install && stil exec vite build)
 done
 bash ../scripts/enlazar-paquetes.sh
-python3 -m http.server 5191 --directory .
-# http://localhost:5191/ → «correr», o en la consola:
+python3 servir.py
+# http://127.0.0.1:5191/ → «correr», o en la consola:
 #   await correr({ rondas: 3, vueltas: 15, calentamiento: 5 })
 ```
 
@@ -21,3 +21,4 @@ python3 -m http.server 5191 --directory .
 | `comun/datos.js` | Los datos, iguales para todos. |
 | `index.html` | La orquesta: rondas intercaladas y factores sobre vanilla. |
 | `resultados/` | Cada medición publicada, con la máquina y las versiones. |
+| `servir.py` | Sirve la carpeta con aislamiento de origen cruzado: sin él, el reloj del navegador redondea a 0,1 ms. |

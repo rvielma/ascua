@@ -32,17 +32,23 @@ interface Nodo {
   recomputar: ((nodo: Nodo) => boolean) | null;
   /** Efecto: trabajo con efecto lateral. */
   ejecutar: (() => void) | null;
-  fuentes: Nodo[];
-  observadores: Nodo[];
+  // Las listas se crean al primer uso: una fila de una tabla crea tres nodos,
+  // y la mayoría nunca tiene hijos, limpiezas ni manejadores.
+  fuentes: Nodo[] | null;
+  observadores: Nodo[] | null;
   dueño: Nodo | null;
-  hijos: Nodo[];
+  hijos: Nodo[] | null;
   /** Cuántos de `hijos` ya se liberaron por su cuenta. Ver `liberarNodo`. */
   hijosLiberados: number;
   /** Ya no existe: sus efectos no corren y liberarlo otra vez no hace nada. */
   liberado: boolean;
-  limpiezas: Array<() => void>;
+  /** Efecto en ejecución: si se dispara a sí mismo, se omite en vez de recursar. */
+  corriendo: boolean;
+  limpiezas: Array<() => void> | null;
+  /** Listeners de `on`, de tres en tres: nodo, evento, manejador. */
+  oyentes: unknown[] | null;
   /** Quién se hace cargo si algo falla aquí dentro. */
-  manejadores: Array<(error: unknown) => void>;
+  manejadores: Array<(error: unknown) => void> | null;
 }
 
 /** Observador en ejecución: quien lea un signal ahora queda suscrito a él. */
@@ -63,25 +69,28 @@ function crearNodo(valor: unknown, estado: Estado = LIMPIO): Nodo {
     estado,
     recomputar: null,
     ejecutar: null,
-    fuentes: [],
-    observadores: [],
+    fuentes: null,
+    observadores: null,
     dueño,
-    hijos: [],
+    hijos: null,
     hijosLiberados: 0,
     liberado: false,
-    limpiezas: [],
-    manejadores: [],
+    corriendo: false,
+    limpiezas: null,
+    oyentes: null,
+    manejadores: null,
   };
-  if (dueño) dueño.hijos.push(nodo);
+  if (dueño) (dueño.hijos ??= []).push(nodo);
   return nodo;
 }
 
 /** Registra que el observador actual depende de `fuente`. */
 function rastrear(fuente: Nodo): void {
   if (!observador) return;
-  if (observador.fuentes.includes(fuente)) return;
-  observador.fuentes.push(fuente);
-  fuente.observadores.push(observador);
+  const fuentes = (observador.fuentes ??= []);
+  if (fuentes.includes(fuente)) return;
+  fuentes.push(fuente);
+  (fuente.observadores ??= []).push(observador);
 }
 
 /**
@@ -106,8 +115,8 @@ function marcar(nodo: Nodo, estado: Estado): void {
   if (!estabaLimpio) return;
 
   if (nodo.ejecutar) pendientes.push(nodo);
-  for (const observadorDe of nodo.observadores.slice()) {
-    marcar(observadorDe, REVISAR);
+  if (nodo.observadores) {
+    for (const observadorDe of nodo.observadores.slice()) marcar(observadorDe, REVISAR);
   }
 }
 
@@ -115,7 +124,7 @@ function marcar(nodo: Nodo, estado: Estado): void {
 function actualizarSiHaceFalta(nodo: Nodo): void {
   if (nodo.estado === LIMPIO) return;
 
-  if (nodo.estado === REVISAR) {
+  if (nodo.estado === REVISAR && nodo.fuentes) {
     for (const fuente of nodo.fuentes.slice()) {
       actualizarSiHaceFalta(fuente);
       if ((nodo.estado as Estado) === SUCIO) break;
@@ -148,7 +157,14 @@ function recomputar(nodo: Nodo): void {
   let cambió = false;
   try {
     if (nodo.recomputar) cambió = nodo.recomputar(nodo);
-    else if (nodo.ejecutar) nodo.ejecutar();
+    else if (nodo.ejecutar && !nodo.corriendo) {
+      nodo.corriendo = true;
+      try {
+        nodo.ejecutar();
+      } finally {
+        nodo.corriendo = false;
+      }
+    }
   } catch (error) {
     // Antes de relanzar, se busca quién se hace cargo: si nadie lo hace, el
     // error sigue su camino y la aplicación se entera igual.
@@ -158,7 +174,7 @@ function recomputar(nodo: Nodo): void {
     dueño = dueñoPrevio;
   }
 
-  if (cambió) {
+  if (cambió && nodo.observadores) {
     for (const observadorDe of nodo.observadores.slice()) marcar(observadorDe, SUCIO);
   }
 }
@@ -175,7 +191,7 @@ function manejar(desde: Nodo, error: unknown): boolean {
   let nodo: Nodo | null = desde;
   while (nodo) {
     const manejadores = nodo.manejadores;
-    if (manejadores.length > 0) {
+    if (manejadores && manejadores.length > 0) {
       const observadorPrevio = observador;
       const dueñoPrevio = dueño;
       observador = null;
@@ -200,25 +216,40 @@ function manejar(desde: Nodo, error: unknown): boolean {
  * copia listas que están vacías, que es lo normal en un nodo hoja.
  */
 function limpiarNodo(nodo: Nodo): void {
-  if (nodo.fuentes.length > 0) {
+  if (nodo.fuentes) {
     for (const fuente of nodo.fuentes) {
-      const indice = fuente.observadores.indexOf(nodo);
-      if (indice >= 0) fuente.observadores.splice(indice, 1);
+      const observadores = fuente.observadores!;
+      const indice = observadores.indexOf(nodo);
+      if (indice >= 0) observadores.splice(indice, 1);
     }
-    nodo.fuentes.length = 0;
+    nodo.fuentes = null;
   }
 
-  if (nodo.hijos.length > 0) {
+  if (nodo.hijos) {
     const hijos = nodo.hijos;
-    nodo.hijos = [];
+    nodo.hijos = null;
     nodo.hijosLiberados = 0;
     for (const hijo of hijos) liberarNodo(hijo, true);
   }
 
-  nodo.manejadores.length = 0;
-  if (nodo.limpiezas.length > 0) {
+  nodo.manejadores = null;
+  if (nodo.oyentes) {
+    const oyentes = nodo.oyentes;
+    nodo.oyentes = null;
+    // Si quien libera ya sacó los nodos del documento, sus listeners se van
+    // con ellos: ni mirarlos.
+    if (!fueraDelDocumento) for (let i = 0; i < oyentes.length; i += 3) {
+      const elemento = oyentes[i] as Element;
+      if (!elemento.isConnected) continue;
+      const manejador = oyentes[i + 2] as ((evento: Event) => void) | null;
+      // Sin manejador es uno delegado: vive en una propiedad del nodo.
+      if (manejador) elemento.removeEventListener(oyentes[i + 1] as string, manejador);
+      else delete (elemento as unknown as Record<string, unknown>)[oyentes[i + 1] as string];
+    }
+  }
+  if (nodo.limpiezas) {
     const limpiezas = nodo.limpiezas;
-    nodo.limpiezas = [];
+    nodo.limpiezas = null;
     // En orden inverso de registro, como los destructores.
     for (let i = limpiezas.length - 1; i >= 0; i--) limpiezas[i]!();
   }
@@ -242,7 +273,7 @@ function liberarNodo(nodo: Nodo, desdeElDueño = false): void {
   nodo.liberado = true;
 
   const suyo = nodo.dueño;
-  if (!desdeElDueño && suyo && !suyo.liberado) {
+  if (!desdeElDueño && suyo && !suyo.liberado && suyo.hijos) {
     suyo.hijosLiberados++;
     if (suyo.hijosLiberados > 16 && suyo.hijosLiberados * 2 > suyo.hijos.length) {
       suyo.hijos = suyo.hijos.filter((hijo) => !hijo.liberado);
@@ -312,7 +343,9 @@ export function signal<T>(inicial: T): Signal<T> {
   leer.set = (valor: T) => {
     if (Object.is(nodo.valor, valor)) return;
     nodo.valor = valor;
-    for (const observadorDe of nodo.observadores.slice()) marcar(observadorDe, SUCIO);
+    if (nodo.observadores) {
+      for (const observadorDe of nodo.observadores.slice()) marcar(observadorDe, SUCIO);
+    }
     vaciarCola();
   };
   leer.update = (fn: (actual: T) => T) => leer.set(fn(nodo.valor as T));
@@ -358,21 +391,11 @@ export function memo<T>(calcular: () => T, iguales = Object.is): Memo<T> {
  */
 export function effect(fn: () => void): void {
   const nodo = crearNodo(undefined, SUCIO);
-  let corriendo = false;
-
-  nodo.ejecutar = () => {
-    // Un efecto que se dispara a sí mismo se omite en vez de recursar.
-    if (corriendo) return;
-    corriendo = true;
-    try {
-      fn();
-    } finally {
-      corriendo = false;
-    }
-  };
-
+  nodo.ejecutar = fn;
   recomputar(nodo);
-  vaciarCola();
+  // Lo normal al construir es que no haya nada pendiente: una fila de una
+  // tabla crea dos efectos y ninguno despierta a otro.
+  if (pendientes.length > 0) vaciarCola();
 }
 
 /**
@@ -383,7 +406,15 @@ export function effect(fn: () => void): void {
  * liberarlo en el acto lo destruiría nada más crearlo.
  */
 export function onCleanup(fn: () => void): void {
-  if (dueño) dueño.limpiezas.push(fn);
+  if (dueño) (dueño.limpiezas ??= []).push(fn);
+}
+
+/**
+ * @internal Lo que `on` necesita quitar al liberar el scope. Fuera de todo
+ * scope se descarta, como `onCleanup`.
+ */
+export function registrarOyente(elemento: Element, evento: string, manejador: ((evento: Event) => void) | null): void {
+  if (dueño) (dueño.oyentes ??= []).push(elemento, evento, manejador);
 }
 
 /**
@@ -397,7 +428,7 @@ export function onCleanup(fn: () => void): void {
  * Fuera de todo scope se descarta: no habría nada a lo que atender.
  */
 export function onError(manejador: (error: unknown) => void): void {
-  if (dueño) dueño.manejadores.push(manejador);
+  if (dueño) (dueño.manejadores ??= []).push(manejador);
 }
 
 /**
@@ -414,9 +445,24 @@ export function onError(manejador: (error: unknown) => void): void {
  * ```
  */
 export function selector<T>(fuente: () => T): (clave: T) => boolean {
-  const suscriptores = new Map<T, Set<Nodo>>();
+  // Lo normal es un suscriptor por clave —la fila que la muestra—: se guarda
+  // tal cual, y solo se pasa a un `Set` si llega otro.
+  const suscriptores = new Map<T, Nodo | Set<Nodo>>();
   let actual: T;
   let listo = false;
+
+  const avisar = (quienes: Nodo | Set<Nodo> | undefined) => {
+    if (quienes instanceof Set) for (const nodo of quienes) marcar(nodo, SUCIO);
+    else if (quienes) marcar(quienes, SUCIO);
+  };
+  const soltar = (clave: T, quien: Nodo) => {
+    const ya = suscriptores.get(clave);
+    if (ya === quien) suscriptores.delete(clave);
+    else if (ya instanceof Set) {
+      ya.delete(quien);
+      if (ya.size === 0) suscriptores.delete(clave);
+    }
+  };
 
   effect(() => {
     const nuevo = fuente();
@@ -425,8 +471,8 @@ export function selector<T>(fuente: () => T): (clave: T) => boolean {
       const despues = suscriptores.get(nuevo);
       actual = nuevo;
       // Solo los dos implicados. El resto ni se entera.
-      if (antes) for (const nodo of antes) marcar(nodo, SUCIO);
-      if (despues) for (const nodo of despues) marcar(nodo, SUCIO);
+      avisar(antes);
+      avisar(despues);
     } else {
       actual = nuevo;
       listo = true;
@@ -436,19 +482,19 @@ export function selector<T>(fuente: () => T): (clave: T) => boolean {
   return (clave: T) => {
     const quien = observador;
     if (quien) {
-      let lista = suscriptores.get(clave);
-      if (!lista) suscriptores.set(clave, (lista = new Set()));
-      if (!lista.has(quien)) {
-        lista.add(quien);
-        // Dentro de un cómputo, su dueño es él mismo: la limpieza corre antes
-        // de cada reejecución y al liberarlo, así que una fila que desaparece
-        // no deja su suscripción colgada del selector.
-        const suya = lista;
-        onCleanup(() => {
-          suya.delete(quien);
-          if (suya.size === 0) suscriptores.delete(clave);
-        });
-      }
+      const ya = suscriptores.get(clave);
+      const nuevo =
+        ya === undefined
+          ? (suscriptores.set(clave, quien), true)
+          : ya === quien
+            ? false
+            : ya instanceof Set
+              ? !ya.has(quien) && (ya.add(quien), true)
+              : (suscriptores.set(clave, new Set([ya, quien])), true);
+      // Dentro de un cómputo, su dueño es él mismo: la limpieza corre antes de
+      // cada reejecución y al liberarlo, así que una fila que desaparece no
+      // deja su suscripción colgada del selector.
+      if (nuevo) onCleanup(() => soltar(clave, quien));
     }
     return Object.is(clave, actual);
   };
@@ -566,6 +612,45 @@ export function root<T>(fn: () => T): [T, () => void] {
   } finally {
     dueño = dueñoPrevio;
     observador = observadorPrevio;
+  }
+}
+
+/**
+ * @internal `root` sin la closure ni la tupla, para quien crea miles: las
+ * filas de una lista. Crea el scope colgado del dueño actual, ejecuta
+ * `fn(arg)` dentro y devuelve el resultado; el scope queda en `raiz.nodo`.
+ */
+export function enRaizNueva<A, T>(fn: (arg: A) => T, arg: A, raiz: { nodo: Scope }): T {
+  const nodo = crearNodo(undefined);
+  raiz.nodo = nodo as unknown as Scope;
+  const dueñoPrevio = dueño;
+  const observadorPrevio = observador;
+  dueño = nodo;
+  observador = null;
+  try {
+    return fn(arg);
+  } finally {
+    dueño = dueñoPrevio;
+    observador = observadorPrevio;
+  }
+}
+
+/** Mientras es `true`, los nodos de lo que se libera ya salieron del documento. */
+let fueraDelDocumento = false;
+
+/**
+ * @internal Libera un scope creado con `enRaizNueva`. `fuera` dice que sus
+ * nodos ya no están en el documento —una lista que se vació—, y ahorra
+ * revisar sus listeners.
+ */
+export function liberarScope(scope: Scope, fuera = false): void {
+  if (!scope) return;
+  const antes = fueraDelDocumento;
+  fueraDelDocumento = fuera;
+  try {
+    liberarNodo(scope as unknown as Nodo);
+  } finally {
+    fueraDelDocumento = antes;
   }
 }
 

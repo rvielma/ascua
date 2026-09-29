@@ -45,15 +45,18 @@ beforeAll(async () => {
 describe("el código generado", () => {
   it("no deja rastro de la plantilla y pide solo lo que usa", () => {
     expect(compilado).not.toContain("view`");
-    expect(compilado).toContain("element as _$el");
-    expect(compilado).toContain("dynamicText as _$dtxt");
+    expect(compilado).toContain("template as _$tpl");
+    expect(compilado).toContain("cloneTemplate as _$clone");
+    expect(compilado).toContain("bindText as _$bindtxt");
     expect(compilado).toContain("on as _$on");
   });
 
   it("se puede leer", () => {
-    // Un compilador cuyo output no se entiende es magia con otro nombre.
-    expect(compilado).toMatch(/const _n\d+ = _\$el\("div"\);/);
-    expect(compilado).toMatch(/_\$add\(_n\d+, _n\d+\);/);
+    // Un compilador cuyo output no se entiende es magia con otro nombre: lo
+    // fijo en una plantilla arriba, y aquí un clon y lo que cambia.
+    expect(compilado).toMatch(/_\$t0 = _\$tpl\(\["div",\["class","caja"\]/);
+    expect(compilado).toMatch(/const \[_n\d+(, _n\d+)*\] = _\$clone\(_\$t0\);/);
+    expect(compilado).toMatch(/_\$bindtxt\(_n\d+, \(\) => count\(\)\);/);
   });
 });
 

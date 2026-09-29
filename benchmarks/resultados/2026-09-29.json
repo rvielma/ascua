@@ -1,0 +1,133 @@
+{
+  "fecha": "2026-09-29",
+  "maquina": "Apple M3, 24 GB, macOS 27.0",
+  "navegador": "Chrome 153.0.0.0, controlado por Playwright",
+  "contendientes": {
+    "vanilla": "DOM a mano",
+    "ascua": "0.5.0",
+    "solid": "1.9.15",
+    "svelte": "5.57.1",
+    "react": "19.3.0"
+  },
+  "metodo": "5 rondas intercaladas, 15 vueltas medidas tras 5 de calentamiento; mediana por operación; factor sobre vanilla de la misma ronda; resumen por media geométrica sin «seleccionar una fila». Servido con aislamiento de origen cruzado (benchmarks/servir.py): reloj de microsegundos. Mide hasta el layout (offsetHeight), sin el pintado.",
+  "rondas": 5,
+  "ms": {
+    "vanilla": {
+      "crear 1.000 filas": 14.73,
+      "reemplazar 1.000": 15.74,
+      "actualizar 1 de cada 10": 6.72,
+      "seleccionar una fila": 0.07,
+      "intercambiar dos filas": 1.12,
+      "quitar una fila": 1.1,
+      "crear 10.000 filas": 146.72,
+      "añadir 1.000 a 1.000": 21.14,
+      "vaciar 1.000 filas": 1.27
+    },
+    "ascua": {
+      "crear 1.000 filas": 14.84,
+      "reemplazar 1.000": 16.63,
+      "actualizar 1 de cada 10": 6.75,
+      "seleccionar una fila": 0.08,
+      "intercambiar dos filas": 1.32,
+      "quitar una fila": 1.3,
+      "crear 10.000 filas": 169.73,
+      "añadir 1.000 a 1.000": 22.29,
+      "vaciar 1.000 filas": 1.53
+    },
+    "solid": {
+      "crear 1.000 filas": 15.67,
+      "reemplazar 1.000": 16.58,
+      "actualizar 1 de cada 10": 6.88,
+      "seleccionar una fila": 0.1,
+      "intercambiar dos filas": 1.53,
+      "quitar una fila": 1.49,
+      "crear 10.000 filas": 167,
+      "añadir 1.000 a 1.000": 21.37,
+      "vaciar 1.000 filas": 1.49
+    },
+    "svelte": {
+      "crear 1.000 filas": 15.31,
+      "reemplazar 1.000": 17.17,
+      "actualizar 1 de cada 10": 6.59,
+      "seleccionar una fila": 0.26,
+      "intercambiar dos filas": 1.43,
+      "quitar una fila": 1.35,
+      "crear 10.000 filas": 172.39,
+      "añadir 1.000 a 1.000": 21.75,
+      "vaciar 1.000 filas": 1.62
+    },
+    "react": {
+      "crear 1.000 filas": 17.47,
+      "reemplazar 1.000": 21.97,
+      "actualizar 1 de cada 10": 7.13,
+      "seleccionar una fila": 0.37,
+      "intercambiar dos filas": 16,
+      "quitar una fila": 1.71,
+      "crear 10.000 filas": 287.67,
+      "añadir 1.000 a 1.000": 24.43,
+      "vaciar 1.000 filas": 3.2
+    }
+  },
+  "factor": {
+    "vanilla": {
+      "crear 1.000 filas": 1,
+      "reemplazar 1.000": 1,
+      "actualizar 1 de cada 10": 1,
+      "seleccionar una fila": 1,
+      "intercambiar dos filas": 1,
+      "quitar una fila": 1,
+      "crear 10.000 filas": 1,
+      "añadir 1.000 a 1.000": 1,
+      "vaciar 1.000 filas": 1,
+      "media geométrica": 1
+    },
+    "ascua": {
+      "crear 1.000 filas": 1.02,
+      "reemplazar 1.000": 1.06,
+      "actualizar 1 de cada 10": 1.03,
+      "seleccionar una fila": 1.25,
+      "intercambiar dos filas": 1.17,
+      "quitar una fila": 1.19,
+      "crear 10.000 filas": 1.07,
+      "añadir 1.000 a 1.000": 1.06,
+      "vaciar 1.000 filas": 1.23,
+      "media geométrica": 1.1
+    },
+    "solid": {
+      "crear 1.000 filas": 1.04,
+      "reemplazar 1.000": 1.05,
+      "actualizar 1 de cada 10": 1.07,
+      "seleccionar una fila": 1.43,
+      "intercambiar dos filas": 1.37,
+      "quitar una fila": 1.33,
+      "crear 10.000 filas": 1.05,
+      "añadir 1.000 a 1.000": 1.01,
+      "vaciar 1.000 filas": 1.2,
+      "media geométrica": 1.13
+    },
+    "svelte": {
+      "crear 1.000 filas": 1.04,
+      "reemplazar 1.000": 1.09,
+      "actualizar 1 de cada 10": 1.03,
+      "seleccionar una fila": 3.86,
+      "intercambiar dos filas": 1.27,
+      "quitar una fila": 1.23,
+      "crear 10.000 filas": 1.18,
+      "añadir 1.000 a 1.000": 1.04,
+      "vaciar 1.000 filas": 1.29,
+      "media geométrica": 1.14
+    },
+    "react": {
+      "crear 1.000 filas": 1.18,
+      "reemplazar 1.000": 1.41,
+      "actualizar 1 de cada 10": 1.08,
+      "seleccionar una fila": 5.25,
+      "intercambiar dos filas": 14.41,
+      "quitar una fila": 1.58,
+      "crear 10.000 filas": 1.95,
+      "añadir 1.000 a 1.000": 1.17,
+      "vaciar 1.000 filas": 2.5,
+      "media geométrica": 1.98
+    }
+  }
+}

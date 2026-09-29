@@ -63,7 +63,7 @@ describe("hydrate", () => {
 
     const campo = document.querySelector("input")!;
     campo.value = "ru";
-    campo.dispatchEvent(new Event("input"));
+    campo.dispatchEvent(new Event("input", { bubbles: true }));
 
     expect([...document.querySelectorAll("li")]).toEqual([rust]);
     expect(document.querySelector(".nota")!.textContent).toBe("1 de 14");

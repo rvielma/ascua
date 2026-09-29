@@ -8,12 +8,12 @@
 [![licencia](https://img.shields.io/badge/licencia-MIT%20o%20Apache--2.0-6f6860?labelColor=12100d)](#licencia)
 
 Todo lo que hace falta para una aplicación web, sin Virtual DOM: un runtime
-reactivo de 2,25 kB, un compilador de plantillas en **WebAssembly**, router,
+reactivo de 3,62 kB, un compilador de plantillas en **WebAssembly**, router,
 datos asíncronos, formularios, SSR con islas, tests y los tipos de dentro de
 las plantillas, en `tsc` y en el editor.
 
-Escribes **HTML dentro de TypeScript** y el compilador —un `.wasm` de 91 KB— lo
-traduce a operaciones directas de DOM. Una aplicación entera pesa 2,45 kB.
+Escribes **HTML dentro de TypeScript** y el compilador —un `.wasm` de 103 KB— lo
+traduce a operaciones directas de DOM. Una aplicación entera pesa 3,77 kB.
 
 **[ascua.gitweave.run](https://ascua.gitweave.run)** ·
 **[documentación](https://ascua.gitweave.run/docs/)** · el compilador corre en tu
@@ -143,8 +143,8 @@ CSS, gzip, la aplicación entera.
 
 | Paquete | Para qué | Peso |
 |---|---|---|
-| [`ascua`](packages/runtime) | Signals, DOM, `resource`, `bind:`, SSR e islas. Cero dependencias | 2,25 kB gzip |
-| [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 91 KB, en build |
+| [`ascua`](packages/runtime) | Signals, DOM, `resource`, `bind:`, SSR e islas. Cero dependencias | 3,62 kB gzip |
+| [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 103 KB, en build |
 | [`vite-plugin-ascua`](packages/vite-plugin) | Compila las plantillas en Vite; con `site: true`, una página HTML por archivo de `src/routes/` | en build |
 | [`ascua-router`](packages/router) | La ruta como signal: parámetros, query, enlaces | 1,03 kB gzip |
 | [`ascua-testing`](packages/testing) | Montar, `click`, `input`, `drag`, `waitFor` y desmontar en un test | en tests |
@@ -167,22 +167,23 @@ Y lo que resuelven juntos:
 | Errores | `onError` por vista; los del compilador, con archivo y línea |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**387 tests** (167 en Rust, 220 en TypeScript), sin warnings de `clippy`, todo
+**397 tests** (168 en Rust, 229 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
 |---|---|
-| Una aplicación entera (runtime + contador + lista con clave) | **2,45 kB** |
-| Un panel con acceso, rutas, tabla filtrable y componentes | 5,71 kB + 1,39 kB de CSS |
-| Solo el runtime | 2,25 kB |
-| El runtime con `hydrate` e `island` | 3,05 kB |
+| Una aplicación entera (runtime + contador + lista con clave) | **3,77 kB** |
+| Un panel con acceso, rutas, tabla filtrable y componentes | 7,24 kB + 1,43 kB de CSS |
+| Solo el runtime | 3,62 kB |
+| El runtime con `hydrate` e `island` | 4,59 kB |
 | La validación de props de `defineIsland` | +0,75 kB |
 | El router | 1,03 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
-En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,15×** el
-tiempo del DOM escrito a mano, a la par de Svelte (1,12×) y Solid (1,08×) y muy
-por delante de React (1,89×). Método y datos crudos en [`benchmarks/`](benchmarks) y en
+En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,10×** el
+tiempo del DOM escrito a mano: empatada con Solid (1,07× y 1,13× en las dos
+pasadas, contra 1,10× y 1,10× de Ascua), por delante de Svelte (1,13×) y muy
+por delante de React (1,85×). Método y datos crudos en [`benchmarks/`](benchmarks) y en
 [la documentación](https://ascua.gitweave.run/docs/rendimiento/).
 
 ## Cómo está construido
@@ -247,14 +248,14 @@ cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 91 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 103 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
 un playground que compila en tu pestaña.
 
 En el navegador, en cambio, no aporta: el DOM vive en JavaScript y cruzar la
-frontera cuesta más que la operación. Por eso el runtime son 2,25 kB de
+frontera cuesta más que la operación. Por eso el runtime son 3,62 kB de
 JavaScript.
 
 ## Desarrollo
@@ -286,10 +287,10 @@ Las dependencias de cada directorio se instalan con
 de Ascua desde `packages/`. Por partes:
 
 ```sh
-cargo test                   # 167 tests del compilador y la vía Rust
+cargo test                   # 168 tests del compilador y la vía Rust
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 116 tests del runtime
+cd packages/runtime && stil run test    # 125 tests del runtime
 cd packages/router && stil run test     # 20 tests del router
 cd packages/testing && stil run test    # 17 tests del paquete de testing
 cd packages/check && stil run test      # 8 tests de ascua-check
@@ -313,13 +314,6 @@ que un cambio en el compilador llega solo al plugin de Vite y a los ejemplos.
   árboles, un componente. Distinguirlo por tipo exigiría adivinar la intención.
 - **Server Components y compatibilidad con JSX o con la API de hooks.** Eran
   no-objetivos desde el principio.
-- **Delegación de eventos.** `on` pone un listener por nodo, y la alternativa
-  —uno en el padre que mira de dónde vino el click— se descartó con números:
-  construir 1.000 filas cuesta 1,7 ms con un listener cada una y 1,5 ms
-  delegando; con 5.000, 9,5 contra 7,2. Dos décimas de milisegundo en una tabla
-  grande no pagan los bytes del runtime ni la semántica prestada
-  (`stopPropagation` que ya no para nada, eventos que no existen en el nodo).
-  El banco de pruebas está en [`scripts/medir-eventos.html`](scripts/medir-eventos.html).
 
 ## Licencia
 

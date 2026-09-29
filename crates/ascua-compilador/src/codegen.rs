@@ -10,10 +10,9 @@
 
 use std::collections::BTreeSet;
 
-use crate::plantilla::{Componente, Elemento, Nodo, Plantilla, Valor, ELSE, FOR, SHOW};
+use crate::plantilla::{Atributo, Componente, Elemento, Nodo, Plantilla, Valor, ELSE, FOR, SHOW};
 
 /// Funciones del runtime, con el alias con el que se importan.
-const ELEMENT: (&str, &str) = ("element", "_$el");
 const TEXT: (&str, &str) = ("text", "_$txt");
 const STATIC_TEXT: (&str, &str) = ("staticText", "_$stxt");
 const DYNAMIC_TEXT: (&str, &str) = ("dynamicText", "_$dtxt");
@@ -28,6 +27,10 @@ const SHOW_VALUE_FN: (&str, &str) = ("showValue", "_$showv");
 const BIND: (&str, &str) = ("bind", "_$bind");
 const COMPONENT: (&str, &str) = ("component", "_$comp");
 const LIST_FN: (&str, &str) = ("list", "_$list");
+const TEMPLATE: (&str, &str) = ("template", "_$tpl");
+const CLONE: (&str, &str) = ("cloneTemplate", "_$clone");
+const SET_TEXT: (&str, &str) = ("setText", "_$settxt");
+const BIND_TEXT: (&str, &str) = ("bindText", "_$bindtxt");
 
 pub struct Generado {
     /// La expresión JavaScript que construye el árbol.
@@ -40,6 +43,9 @@ pub struct Generado {
     pub importes: BTreeSet<(&'static str, &'static str)>,
     /// El CSS de la plantilla, ya reescrito para aplicar solo a sus elementos.
     pub css: String,
+    /// Las declaraciones de sus plantillas —`_$t0 = _$tpl(…)`—, que van una
+    /// vez arriba del archivo.
+    pub plantillas: Vec<String>,
 }
 
 /// Genera la expresión que construye la plantilla.
@@ -48,7 +54,7 @@ pub struct Generado {
 /// recibe el atributo correspondiente**. El CSS sale por separado: no queda
 /// nada de estilos en tiempo de ejecución.
 #[must_use]
-pub fn generar(plantilla: &Plantilla) -> Generado {
+pub fn generar(plantilla: &Plantilla, desde: usize) -> Generado {
     let (scope, css) = if plantilla.css.trim().is_empty() {
         (None, String::new())
     } else {
@@ -64,6 +70,8 @@ pub fn generar(plantilla: &Plantilla) -> Generado {
         scope,
         origen: 0,
         espacio: None,
+        desde,
+        plantillas: Vec::new(),
     };
 
     let mut lineas = Vec::new();
@@ -76,6 +84,7 @@ pub fn generar(plantilla: &Plantilla) -> Generado {
         lineas,
         importes: generador.importes,
         css,
+        plantillas: generador.plantillas,
     }
 }
 
@@ -173,6 +182,9 @@ struct Generador {
     /// El espacio de nombres de lo que se está generando: SVG o MathML dentro
     /// de `<svg>` o `<math>`, `None` en HTML.
     espacio: Option<&'static str>,
+    /// Cuántas plantillas tiene ya el archivo: de aquí sigue la numeración.
+    desde: usize,
+    plantillas: Vec<String>,
 }
 
 impl Generador {
@@ -246,89 +258,236 @@ impl Generador {
         }
     }
 
+    /// Un elemento y todo lo fijo que cuelga de él, como **plantilla**.
+    ///
+    /// Lo que no cambia —etiquetas, atributos literales, textos— va a una
+    /// estructura que se declara una vez arriba del archivo, y cada uso es un
+    /// clon. Aquí queda solo lo dinámico: los eventos, los efectos y los hijos
+    /// que se añaden después, sobre los nodos que devuelve `cloneTemplate`.
     fn elemento(&mut self, elemento: &Elemento, lineas: &mut Vec<String>) -> String {
         self.origen = elemento.linea;
-        let variable = self.siguiente_variable();
-        let el = self.usar(ELEMENT);
         let espacio = espacio_de(&elemento.etiqueta, self.espacio);
-        let etiqueta = cadena(&elemento.etiqueta);
-        lineas.push(self.linea(&match espacio {
-            Some(espacio) => format!("const {variable} = {el}({etiqueta}, \"{espacio}\");"),
-            None => format!("const {variable} = {el}({etiqueta});"),
-        }));
+        let variable = self.siguiente_variable();
+        // El número se reserva antes de recorrer los hijos: las plantillas de
+        // dentro van después, en el orden en que se leen.
+        let indice = self.plantillas.len();
+        self.plantillas.push(String::new());
 
-        if let Some(scope) = self.scope.clone() {
-            let sattr = self.usar(STATIC_ATTRIBUTE);
-            let nombre = cadena(&scope);
-            lineas.push(self.linea(&format!("{sattr}({variable}, {nombre}, \"\");")));
+        let mut nodos: Vec<(Vec<usize>, String, String)> = Vec::new();
+        let mut operaciones: Vec<String> = Vec::new();
+        let mut camino = Vec::new();
+        let estructura = self.estructura(
+            elemento,
+            espacio,
+            &mut camino,
+            Some(variable.clone()),
+            &mut nodos,
+            &mut operaciones,
+        );
+
+        let nombre = format!("_$t{}", self.desde + indice);
+        let caminos: Vec<String> = nodos
+            .iter()
+            .map(|(camino, _, _)| {
+                let pasos: Vec<String> = camino.iter().map(ToString::to_string).collect();
+                format!("[{}]", pasos.join(","))
+            })
+            .collect();
+        let tipos: Vec<String> = nodos.iter().map(|(_, tipo, _)| cadena(tipo)).collect();
+        let tpl = self.usar(TEMPLATE);
+        let rutas: Vec<Vec<usize>> = nodos.iter().map(|(camino, _, _)| camino.clone()).collect();
+        self.plantillas[indice] = format!(
+            "{nombre} = {tpl}({estructura}, [{}], [{}], {})",
+            caminos.join(","),
+            tipos.join(","),
+            recorrido(&rutas)
+        );
+
+        let clon = self.usar(CLONE);
+        let variables: Vec<&str> = nodos.iter().map(|(_, _, v)| v.as_str()).collect();
+        self.origen = elemento.linea;
+        lineas.push(self.linea(&format!(
+            "const [{}] = {clon}({nombre});",
+            variables.join(", ")
+        )));
+        lineas.append(&mut operaciones);
+        variable
+    }
+
+    /// La estructura fija de un elemento, como literal de JavaScript. Apunta en
+    /// `nodos` los que el código necesita —con su camino desde la raíz, su tipo
+    /// y su variable— y en `operaciones`, lo que hay que hacer con ellos.
+    fn estructura(
+        &mut self,
+        elemento: &Elemento,
+        espacio: Option<&'static str>,
+        camino: &mut Vec<usize>,
+        variable: Option<String>,
+        nodos: &mut Vec<(Vec<usize>, String, String)>,
+        operaciones: &mut Vec<String>,
+    ) -> String {
+        self.origen = elemento.linea;
+
+        // Con un componente, un `<Show>` o un `<For>` entre los hijos, los hijos
+        // se añaden en orden desde el código, como siempre: la plantilla lleva
+        // el elemento vacío. Los textos con hueco sí van en la plantilla, como
+        // un nodo vacío que se escribe después.
+        let secuencial = elemento
+            .hijos
+            .iter()
+            .any(|hijo| matches!(hijo, Nodo::Componente(_)));
+        let dinamico = elemento
+            .atributos
+            .iter()
+            .any(|atributo| !matches!(atributo.valor, Valor::Literal(_)));
+
+        let variable = if variable.is_some() || dinamico || secuencial {
+            let variable = variable.unwrap_or_else(|| self.siguiente_variable());
+            let tipo = if espacio.is_some() {
+                String::new()
+            } else {
+                elemento.etiqueta.clone()
+            };
+            nodos.push((camino.clone(), tipo, variable.clone()));
+            Some(variable)
+        } else {
+            None
+        };
+
+        let mut atributos: Vec<String> = Vec::new();
+        if let Some(scope) = &self.scope {
+            atributos.push(cadena(scope));
+            atributos.push("\"\"".to_string());
         }
-
         for atributo in &elemento.atributos {
             self.origen = atributo.linea;
-            let nombre = cadena(&atributo.nombre);
-            let texto = match &atributo.valor {
-                Valor::Literal(valor) => {
-                    let sattr = self.usar(STATIC_ATTRIBUTE);
-                    format!("{sattr}({variable}, {nombre}, {});", cadena(valor))
-                }
-                Valor::Estatico(expresion) => {
-                    let sattr = self.usar(STATIC_ATTRIBUTE);
-                    let expresion = self.sangrar(expresion);
-                    format!("{sattr}({variable}, {nombre}, {expresion});")
-                }
-                Valor::Dinamico(expresion) => {
-                    let attr = self.usar(ATTRIBUTE);
-                    let expresion = self.sangrar(expresion);
-                    format!("{attr}({variable}, {nombre}, {expresion});")
-                }
-                Valor::Propiedad(expresion) => {
-                    // La regla de siempre: una closure sigue al signal, y
-                    // cualquier otra expresión se escribe una vez. Sin closure
-                    // no hace falta ni un efecto ni una llamada al runtime.
-                    let sangrada = self.sangrar(expresion);
-                    if crate::plantilla::es_closure(expresion) {
-                        let prop = self.usar(PROPERTY);
-                        format!("{prop}({variable}, {nombre}, {sangrada});")
-                    } else {
-                        format!("{variable}[{nombre}] = {sangrada};")
-                    }
-                }
-                Valor::Clase(expresion) => {
-                    let sangrada = self.sangrar(expresion);
-                    if crate::plantilla::es_closure(expresion) {
-                        let clase = self.usar(CSS_CLASS);
-                        format!("{clase}({variable}, {nombre}, {sangrada});")
-                    } else {
-                        // Sin closure se decide una vez, al construir, y no
-                        // hace falta nada del runtime.
-                        format!("{variable}.classList.toggle({nombre}, Boolean({sangrada}));")
-                    }
-                }
-                Valor::Enlace(expresion) => {
-                    let bind = self.usar(BIND);
-                    let sangrada = self.sangrar(expresion);
-                    format!("{bind}({variable}, {nombre}, {sangrada});")
-                }
-                Valor::Referencia(expresion) => {
-                    // Quedarse con el nodo es una llamada y ya.
-                    let sangrada = self.sangrar(expresion);
-                    format!("({sangrada})({variable});")
-                }
-                Valor::Evento { evento, manejador } => {
-                    let on = self.usar(ON);
-                    let manejador = self.sangrar(manejador);
-                    format!("{on}({variable}, {}, {manejador});", cadena(evento))
-                }
-            };
-            lineas.push(self.linea(&texto));
+            if let Valor::Literal(valor) = &atributo.valor {
+                atributos.push(cadena(&atributo.nombre));
+                atributos.push(cadena(valor));
+            } else if let Some(variable) = &variable {
+                let texto = self.operacion_atributo(variable, atributo);
+                operaciones.push(self.linea(&texto));
+            }
         }
 
         // Lo que va dentro de `<foreignObject>` vuelve a ser HTML.
-        let anterior = self.espacio;
-        self.espacio = espacio.filter(|_| elemento.etiqueta != "foreignObject");
-        self.hijos(&elemento.hijos, &variable, lineas);
-        self.espacio = anterior;
-        variable
+        let de_los_hijos = espacio.filter(|_| elemento.etiqueta != "foreignObject");
+        let hijos = if secuencial {
+            let variable = variable.clone().unwrap_or_default();
+            let anterior = self.espacio;
+            self.espacio = de_los_hijos;
+            self.hijos(&elemento.hijos, &variable, operaciones);
+            self.espacio = anterior;
+            "0".to_string()
+        } else if elemento.hijos.is_empty() {
+            "0".to_string()
+        } else {
+            let mut partes = Vec::new();
+            for (indice, hijo) in elemento.hijos.iter().enumerate() {
+                camino.push(indice);
+                match hijo {
+                    Nodo::Texto(texto) => partes.push(cadena(texto)),
+                    Nodo::Estatico(expresion) | Nodo::Dinamico(expresion) => {
+                        // `<a>${texto}</a>`: el texto va en la plantilla,
+                        // vacío, y se escribe sobre él. Ni crearlo ni
+                        // insertarlo.
+                        let texto = self.siguiente_variable();
+                        nodos.push((camino.clone(), "#text".to_string(), texto.clone()));
+                        self.origen = elemento.linea;
+                        let linea = if matches!(hijo, Nodo::Estatico(_)) {
+                            let set = self.usar(SET_TEXT);
+                            format!("{set}({texto}, {});", self.sangrar(expresion))
+                        } else {
+                            let bind = self.usar(BIND_TEXT);
+                            format!("{bind}({texto}, {});", self.sangrar(expresion))
+                        };
+                        operaciones.push(self.linea(&linea));
+                        partes.push("\"\"".to_string());
+                    }
+                    Nodo::Elemento(hijo) => {
+                        let suyo = espacio_de(&hijo.etiqueta, de_los_hijos);
+                        partes.push(self.estructura(hijo, suyo, camino, None, nodos, operaciones));
+                    }
+                    Nodo::Componente(_) => unreachable!("con un componente es secuencial"),
+                }
+                camino.pop();
+            }
+            format!("[{}]", partes.join(","))
+        };
+
+        let atributos = if atributos.is_empty() {
+            "0".to_string()
+        } else {
+            format!("[{}]", atributos.join(","))
+        };
+        let espacio = match espacio {
+            Some(SVG) => ",1",
+            Some(_) => ",2",
+            None => "",
+        };
+        format!(
+            "[{},{atributos},{hijos}{espacio}]",
+            cadena(&elemento.etiqueta)
+        )
+    }
+
+    /// Lo que hace un atributo que no es literal, sobre el nodo `variable`.
+    fn operacion_atributo(&mut self, variable: &str, atributo: &Atributo) -> String {
+        let nombre = cadena(&atributo.nombre);
+        match &atributo.valor {
+            Valor::Literal(valor) => {
+                let sattr = self.usar(STATIC_ATTRIBUTE);
+                format!("{sattr}({variable}, {nombre}, {});", cadena(valor))
+            }
+            Valor::Estatico(expresion) => {
+                let sattr = self.usar(STATIC_ATTRIBUTE);
+                let expresion = self.sangrar(expresion);
+                format!("{sattr}({variable}, {nombre}, {expresion});")
+            }
+            Valor::Dinamico(expresion) => {
+                let attr = self.usar(ATTRIBUTE);
+                let expresion = self.sangrar(expresion);
+                format!("{attr}({variable}, {nombre}, {expresion});")
+            }
+            Valor::Propiedad(expresion) => {
+                // La regla de siempre: una closure sigue al signal, y
+                // cualquier otra expresión se escribe una vez. Sin closure
+                // no hace falta ni un efecto ni una llamada al runtime.
+                let sangrada = self.sangrar(expresion);
+                if crate::plantilla::es_closure(expresion) {
+                    let prop = self.usar(PROPERTY);
+                    format!("{prop}({variable}, {nombre}, {sangrada});")
+                } else {
+                    format!("{variable}[{nombre}] = {sangrada};")
+                }
+            }
+            Valor::Clase(expresion) => {
+                let sangrada = self.sangrar(expresion);
+                if crate::plantilla::es_closure(expresion) {
+                    let clase = self.usar(CSS_CLASS);
+                    format!("{clase}({variable}, {nombre}, {sangrada});")
+                } else {
+                    // Sin closure se decide una vez, al construir, y no
+                    // hace falta nada del runtime.
+                    format!("{variable}.classList.toggle({nombre}, Boolean({sangrada}));")
+                }
+            }
+            Valor::Enlace(expresion) => {
+                let bind = self.usar(BIND);
+                let sangrada = self.sangrar(expresion);
+                format!("{bind}({variable}, {nombre}, {sangrada});")
+            }
+            Valor::Referencia(expresion) => {
+                // Quedarse con el nodo es una llamada y ya.
+                let sangrada = self.sangrar(expresion);
+                format!("({sangrada})({variable});")
+            }
+            Valor::Evento { evento, manejador } => {
+                let on = self.usar(ON);
+                let manejador = self.sangrar(manejador);
+                format!("{on}({variable}, {}, {manejador});", cadena(evento))
+            }
+        }
     }
 
     /// Añade los hijos a su padre.
@@ -551,6 +710,62 @@ impl Generador {
     }
 }
 
+/// La función que va de la raíz clonada a los nodos que el código necesita,
+/// con `firstChild` y `nextSibling` directos: lo que hace `cloneTemplate`
+/// con los caminos, sin bucles ni arrays intermedios. Cada nodo intermedio
+/// se guarda una vez y los siguientes siguen desde él.
+fn recorrido(caminos: &[Vec<usize>]) -> String {
+    use std::collections::BTreeMap;
+
+    fn asegurar(
+        camino: &[usize],
+        conocidos: &mut BTreeMap<Vec<usize>, String>,
+        declaraciones: &mut Vec<String>,
+    ) -> String {
+        if let Some(variable) = conocidos.get(camino) {
+            return variable.clone();
+        }
+        let (padre, ultimo) = camino.split_at(camino.len() - 1);
+        let ultimo = ultimo[0];
+        let desde_padre = asegurar(padre, conocidos, declaraciones);
+        // El hermano anterior más cercano que ya se conoce, si lo hay.
+        let hermano = (0..ultimo).rev().find_map(|indice| {
+            let mut otro = padre.to_vec();
+            otro.push(indice);
+            conocidos
+                .get(&otro)
+                .map(|variable| (indice, variable.clone()))
+        });
+        let expresion = match hermano {
+            Some((indice, variable)) => {
+                format!("{variable}{}", ".nextSibling".repeat(ultimo - indice))
+            }
+            None => format!("{desde_padre}.firstChild{}", ".nextSibling".repeat(ultimo)),
+        };
+        let variable = format!("n{}", declaraciones.len());
+        declaraciones.push(format!("{variable} = {expresion}"));
+        conocidos.insert(camino.to_vec(), variable.clone());
+        variable
+    }
+
+    let mut conocidos: BTreeMap<Vec<usize>, String> = BTreeMap::new();
+    conocidos.insert(Vec::new(), "r".to_string());
+    let mut declaraciones = Vec::new();
+    let devueltos: Vec<String> = caminos
+        .iter()
+        .map(|camino| asegurar(camino, &mut conocidos, &mut declaraciones))
+        .collect();
+    if declaraciones.is_empty() {
+        format!("(r) => [{}]", devueltos.join(", "))
+    } else {
+        format!(
+            "(r) => {{ const {}; return [{}]; }}",
+            declaraciones.join(", "),
+            devueltos.join(", ")
+        )
+    }
+}
+
 /// Separa el contenido de un `<Show>` de su `<Else>`.
 fn particionar_ramas(hijos: &[Nodo]) -> (Vec<&Nodo>, Vec<&Nodo>) {
     let mut entonces = Vec::new();
@@ -622,38 +837,54 @@ mod tests {
     fn compilar(entrada: &str, expresiones: &[&str]) -> Generado {
         let expresiones: Vec<String> = expresiones.iter().map(|e| (*e).to_string()).collect();
         let plantilla = parsear(entrada, &expresiones).expect("debería parsear");
-        generar(&plantilla)
+        // Las plantillas delante, como en el archivo: los tests miran las dos cosas.
+        let mut generado = generar(&plantilla, 0);
+        generado.codigo = format!("{}\n{}", generado.plantillas.join("\n"), generado.codigo);
+        generado
+    }
+
+    #[test]
+    fn el_recorrido_va_directo_y_reutiliza_lo_que_ya_tiene() {
+        let caminos = vec![vec![], vec![0, 0], vec![1, 0], vec![1, 0, 0], vec![2, 0]];
+        assert_eq!(
+            recorrido(&caminos),
+            "(r) => { const n0 = r.firstChild, n1 = n0.firstChild, n2 = n0.nextSibling, \
+             n3 = n2.firstChild, n4 = n3.firstChild, n5 = n2.nextSibling, n6 = n5.firstChild; \
+             return [r, n1, n3, n4, n6]; }"
+        );
+        // Solo la raíz: ni declaraciones.
+        assert_eq!(recorrido(&[vec![]]), "(r) => [r]");
+        // Un hijo lejano sin hermanos conocidos: desde el primero.
+        assert_eq!(
+            recorrido(&[vec![], vec![3]]),
+            "(r) => { const n0 = r.firstChild.nextSibling.nextSibling.nextSibling; return [r, n0]; }"
+        );
     }
 
     #[test]
     fn un_elemento_con_texto() {
         let generado = compilar("<p>Hola</p>", &[]);
+        let codigo = &generado.codigo;
+        // Lo fijo va a la plantilla, y cada uso es un clon.
         assert!(
-            generado.codigo.contains("_$el(\"p\")"),
-            "{}",
-            generado.codigo
+            codigo.contains(r#"_$t0 = _$tpl(["p",0,["Hola"]], [[]], ["p"]"#),
+            "{codigo}"
         );
-        assert!(
-            generado.codigo.contains("_$txt(\"Hola\")"),
-            "{}",
-            generado.codigo
-        );
-        assert!(
-            generado.codigo.contains("_$add(_n0, _n1)"),
-            "{}",
-            generado.codigo
-        );
+        assert!(codigo.contains("const [_n0] = _$clone(_$t0);"), "{codigo}");
+        assert!(!codigo.contains("_$txt"), "{codigo}");
     }
 
     #[test]
     fn una_closure_produce_un_binding_reactivo() {
         let entrada = format!("<p>{ABRE}0{CIERRA}</p>");
         let generado = compilar(&entrada, &["() => count()"]);
+        let codigo = &generado.codigo;
+        // El texto va vacío en la plantilla, y el efecto escribe sobre él.
         assert!(
-            generado.codigo.contains("_$dtxt(() => count())"),
-            "{}",
-            generado.codigo
+            codigo.contains(r##"_$tpl(["p",0,[""]], [[],[0]], ["p","#text"]"##),
+            "{codigo}"
         );
+        assert!(codigo.contains("_$bindtxt(_n1, () => count())"), "{codigo}");
     }
 
     #[test]
@@ -661,11 +892,15 @@ mod tests {
         let entrada = format!("<p>{ABRE}0{CIERRA}</p>");
         let generado = compilar(&entrada, &["count()"]);
         assert!(
-            generado.codigo.contains("_$stxt(count())"),
+            generado.codigo.contains("_$settxt(_n1, count())"),
             "{}",
             generado.codigo
         );
-        assert!(!generado.codigo.contains("_$dtxt"), "{}", generado.codigo);
+        assert!(
+            !generado.codigo.contains("_$bindtxt"),
+            "{}",
+            generado.codigo
+        );
     }
 
     #[test]
@@ -767,7 +1002,9 @@ mod tests {
         let codigo = &generado.codigo;
         // La receta recibe el padre y construye dentro: no son nodos sueltos.
         assert!(codigo.contains("children: (_p"), "{codigo}");
-        assert!(codigo.contains("_$el(\"p\")"), "{codigo}");
+        assert!(codigo.contains(r#"_$tpl(["p",0,["dentro"]]"#), "{codigo}");
+        // Con un componente dentro, el `<div>` va vacío y sus hijos, en orden.
+        assert!(codigo.contains(r#"_$tpl(["div",0,0]"#), "{codigo}");
     }
 
     #[test]
@@ -782,7 +1019,9 @@ mod tests {
         assert!(codigo.contains(") : (() => {"), "{codigo}");
         // Las dos ramas se construyen dentro de su función: la que no se
         // muestra no existe todavía.
-        assert_eq!(codigo.matches("_$el(\"p\")").count(), 2, "{codigo}");
+        assert_eq!(codigo.matches("_$clone(").count(), 3, "{codigo}");
+        assert!(codigo.contains(r#"["p",0,["sí"]]"#), "{codigo}");
+        assert!(codigo.contains(r#"["p",0,["no"]]"#), "{codigo}");
     }
 
     #[test]
@@ -797,7 +1036,7 @@ mod tests {
         let entrada = format!("<div><Show when={ABRE}0{CIERRA}><p>uno</p><p>dos</p></Show></div>");
         let generado = compilar(&entrada, &["() => activo()"]);
         assert!(
-            generado.codigo.contains("return [_n2, _n4];"),
+            generado.codigo.contains("return [_n2, _n3];"),
             "{}",
             generado.codigo
         );
@@ -859,20 +1098,16 @@ mod tests {
     fn una_clase_reactiva_no_pisa_las_demas() {
         let entrada = format!("<li class=\"fila\" class:activa={ABRE}0{CIERRA}>x</li>");
         let generado = compilar(&entrada, &["() => seleccionada()"]);
+        let codigo = &generado.codigo;
 
+        // El `class` literal va en la plantilla; la clase reactiva, aparte.
         assert!(
-            generado
-                .codigo
-                .contains("_$sattr(_n0, \"class\", \"fila\")"),
-            "{}",
-            generado.codigo
+            codigo.contains(r#"["li",["class","fila"],["x"]]"#),
+            "{codigo}"
         );
         assert!(
-            generado
-                .codigo
-                .contains("_$class(_n0, \"activa\", () => seleccionada())"),
-            "{}",
-            generado.codigo
+            codigo.contains("_$class(_n0, \"activa\", () => seleccionada())"),
+            "{codigo}"
         );
     }
 
@@ -920,7 +1155,7 @@ mod tests {
                 .iter()
                 .map(|(n, _)| *n)
                 .collect::<Vec<_>>(),
-            vec!["element"]
+            vec!["cloneTemplate", "template"]
         );
     }
 
@@ -931,19 +1166,16 @@ mod tests {
             &[],
         );
         let codigo = &generado.codigo;
-        let svg = "\"http://www.w3.org/2000/svg\"";
 
-        assert!(codigo.contains("_$el(\"div\");"), "{codigo}");
-        for etiqueta in ["svg", "linearGradient", "stop", "circle"] {
-            assert!(
-                codigo.contains(&format!("_$el(\"{etiqueta}\", {svg})")),
-                "{codigo}"
-            );
-        }
-        // Las mayúsculas de los atributos también cuentan en SVG.
-        assert!(codigo.contains("\"viewBox\""), "{codigo}");
+        // El `1` del final es SVG; sin él, HTML. Las mayúsculas de las
+        // etiquetas y los atributos se conservan.
+        assert!(
+            codigo.contains(r#"["svg",["viewBox","0 0 10 10"],[["linearGradient",["id","g"],[["stop",0,0,1]],1],["circle",["r","4"],0,1]],1]"#),
+            "{codigo}"
+        );
         // Al cerrar el `<svg>` se vuelve al HTML.
-        assert!(codigo.contains("_$el(\"p\");"), "{codigo}");
+        assert!(codigo.contains(r#"["p",0,["x"]]"#), "{codigo}");
+        assert!(codigo.contains(r#"_$tpl(["div",0,"#), "{codigo}");
     }
 
     #[test]
@@ -951,10 +1183,9 @@ mod tests {
         let generado = compilar("<svg><foreignObject><p>x</p></foreignObject></svg>", &[]);
         let codigo = &generado.codigo;
         assert!(
-            codigo.contains("_$el(\"foreignObject\", \"http://www.w3.org/2000/svg\")"),
+            codigo.contains(r#"["foreignObject",0,[["p",0,["x"]]],1]"#),
             "{codigo}"
         );
-        assert!(codigo.contains("_$el(\"p\");"), "{codigo}");
     }
 
     #[test]
@@ -963,7 +1194,7 @@ mod tests {
         let generado = compilar(&entrada, &["() => visible()"]);
         let codigo = &generado.codigo;
         assert!(
-            codigo.contains("_$el(\"circle\", \"http://www.w3.org/2000/svg\")"),
+            codigo.contains(r#"_$tpl(["circle",0,0,1], [[]], [""]"#),
             "{codigo}"
         );
     }
@@ -973,16 +1204,14 @@ mod tests {
         // Un componente que devuelve un `<g>` para el `<svg>` de otro.
         let generado = compilar("<g><path d=\"M0 0\"/><feGaussianBlur/></g>", &[]);
         let codigo = &generado.codigo;
-        for etiqueta in ["g", "path", "feGaussianBlur"] {
-            assert!(
-                codigo.contains(&format!(
-                    "_$el(\"{etiqueta}\", \"http://www.w3.org/2000/svg\")"
-                )),
-                "{codigo}"
-            );
-        }
+        assert!(
+            codigo.contains(r#"["g",0,[["path",["d","M0 0"],0,1],["feGaussianBlur",0,0,1]],1]"#),
+            "{codigo}"
+        );
         // Lo que también existe en HTML se queda en HTML.
-        assert!(compilar("<a>x</a>", &[]).codigo.contains("_$el(\"a\");"));
+        assert!(compilar("<a>x</a>", &[])
+            .codigo
+            .contains(r#"["a",0,["x"]]"#));
     }
 
     #[test]
@@ -991,7 +1220,7 @@ mod tests {
         assert!(
             generado
                 .codigo
-                .contains("_$el(\"mi\", \"http://www.w3.org/1998/Math/MathML\")"),
+                .contains(r#"["math",0,[["mi",0,["x"],2]],2]"#),
             "{}",
             generado.codigo
         );

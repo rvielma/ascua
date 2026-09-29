@@ -1,6 +1,6 @@
 # ascua
 
-Reactividad fine-grained y operaciones directas de DOM, en **2,25 kB gzip** y sin
+Reactividad fine-grained y operaciones directas de DOM, en **3,62 kB gzip** y sin
 dependencias. Es el runtime de [Ascua](https://ascua.gitweave.run), y también
 una librería de signals que se puede usar sola.
 
@@ -81,7 +81,7 @@ si el servidor mandó otra cosa, la isla se queda estática y la consola dice qu
 campo falló. `island` es la pieza de debajo, sin esquema, para quien quiera
 otro formato.
 
-`hydrate` e `island` suben el runtime a 3,05 kB, y `defineIsland` unos 0,75 kB
+`hydrate` e `island` suben el runtime a 4,59 kB, y `defineIsland` unos 0,75 kB
 más; lo que no se importa, el tree-shaking se lo lleva. Está explicado en la
 [documentación](https://ascua.gitweave.run/docs/ssr/).
 

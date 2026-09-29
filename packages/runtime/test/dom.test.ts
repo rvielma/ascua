@@ -8,7 +8,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { append, attribute, dynamicText, element, list, mount, on, show, text } from "../src/dom.js";
+import { append, attribute, cloneTemplate, dynamicText, element, list, mount, on, show, template, text } from "../src/dom.js";
 import { currentScope, onCleanup, root, signal } from "../src/reactivo.js";
 
 function escenario(): HTMLElement {
@@ -414,12 +414,13 @@ describe("memoria", () => {
   });
 
   it("un listener se quita si el nodo sigue en el documento, y no si ya salió", () => {
-    const dentro = element("button");
-    const fuera = element("button");
+    // `scroll` no sube por el árbol: va con `addEventListener`.
+    const dentro = element("div");
+    const fuera = element("div");
     document.body.append(dentro, fuera);
     const [, liberar] = root(() => {
-      on(dentro, "click", () => {});
-      on(fuera, "click", () => {});
+      on(dentro, "scroll", () => {});
+      on(fuera, "scroll", () => {});
     });
     const quitarDentro = vi.spyOn(dentro, "removeEventListener");
     const quitarFuera = vi.spyOn(fuera, "removeEventListener");
@@ -430,5 +431,151 @@ describe("memoria", () => {
     expect(quitarFuera).not.toHaveBeenCalled();
     dentro.remove();
   });
+
+  it("un delegado se apaga al liberar si el nodo sigue en el documento", () => {
+    const boton = element("button");
+    document.body.append(boton);
+    const pulsado = vi.fn();
+    const [, liberar] = root(() => on(boton, "click", pulsado));
+
+    boton.click();
+    expect(pulsado).toHaveBeenCalledTimes(1);
+    liberar();
+    boton.click();
+    expect(pulsado).toHaveBeenCalledTimes(1);
+    boton.remove();
+  });
 });
 
+
+describe("template y cloneTemplate", () => {
+  // <tr><td>·</td><td><a>·</a></td><td><a><span></span></a></td><td></td></tr>
+  const fila = template(
+    [
+      "tr",
+      0,
+      [
+        ["td", ["class", "uno"], [""]],
+        ["td", 0, [["a", ["class", "lbl"], [""]]]],
+        ["td", 0, [["a", ["class", "remove"], [["span", ["aria-hidden", "true"], 0]]]]],
+        ["td", 0, 0],
+      ],
+    ],
+    [[], [0, 0], [1, 0], [1, 0, 0], [2, 0], [2, 0, 0], [3]],
+    ["tr", "#text", "a", "#text", "a", "span", "td"],
+  );
+
+  it("devuelve los nodos de cada camino, en orden", () => {
+    const [tr, texto1, lbl, texto2, remove, span, ultima] = cloneTemplate(fila);
+    expect(tr.outerHTML).toBe(
+      '<tr><td class="uno"></td><td><a class="lbl"></a></td><td><a class="remove"><span aria-hidden="true"></span></a></td><td></td></tr>',
+    );
+    expect(texto1).toBe(tr.firstChild!.firstChild);
+    expect(texto1.nodeType).toBe(3);
+    expect(lbl.className).toBe("lbl");
+    expect(texto2).toBe(lbl.firstChild);
+    expect(remove.className).toBe("remove");
+    expect(span.localName).toBe("span");
+    expect(ultima).toBe(tr.lastChild);
+  });
+
+  it("cada clon es un árbol nuevo", () => {
+    const [a] = cloneTemplate(fila);
+    const [b] = cloneTemplate(fila);
+    expect(a).not.toBe(b);
+    expect(a.isEqualNode(b)).toBe(true);
+  });
+
+  it("lo de SVG se crea en su espacio", () => {
+    const dibujo = template(["svg", ["viewBox", "0 0 4 4"], [["circle", ["r", "2"], 0, 1]], 1], [[], [0]], ["", ""]);
+    const [svg, circulo] = cloneTemplate(dibujo);
+    expect(svg.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(circulo.namespaceURI).toBe("http://www.w3.org/2000/svg");
+    expect(svg.getAttribute("viewBox")).toBe("0 0 4 4");
+  });
+});
+
+describe("list, al intercambiar", () => {
+  function montarLista(inicial: number[]) {
+    const items = signal(inicial);
+    const raiz = element("ul");
+    const [, liberar] = root(() =>
+      list(raiz, () => items(), (n) => n, (n) => {
+        const li = element("li");
+        append(li, text(String(n)));
+        return li;
+      }),
+    );
+    const textos = () => [...raiz.querySelectorAll("li")].map((li) => li.textContent);
+    return { items, raiz, textos, liberar };
+  }
+
+  it("dos separadas: cambian de sitio y son los mismos nodos", () => {
+    const { items, raiz, textos } = montarLista([1, 2, 3, 4, 5]);
+    const [, dos, , cuatro] = [...raiz.querySelectorAll("li")];
+    items.set([1, 4, 3, 2, 5]);
+    expect(textos()).toEqual(["1", "4", "3", "2", "5"]);
+    const despues = [...raiz.querySelectorAll("li")];
+    expect(despues[1]).toBe(cuatro);
+    expect(despues[3]).toBe(dos);
+  });
+
+  it("dos contiguas, y en los extremos", () => {
+    const { items, textos } = montarLista([1, 2, 3]);
+    items.set([2, 1, 3]);
+    expect(textos()).toEqual(["2", "1", "3"]);
+    items.set([3, 1, 2]);
+    expect(textos()).toEqual(["3", "1", "2"]);
+    items.set([2, 1, 3]);
+    expect(textos()).toEqual(["2", "1", "3"]);
+  });
+});
+
+describe("eventos delegados", () => {
+  it("currentTarget es el nodo del manejador, y stopPropagation corta la subida", () => {
+    const fuera = element("div");
+    const dentro = element("button");
+    append(fuera, dentro);
+    document.body.append(fuera);
+    const vistos: string[] = [];
+    root(() => {
+      on(fuera, "click", (e) => vistos.push(`fuera:${(e.currentTarget as Element).localName}`));
+      on(dentro, "click", (e) => vistos.push(`dentro:${(e.currentTarget as Element).localName}`));
+    });
+
+    dentro.click();
+    expect(vistos).toEqual(["dentro:button", "fuera:div"]);
+
+    vistos.length = 0;
+    root(() => on(dentro, "click", (e) => e.stopPropagation()));
+    dentro.click();
+    // Los dos de `dentro` corren; el de `fuera`, no.
+    expect(vistos).toEqual(["dentro:button"]);
+    fuera.remove();
+  });
+
+  it("un árbol montado fuera del documento también recibe sus eventos", () => {
+    const raiz = element("div");
+    const pulsado = vi.fn();
+    mount(raiz, () => {
+      const boton = element("button");
+      on(boton, "click", pulsado);
+      return boton;
+    });
+    raiz.querySelector("button")!.click();
+    expect(pulsado).toHaveBeenCalledTimes(1);
+  });
+
+  it("dos manejadores del mismo evento en el mismo nodo corren los dos", () => {
+    const campo = element("input");
+    document.body.append(campo);
+    const orden: number[] = [];
+    root(() => {
+      on(campo, "input", () => orden.push(1));
+      on(campo, "input", () => orden.push(2));
+    });
+    campo.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(orden).toEqual([1, 2]);
+    campo.remove();
+  });
+});

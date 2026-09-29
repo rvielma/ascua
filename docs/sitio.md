@@ -27,7 +27,7 @@ están en `web/rutas/docs/`, con su esqueleto en `web/docs/esqueleto.html`, y
 el índice de búsqueda es una ruta-archivo, `busqueda.js.ts`.
 
 Fuera, a propósito: Server Components, un runtime de servidor y un bundler
-propio. El runtime del navegador no cambia: sigue siendo el de 2,25 kB.
+propio. El runtime del navegador no cambia: sigue siendo el de 3,62 kB.
 
 ## Convenciones
 

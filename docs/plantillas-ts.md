@@ -303,8 +303,8 @@ flowchart LR
     escaner --> parser["Parser de plantillas"]
     parser --> ast["AST<br/>Elemento · Texto · Estático · Dinámico<br/>Componente"]
     ast --> codegen[Codegen]
-    codegen --> estat["element · text · append"]
-    codegen --> dinam["dynamicText · attribute · property · on<br/>= un efecto cada uno"]
+    codegen --> estat["template · cloneTemplate<br/>lo fijo, clonado"]
+    codegen --> dinam["bindText · attribute · property · on<br/>= un efecto cada uno"]
     codegen --> flujo["show · list"]
     codegen --> comp["Componente({ props })"]
     escaner -. "un view` dentro de un ${…}" .-> escaner
@@ -313,10 +313,17 @@ flowchart LR
 El resultado de `<p>${() => cuenta()}</p>` es literalmente:
 
 ```js
-const _n0 = _$el("p");
-const _n1 = _$dtxt(() => cuenta());
-_$add(_n0, _n1);
+// arriba del archivo, una vez
+const _$t0 = _$tpl(["p", 0, [""]], [[], [0]], ["p", "#text"],
+  (r) => { const n0 = r.firstChild; return [r, n0]; });
+
+const [_n0, _n1] = _$clone(_$t0);
+_$bindtxt(_n1, () => cuenta());
 ```
+
+Lo fijo va a una plantilla que se clona; el compilador genera también la
+función que va directa a los nodos que hacen falta. En el servidor y al
+hidratar, `cloneTemplate` construye la misma plantilla nodo a nodo.
 
 Se puede ver con `ascuac < archivo.ts`, o en el
 [playground](https://ascua.gitweave.run/playground/). Es una propiedad buscada:

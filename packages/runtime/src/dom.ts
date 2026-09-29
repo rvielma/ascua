@@ -10,7 +10,7 @@
  * esto sigue siendo una librería de signals con helpers de DOM.
  */
 
-import { currentScope, effect, memo, onCleanup, root, withScope } from "./reactivo.js";
+import { currentScope, effect, enRaizNueva, liberarScope, memo, onCleanup, registrarOyente, root, withScope, type Scope } from "./reactivo.js";
 
 /**
  * El contenido que recibe un componente.
@@ -199,6 +199,178 @@ function avanzar(estado: Hidratacion, padre: Node, nodo: Node): void {
   if (!cursor || cursor.compareDocumentPosition(nodo) & 4) estado.cursores.set(padre, nodo);
 }
 
+const SVG = "http://www.w3.org/2000/svg";
+const MATHML = "http://www.w3.org/1998/Math/MathML";
+
+/**
+ * La parte fija de una plantilla, tal como la emite el compilador: un texto, o
+ * `[etiqueta, atributos, hijos, espacio]`, con los atributos en pares
+ * `[nombre, valor, …]`, `0` donde no hay, y el espacio `1` para SVG y `2` para
+ * MathML.
+ */
+export type TemplateStructure =
+  | string
+  | readonly [etiqueta: string, atributos: readonly string[] | 0, hijos: readonly TemplateStructure[] | 0, espacio?: 1 | 2];
+
+/** El tipo del nodo que corresponde a cada etiqueta de `template`. */
+type NodoDe<E> = E extends "#text"
+  ? Text
+  : E extends ""
+    ? Element
+    : E extends keyof HTMLElementTagNameMap
+      ? HTMLElementTagNameMap[E]
+      : HTMLElement;
+
+/** Los nodos de una plantilla clonada, con su tipo. */
+export type TemplateNodes<T extends readonly string[]> = { -readonly [I in keyof T]: NodoDe<T[I]> };
+
+/** Una plantilla ya preparada. Ver `template`. */
+export interface Template<T extends readonly string[] = readonly string[]> {
+  readonly estructura: TemplateStructure;
+  readonly caminos: readonly (readonly number[])[];
+  /** Lo mismo que `caminos`, como código: `firstChild` y `nextSibling` directos. */
+  readonly recorrer: ((raiz: any) => Node[]) | null;
+  /** El árbol que se clona, construido la primera vez que hace falta. */
+  prototipo: Node | null;
+  /** Solo para el tipo: lo que devuelve `cloneTemplate`. */
+  readonly tipos?: T;
+}
+
+/**
+ * La parte fija de una plantilla, para construirla clonando.
+ *
+ * El compilador la emite una vez por plantilla, arriba del archivo:
+ * `estructura` es todo lo que no cambia —etiquetas, atributos literales,
+ * textos—, `caminos` dice dónde están los nodos que el código necesita
+ * —los que llevan un evento, un efecto o hijos que se añaden después— y
+ * `tipos` es su etiqueta, para que TypeScript los conozca.
+ */
+export function template<const T extends readonly string[]>(
+  estructura: TemplateStructure,
+  caminos: readonly (readonly number[])[],
+  tipos: T,
+  // `any` a propósito: el compilador escribe `r.firstChild.nextSibling` sin
+  // `!`, que en un archivo .js no se puede.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  recorrer: ((raiz: any) => Node[]) | null = null,
+): Template<T> {
+  void tipos;
+  return { estructura, caminos, recorrer, prototipo: null };
+}
+
+/**
+ * Construye una plantilla y devuelve sus nodos señalados, en orden.
+ *
+ * En el navegador **clona**: el árbol fijo se construye una vez y cada uso es
+ * un `cloneNode(true)`, mucho más barato que crear los nodos uno a uno. El
+ * prototipo se hace con `createElement` y no con `innerHTML`, así que el
+ * parser de HTML no reordena nada —un `<tr>` suelto, un `<circle>`— y el
+ * árbol es exactamente el que describe la plantilla.
+ *
+ * En el servidor y al hidratar construye con las primitivas de siempre, en
+ * el mismo orden: son las que numeran y adoptan los nodos.
+ */
+export function cloneTemplate<T extends readonly string[]>(plantilla: Template<T>): TemplateNodes<T> {
+  if (documento || hidratando) return construirPlantilla(plantilla) as TemplateNodes<T>;
+
+  const raiz = (plantilla.prototipo ??= prototipo(plantilla.estructura)).cloneNode(true);
+  if (plantilla.recorrer) return plantilla.recorrer(raiz) as unknown as TemplateNodes<T>;
+  const caminos = plantilla.caminos;
+  const nodos = new Array<Node>(caminos.length);
+  // Los caminos vienen en orden de documento: cada uno sigue desde donde
+  // comparte tramo con el anterior, en vez de volver a bajar desde la raíz.
+  // `pila[j]` es el nodo al que se llegó en el nivel `j` del camino anterior.
+  const pila: Node[] = [raiz];
+  let anterior: readonly number[] = [];
+  for (let i = 0; i < caminos.length; i++) {
+    const camino = caminos[i]!;
+    let comun = 0;
+    while (comun < camino.length && comun < anterior.length && camino[comun] === anterior[comun]) comun++;
+    let nodo = pila[comun]!;
+    for (let j = comun; j < camino.length; j++) {
+      // Hermano del mismo nivel del camino anterior: basta con avanzar.
+      let k = camino[j]!;
+      if (j === comun && j < anterior.length && k > anterior[j]!) {
+        nodo = pila[j + 1]!;
+        k -= anterior[j]!;
+      } else {
+        nodo = nodo.firstChild!;
+      }
+      for (; k > 0; k--) nodo = nodo.nextSibling!;
+      pila[j + 1] = nodo;
+    }
+    nodos[i] = nodo;
+    anterior = camino;
+  }
+  return nodos as unknown as TemplateNodes<T>;
+}
+
+/**
+ * El documento donde viven los prototipos: el inerte de un `<template>`.
+ * Clonar lo que vive ahí cuesta menos de la mitad que clonar lo creado en el
+ * documento de la página —medido: 0,62 frente a 1,42 ms por mil filas—, y
+ * sigue saliendo a cuenta tras la adopción al insertarlo.
+ */
+let inerte: Document | null = null;
+
+function prototipo(estructura: TemplateStructure): Node {
+  const casa = (inerte ??= document.createElement("template").content.ownerDocument);
+  if (typeof estructura === "string") return casa.createTextNode(estructura);
+  const [etiqueta, atributos, hijos, espacio] = estructura;
+  const nodo = espacio
+    ? casa.createElementNS(espacio === 1 ? SVG : MATHML, etiqueta)
+    : casa.createElement(etiqueta);
+  if (atributos) for (let i = 0; i < atributos.length; i += 2) nodo.setAttribute(atributos[i]!, atributos[i + 1]!);
+  if (hijos) for (const hijo of hijos) nodo.appendChild(prototipo(hijo));
+  return nodo;
+}
+
+/** La plantilla construida nodo a nodo: en el servidor y al hidratar. */
+function construirPlantilla(plantilla: Template): Node[] {
+  const buscados = new Map<string, number>();
+  plantilla.caminos.forEach((camino, i) => buscados.set(camino.join(","), i));
+  const nodos = new Array<Node>(plantilla.caminos.length);
+
+  const construir = (estructura: TemplateStructure, camino: string): Node => {
+    let nodo: Node;
+    if (typeof estructura === "string") {
+      nodo = text(estructura);
+    } else {
+      const [etiqueta, atributos, hijos, espacio] = estructura;
+      const elemento = espacio ? element(etiqueta, espacio === 1 ? SVG : MATHML) : element(etiqueta);
+      if (atributos) {
+        for (let i = 0; i < atributos.length; i += 2) staticAttribute(elemento, atributos[i]!, atributos[i + 1]!);
+      }
+      if (hijos) {
+        hijos.forEach((hijo, i) => colocar(elemento, construir(hijo, camino ? `${camino},${i}` : String(i)), null));
+      }
+      nodo = elemento;
+    }
+    const indice = buscados.get(camino);
+    if (indice !== undefined) nodos[indice] = nodo;
+    return nodo;
+  };
+
+  construir(plantilla.estructura, "");
+  return nodos;
+}
+
+/**
+ * El texto de un `${expr}` que no es una closure, en un nodo que ya existe: el
+ * de la plantilla, cuando es el único hijo de su elemento. Como `staticText`,
+ * su tipo rechaza una función.
+ */
+export function setText<T>(nodo: Text, valor: T extends (...args: never[]) => unknown ? never : T): void {
+  nodo.data = String(valor);
+}
+
+/** `dynamicText` sobre un nodo que ya existe: el de la plantilla. */
+export function bindText(nodo: Text, calcular: () => unknown): void {
+  effect(() => {
+    nodo.data = formatear(calcular());
+  });
+}
+
 /**
  * Nodo de texto atado a una expresión.
  *
@@ -278,14 +450,96 @@ export function on<K extends keyof HTMLElementEventMap>(
 ): void;
 export function on(nodo: Element, evento: string, manejador: (evento: Event) => void): void;
 export function on(nodo: Element, evento: string, manejador: (evento: Event) => void): void {
+  if (!documento && DELEGADOS.has(evento)) {
+    // Delegado: el manejador queda en el nodo y un solo listener por tipo,
+    // en el documento, lo encuentra al subir. Crear mil filas no son dos mil
+    // `addEventListener`.
+    const clave = `$$${evento}`;
+    const propio = nodo as unknown as Record<string, ((evento: Event) => void) | undefined>;
+    const previo = propio[clave];
+    propio[clave] = previo
+      ? (e: Event) => {
+          previo.call(nodo, e);
+          manejador.call(nodo, e);
+        }
+      : manejador;
+    escucharEn(doc());
+    registrarOyente(nodo, clave, null);
+    return;
+  }
   nodo.addEventListener(evento, manejador);
-  // Si el nodo ya salió del documento —una fila que se vacía, una rama de
-  // <Show> que se cierra—, el recolector se lo lleva con su listener, y
-  // quitarlo uno a uno es trabajo para nada. Solo se quita si el nodo sigue
-  // ahí, como cuando se desmonta una isla y su HTML se queda.
-  onCleanup(() => {
-    if (nodo.isConnected) nodo.removeEventListener(evento, manejador);
-  });
+  // Se apunta en el scope, sin una closure por listener: una tabla de mil
+  // filas son dos mil. Al liberarlo, si el nodo ya salió del documento —una
+  // fila que se vacía, una rama de <Show> que se cierra—, el recolector se lo
+  // lleva con su listener; solo se quita si sigue ahí, como cuando se
+  // desmonta una isla y su HTML se queda.
+  registrarOyente(nodo, evento, manejador);
+}
+
+/**
+ * Los eventos que se delegan: los que suben por el árbol. Es la lista de
+ * Svelte, y la misma idea que Solid.
+ */
+const DELEGADOS = new Set([
+  "beforeinput",
+  "click",
+  "change",
+  "contextmenu",
+  "dblclick",
+  "focusin",
+  "focusout",
+  "input",
+  "keydown",
+  "keyup",
+  "mousedown",
+  "mousemove",
+  "mouseout",
+  "mouseover",
+  "mouseup",
+  "pointerdown",
+  "pointermove",
+  "pointerout",
+  "pointerover",
+  "pointerup",
+]);
+
+/** Dónde ya se escucha: el documento y los contenedores de `mount`. */
+const escuchados = new WeakSet<EventTarget>();
+/** Un evento ya repartido: si llega a otra raíz que escucha, no se repite. */
+const REPARTIDO = Symbol("ascua.repartido");
+
+/**
+ * Escucha los eventos delegados en `raiz`. En el documento basta para todo lo
+ * que está dentro; en el contenedor de `mount` cubre además un árbol que
+ * todavía no está en el documento.
+ */
+function escucharEn(raiz: EventTarget): void {
+  if (escuchados.has(raiz)) return;
+  escuchados.add(raiz);
+  for (const tipo of DELEGADOS) raiz.addEventListener(tipo, repartir);
+}
+
+/**
+ * Sube desde el nodo del evento y llama a los manejadores delegados que
+ * encuentre, como lo haría el navegador: `currentTarget` es el nodo de cada
+ * uno, y `stopPropagation` corta la subida.
+ */
+function repartir(evento: Event): void {
+  const marcado = evento as Event & { [REPARTIDO]?: true };
+  if (marcado[REPARTIDO]) return;
+  marcado[REPARTIDO] = true;
+  const clave = `$$${evento.type}`;
+  for (const nodo of evento.composedPath()) {
+    const manejador = (nodo as unknown as Record<string, ((evento: Event) => void) | undefined>)[clave];
+    if (!manejador) continue;
+    Object.defineProperty(evento, "currentTarget", { configurable: true, value: nodo });
+    try {
+      manejador.call(nodo, evento);
+    } finally {
+      delete (evento as unknown as Record<string, unknown>)["currentTarget"];
+    }
+    if (evento.cancelBubble) break;
+  }
 }
 
 /**
@@ -450,23 +704,26 @@ export function list<T, K>(
   const scope = currentScope();
 
   let orden: K[] = [];
-  const entradas = new Map<K, { nodo: Node; liberar: () => void }>();
+  // Cada fila: su nodo y su scope. Sin closure para liberarla: son miles.
+  const entradas = new Map<K, { nodo: Node; scope: Scope }>();
 
   effect(() => {
     const lista = items();
     const claves = lista.map(clave);
-    const presentes = new Set(claves);
+    // Si no había nada, no hay nada que quitar: ni conjunto que armar.
+    const presentes = orden.length > 0 ? new Set(claves) : null;
 
     // 1. Fuera los que ya no están: del árbol y del grafo reactivo.
     //
     // Si no sobrevive ninguno y la lista es lo único que hay en el padre —el
     // caso de vaciar una tabla o reemplazarla entera—, se borra de un golpe
     // en vez de nodo a nodo: una sola operación de DOM en lugar de mil.
-    const sobreviven = orden.some((k) => presentes.has(k));
-    if (!sobreviven && entradas.size > 0 && padre.childNodes.length === entradas.size + 1) {
+    if (!presentes) {
+      // Nada que quitar.
+    } else if (!orden.some((k) => presentes.has(k)) && padre.childNodes.length === entradas.size + 1) {
       padre.textContent = "";
       padre.appendChild(ancla);
-      for (const entrada of entradas.values()) entrada.liberar();
+      for (const entrada of entradas.values()) liberarScope(entrada.scope, true);
       entradas.clear();
       orden = [];
     } else {
@@ -475,21 +732,66 @@ export function list<T, K>(
         const entrada = entradas.get(vieja);
         if (!entrada) continue;
         (entrada.nodo as ChildNode).remove();
-        entrada.liberar();
+        liberarScope(entrada.scope, true);
         entradas.delete(vieja);
       }
       orden = orden.filter((k) => presentes.has(k));
     }
 
+    // Todas nuevas —la lista estaba vacía—: se construyen y entran en orden,
+    // sin calcular qué se queda quieto. Directo al padre y no a un
+    // fragmento: insertar el fragmento después cuesta lo mismo que insertar
+    // las filas, y llenarlo es trabajo de más.
+    if (orden.length === 0 && !hidratando && !documento) {
+      withScope(scope, () => {
+        for (let i = 0; i < lista.length; i++) {
+          const k = claves[i]!;
+          if (entradas.has(k)) continue;
+          const raiz = { nodo: null as Scope };
+          const nodo = enRaizNueva(construir, lista[i]!, raiz);
+          entradas.set(k, { nodo, scope: raiz.nodo });
+          padre.insertBefore(nodo, ancla);
+        }
+      });
+      orden = claves;
+      return;
+    }
+
     // 2. Construir los nuevos, cada uno en su propio scope.
+    let nuevas: Uint8Array | null = null;
     withScope(scope, () => {
       lista.forEach((item, indice) => {
         const k = claves[indice]!;
         if (entradas.has(k)) return;
-        const [nodo, liberar] = root(() => construir(item));
-        entradas.set(k, { nodo, liberar });
+        const raiz = { nodo: null as Scope };
+        const nodo = enRaizNueva(construir, item, raiz);
+        entradas.set(k, { nodo, scope: raiz.nodo });
+        (nuevas ??= new Uint8Array(claves.length))[indice] = 1;
       });
     });
+
+    // Lo más común después de crear: quitar una fila, añadir al final. Si las
+    // que sobreviven siguen en su orden, no se mueve ninguna y solo entran las
+    // nuevas: ni mapa de posiciones ni subsecuencia.
+    if (enElMismoOrden(claves, orden, nuevas)) {
+      if (nuevas) {
+        let siguiente: Node = ancla;
+        for (let i = claves.length - 1; i >= 0; i--) {
+          const nodo = entradas.get(claves[i]!)!.nodo;
+          if (nuevas[i]) colocar(padre, nodo, siguiente);
+          siguiente = nodo;
+        }
+      }
+      orden = claves;
+      return;
+    }
+
+    // Dos que cambian de sitio entre sí, con todo lo demás igual: se mueven
+    // esas dos y ya, sin mapa de posiciones ni subsecuencia.
+    if (!nuevas && intercambio(claves, orden, padre, entradas)) {
+      orden = claves;
+      return;
+    }
 
     // 3. Colocar moviendo lo mínimo.
     //
@@ -515,12 +817,54 @@ export function list<T, K>(
 }
 
 /**
+ * Si `claves` es `orden` con dos elementos intercambiados, los intercambia en
+ * el DOM y devuelve `true`. Se descartan primero el principio y el final que
+ * coinciden; lo que queda tiene que empezar y acabar cruzado, e igual en
+ * medio.
+ */
+function intercambio<K>(
+  claves: readonly K[],
+  orden: readonly K[],
+  padre: Node,
+  entradas: Map<K, { nodo: Node }>,
+): boolean {
+  if (claves.length !== orden.length) return false;
+  let inicio = 0;
+  let fin = claves.length - 1;
+  while (inicio < fin && claves[inicio] === orden[inicio]) inicio++;
+  while (fin > inicio && claves[fin] === orden[fin]) fin--;
+  if (inicio >= fin || claves[inicio] !== orden[fin] || claves[fin] !== orden[inicio]) return false;
+  for (let i = inicio + 1; i < fin; i++) if (claves[i] !== orden[i]) return false;
+
+  const primero = entradas.get(orden[inicio]!)!.nodo;
+  const ultimo = entradas.get(orden[fin]!)!.nodo;
+  const trasUltimo = ultimo.nextSibling;
+  colocar(padre, ultimo, primero);
+  colocar(padre, primero, trasUltimo);
+  return true;
+}
+
+/** ¿Las claves que ya estaban aparecen en `claves` en el mismo orden que en `orden`? */
+function enElMismoOrden<K>(claves: readonly K[], orden: readonly K[], nuevas: Uint8Array | null): boolean {
+  let j = 0;
+  for (let i = 0; i < claves.length; i++) {
+    if (nuevas && nuevas[i]) continue;
+    if (claves[i] !== orden[j]) return false;
+    j++;
+  }
+  return j === orden.length;
+}
+
+/**
  * Monta un árbol dentro de una raíz reactiva propia.
  *
  * Devuelve cómo desmontarlo: quita los nodos y libera todos los efectos que
  * los alimentaban.
  */
 export function mount(padre: Node, construir: () => Node): () => void {
+  // Por si `padre` todavía no está en el documento: los eventos delegados de
+  // dentro llegan a él aunque no lleguen más arriba.
+  if (!documento) escucharEn(padre);
   const [nodo, liberar] = root(construir);
   padre.appendChild(nodo);
   return () => {

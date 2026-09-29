@@ -72,7 +72,7 @@ describe("el código generado", () => {
   it("compila también las plantillas que van dentro de un hueco", () => {
     // El `render` del <For> lleva otra plantilla dentro.
     expect(compilado).not.toContain("view`");
-    expect(compilado).toContain('_$el("li")');
+    expect(compilado).toContain('_$tpl(["li",["class","tarea"]');
   });
 });
 
