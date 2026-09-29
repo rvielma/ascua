@@ -180,9 +180,9 @@ verificado en navegador real.
 | El router | 1,03 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
-En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,16×** el
-tiempo del DOM escrito a mano, cerca de Solid (1,06×) y muy por delante de React
-(1,92×). Método y datos crudos en [`benchmarks/`](benchmarks) y en
+En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,15×** el
+tiempo del DOM escrito a mano, a la par de Svelte (1,12×) y Solid (1,08×) y muy
+por delante de React (1,89×). Método y datos crudos en [`benchmarks/`](benchmarks) y en
 [la documentación](https://ascua.gitweave.run/docs/rendimiento/).
 
 ## Cómo está construido

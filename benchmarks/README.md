@@ -1,12 +1,12 @@
 # Benchmark
 
-Ascua frente a vanilla, Solid y React, en las operaciones de
+Ascua frente a vanilla, Solid, Svelte y React, en las operaciones de
 [js-framework-benchmark](https://github.com/krausest/js-framework-benchmark).
 Los resultados y el método están en
 [la documentación](https://ascua.gitweave.run/docs/rendimiento/).
 
 ```sh
-for d in vanilla ascua solid react; do
+for d in vanilla ascua solid svelte react; do
   (cd $d && stil install && stil exec vite build)
 done
 bash ../scripts/enlazar-paquetes.sh

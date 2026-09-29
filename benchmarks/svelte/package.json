@@ -1,7 +1,10 @@
 {
-  "name": "medida-svelte",
+  "name": "benchmark-svelte",
   "private": true,
   "type": "module",
+  "scripts": {
+    "build": "vite build"
+  },
   "devDependencies": {
     "vite": "^8.3.0",
     "svelte": "^5.57.0",

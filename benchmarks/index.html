@@ -10,7 +10,7 @@
 </style>
 </head>
 <body>
-<h1>Ascua frente a vanilla, Solid y React</h1>
+<h1>Ascua frente a vanilla, Solid, Svelte y React</h1>
 <p>
   Abre esta página servida (<code>python3 -m http.server 5191 --directory benchmarks</code>)
   y ejecuta <code>await correr()</code> en la consola, o pulsa el botón.
@@ -20,16 +20,16 @@
 <iframe id="marco" title="contendiente"></iframe>
 
 <script type="module">
-// La orquesta: los cuatro contendientes, intercalados, en la misma sesión.
+// La orquesta: los cinco contendientes, intercalados, en la misma sesión.
 //
 // La máquina cambia de velocidad mientras se mide —temperatura, lo que tenga
 // abierto—, y en esta máquina la diferencia entre dos pasadas seguidas llegó
 // al 30 %. Comparar pasadas distintas no vale. Por eso cada ronda mide a los
-// cuatro seguidos, rotando el orden, y cada tiempo se expresa como factor
+// cinco seguidos, rotando el orden, y cada tiempo se expresa como factor
 // sobre vanilla **de esa misma ronda**. La deriva afecta a todos por igual y
 // se cancela en el cociente.
 
-const CONTENDIENTES = ["vanilla", "ascua", "solid", "react"];
+const CONTENDIENTES = ["vanilla", "ascua", "solid", "svelte", "react"];
 const marco = document.getElementById("marco");
 const salida = document.getElementById("salida");
 
