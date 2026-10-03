@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publica los siete paquetes de Ascua en npm, en el orden en que dependen.
+# Publica los ocho paquetes de Ascua en npm, en el orden en que dependen.
 #
 # Antes de correrlo, una sola vez:
 #
@@ -74,7 +74,7 @@ publicar() {
   done
 }
 
-for paquete in compilador runtime router testing vite-plugin check ts-plugin; do
+for paquete in compilador runtime router testing security vite-plugin check ts-plugin; do
   publicar "$paquete"
 done
 

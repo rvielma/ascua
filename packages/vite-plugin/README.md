@@ -47,8 +47,18 @@ esqueleto HTML con `site: { shell }`.
 Con `ascua({ site: { mode: "server" } })`, el build deja el cliente en
 `dist/client/` y además `dist/server/index.mjs`, un servidor Node con todo
 dentro que renderiza en cada petición: `node dist/server/index.mjs` lo
-arranca, y el módulo exporta `serve(puerto)` y `handle(url)`, que devuelve
-`{ status, type, body }` para montarlo en otro servidor. Guía en
+arranca, y el módulo exporta `serve(puerto)` y `handle(peticion)`, que devuelve
+`{ status, type, headers, body }` para montarlo en otro servidor —acepta la
+URL o un `Request`—.
+
+Con servidor, una ruta recibe formularios exportando `actions`: un
+`<form method="post">` de HTML, sin JavaScript, con `redirect`, `fail` y
+`validate` de `vite-plugin-ascua/site` y esquemas `field` para lo que llega
+como texto. Y cada página sale con la seguridad de
+[`ascua-security`](../security): Content-Security-Policy con el hash de cada
+script en línea, cabeceras seguras, cookies `HttpOnly` y firmadas con
+`ASCUA_SECRET`, y las acciones solo aceptan formularios del mismo origen.
+`site: { security }` lo ajusta. Guía en
 [ascua.gitweave.run/docs/sitios](https://ascua.gitweave.run/docs/sitios/).
 
 ## Licencia

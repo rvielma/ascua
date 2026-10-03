@@ -17,7 +17,21 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { buscar, caminoDe, componer, conIslas, ESQUELETO, esNoExiste, esVariable, LISTA, nombresDe, renderizar } from "./sitio-comun.js";
+import {
+  buscar,
+  caminoDe,
+  componer,
+  conIslas,
+  esDemasiado,
+  escribir,
+  ESQUELETO,
+  esVariable,
+  LISTA,
+  nombresDe,
+  peticionWeb,
+  renderizar,
+  responder,
+} from "./sitio-comun.js";
 
 // No `virtual:ascua/…`: ese prefijo es el de las hojas del plugin de plantillas.
 const CLIENTE = "virtual:ascua-site/client";
@@ -165,7 +179,7 @@ import { dirname, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { collectStyles, renderToString } from "ascua/server";
 import { append } from "ascua";
-import { buscar, componer, conIslas, esNoExiste, nombresDe, renderizar, tipoDe } from ${JSON.stringify(COMUN)};
+import { componer, conIslas, esDemasiado, escribir, nombresDe, peticionWeb, responder, tipoDe } from ${JSON.stringify(COMUN)};
 ${importes.join("\n")}
 
 const RUTAS = [
@@ -187,29 +201,34 @@ ${tablaIslas.join("\n")}
 const sinBase = (camino) =>
   SITIO.base !== "/" && camino.startsWith(SITIO.base) ? "/" + camino.slice(SITIO.base.length) : camino;
 
-/** De una URL a lo que se responde: \`status\`, \`type\` y \`body\`. */
-export async function handle(url) {
-  const direccion = new URL(url, "http://x");
-  const camino = sinBase(direccion.pathname);
-  const encontrada = buscar(RUTAS, camino);
-  if (!encontrada) return { status: 404, type: "text/plain; charset=utf-8", body: "No existe" };
-  let { ruta, parametros, estado } = encontrada;
-  let pagina;
-  try {
-    pagina = await renderizar({ ruta, modulo: ruta.modulo, marcos: ruta.marcos, parametros, camino, ascua, contexto: { url: direccion } });
-  } catch (error) {
-    // \`load()\` dijo que no existe: la página 404, si la hay.
-    const noEncontrada = esNoExiste(error) && RUTAS.find((r) => r.es404);
-    if (!esNoExiste(error)) throw error;
-    if (!noEncontrada) return { status: 404, type: "text/plain; charset=utf-8", body: "No existe" };
-    ruta = noEncontrada;
-    parametros = {};
-    estado = 404;
-    pagina = await renderizar({ ruta, modulo: ruta.modulo, marcos: ruta.marcos, parametros, camino, ascua, contexto: { url: direccion } });
-  }
-  if (ruta.archivo) return { status: estado, type: pagina.tipo, body: pagina.cuerpo };
-  const cuerpo = componer(SITIO.esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, ISLAS, SITIO) });
-  return { status: estado, type: pagina.tipo, body: cuerpo };
+/** El secreto de las cookies firmadas: de fuera, nunca dentro del build. */
+function secreto() {
+  const valor = process.env.ASCUA_SECRET;
+  if (!valor) throw new Error("ascua: las cookies firmadas necesitan la variable de entorno ASCUA_SECRET, de 32 caracteres o más");
+  return valor;
+}
+
+const NO_EXISTE = { status: 404, headers: { "content-type": "text/plain; charset=utf-8" }, body: "No existe" };
+
+/**
+ * De una petición a lo que se responde: \`status\`, \`headers\`, \`body\` y,
+ * por comodidad, \`type\`. Acepta un \`Request\` o, para un GET, la URL.
+ */
+export async function handle(entrada) {
+  const peticion = typeof entrada === "string" ? new Request(new URL(entrada, "http://localhost")) : entrada;
+  const camino = sinBase(new URL(peticion.url).pathname);
+  const respuesta =
+    (await responder({
+      peticion,
+      camino,
+      rutas: RUTAS,
+      cargar: async (ruta) => ({ modulo: ruta.modulo, marcos: ruta.marcos }),
+      ascua,
+      componer: (pagina) => componer(SITIO.esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, ISLAS, SITIO) }),
+      seguridad: SITIO.seguridad,
+      secreto,
+    })) ?? NO_EXISTE;
+  return { ...respuesta, type: respuesta.headers["content-type"] };
 }
 
 /** Lo de dist/client: el script de las islas, las hojas, lo de public/. */
@@ -229,6 +248,7 @@ function estatico(peticion, respuesta) {
     return false;
   }
   respuesta.setHeader("content-type", tipoDe(archivo));
+  respuesta.setHeader("x-content-type-options", "nosniff");
   // Lo que genera Vite lleva un hash en el nombre: se puede cachear para siempre.
   if (camino.startsWith("/assets/")) respuesta.setHeader("cache-control", "public, max-age=31536000, immutable");
   createReadStream(archivo).pipe(respuesta);
@@ -237,20 +257,22 @@ function estatico(peticion, respuesta) {
 
 /** Arranca el servidor; \`node dist/server/index.mjs\` lo hace solo. */
 export function serve(puerto = Number(process.env.PORT ?? 3000)) {
-  const servidor = createServer((peticion, respuesta) => {
-    if (estatico(peticion, respuesta)) return;
-    handle(peticion.url ?? "/").then(
-      ({ status, type, body }) => {
-        respuesta.statusCode = status;
-        respuesta.setHeader("content-type", type);
-        respuesta.end(peticion.method === "HEAD" ? undefined : body);
-      },
-      (error) => {
-        console.error(error);
-        respuesta.statusCode = 500;
-        respuesta.end("Error interno");
-      },
-    );
+  const servidor = createServer(async (entrante, salida) => {
+    const lectura = entrante.method === "GET" || entrante.method === "HEAD";
+    if (lectura && estatico(entrante, salida)) return;
+    try {
+      const peticion = await peticionWeb(entrante, SITIO.seguridad?.bodyLimit);
+      escribir(salida, await handle(peticion), entrante.method);
+    } catch (error) {
+      if (esDemasiado(error)) {
+        salida.statusCode = 413;
+        salida.end("Demasiado grande");
+        return;
+      }
+      console.error(error);
+      salida.statusCode = 500;
+      salida.end("Error interno");
+    }
   });
   return servidor.listen(puerto, () => console.log("ascua: http://localhost:" + servidor.address().port));
 }
@@ -283,8 +305,19 @@ async function ascuaDe(vite) {
   return { renderToString, collectStyles, append };
 }
 
+/** ¿Hay algún `.wasm` en `dir`? */
+function hayWasm(dir) {
+  if (!dir || !existsSync(dir)) return false;
+  return readdirSync(dir, { recursive: true }).some((f) => String(f).endsWith(".wasm"));
+}
+
+/** Un secreto por proceso para las cookies firmadas en desarrollo, si no hay `ASCUA_SECRET`. */
+let secretoDeDesarrollo;
+const secretoDev = () =>
+  process.env.ASCUA_SECRET ?? (secretoDeDesarrollo ??= `${crypto.randomUUID()}${crypto.randomUUID()}`);
+
 /**
- * @param {true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server" }} opciones
+ * @param {true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server", security?: false | object }} opciones
  */
 export function sitio(opciones) {
   const ajustes = {
@@ -308,6 +341,25 @@ export function sitio(opciones) {
   let precargasConstruidas = [];
   /** De la clave de cada módulo de islas a sus chunks y sus hojas. */
   let islasConstruidas = {};
+  /** ¿El cliente lleva WebAssembly? La CSP tiene que dejarlo compilar. */
+  let wasmConstruido = false;
+
+  /**
+   * `site.security` resuelta: lo que necesita `responder`. `false` la
+   * apaga. Con una `base` en otro origen —un CDN—, ese origen entra en la CSP.
+   */
+  const seguridad = (wasm) => {
+    if (ajustes.security === false) return false;
+    const propia = ajustes.security && ajustes.security !== true ? ajustes.security : {};
+    let csp = propia.csp === false ? false : { ...(propia.csp ?? {}) };
+    if (csp && /^https?:\/\//.test(config.base)) {
+      const origen = new URL(config.base).origin;
+      for (const directiva of ["script-src", "style-src", "img-src", "font-src", "connect-src"]) {
+        csp[directiva] = [...(csp[directiva] ?? []), origen];
+      }
+    }
+    return { csp, headers: propia.headers, origins: propia.origins, bodyLimit: propia.bodyLimit, wasm };
+  };
 
   const raiz = () => config.root;
   const dirRutas = () => resolve(raiz(), ajustes.routes);
@@ -324,52 +376,42 @@ export function sitio(opciones) {
   const conLaConfig = (extra) =>
     config.configFile ? { ...extra, configFile: config.configFile } : { ...delUsuario, ...extra, configFile: false };
 
-  /** Renderiza en desarrollo y responde; `encontrada` sale de `buscar`. */
-  async function servirRuta(servidor, url, encontrada, respuesta) {
-    let { ruta, parametros, estado } = encontrada;
-    const { rutas } = descubrir(dirRutas());
+  /** Atiende en desarrollo una petición a una ruta; `false` si no es de ninguna. */
+  async function servirRuta(servidor, entrante, respuesta) {
+    const url = entrante.url ?? "/";
     const camino = sinBase(new URL(url, "http://x").pathname);
-    const ascua = await ascuaDe(servidor);
-    const contexto = { url: new URL(url, "http://localhost") };
-    const cargar = (archivo) => servidor.ssrLoadModule(archivo);
-    const intentar = async () =>
-      renderizar({
-        ruta,
-        modulo: await cargar(ruta.modulo),
-        marcos: await marcosDe(ruta, cargar),
-        parametros,
-        camino,
-        ascua,
-        contexto,
-      });
-
-    let pagina;
+    const reglas = seguridad(hayWasm(config.publicDir));
+    let peticion;
     try {
-      pagina = await intentar();
+      peticion = await peticionWeb(entrante, reglas ? reglas.bodyLimit : undefined);
     } catch (error) {
-      if (!esNoExiste(error)) throw error;
-      // `load()` dijo que no existe: la página 404, si la hay; si no, que
-      // siga Vite, que quizá lo tiene —`/docs/docs.css` encaja con
-      // `/docs/:pagina` y es un archivo de public/—.
-      const noEncontrada = rutas.find((r) => r.es404);
-      if (!noEncontrada) return false;
-      ruta = noEncontrada;
-      parametros = {};
-      estado = 404;
-      pagina = await intentar();
-    }
-
-    respuesta.statusCode = estado;
-    respuesta.setHeader("content-type", pagina.tipo);
-    if (ruta.archivo) {
-      respuesta.end(pagina.cuerpo);
+      if (!esDemasiado(error)) throw error;
+      respuesta.statusCode = 413;
+      respuesta.end("Demasiado grande");
       return true;
     }
-
-    const esqueleto = await servidor.transformIndexHtml(url, leerEsqueleto());
-    const mapa = await mapaDeIslas(dirIslas(), raiz(), cargar);
-    const script = `${config.base}@id/${CLIENTE}`;
-    respuesta.end(componer(esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, mapa, { script }) }));
+    const cargar = (archivo) => servidor.ssrLoadModule(archivo);
+    const ascua = await ascuaDe(servidor);
+    const resultado = await responder({
+      peticion,
+      camino,
+      rutas: descubrir(dirRutas()).rutas,
+      cargar: async (ruta) => ({ modulo: await cargar(ruta.modulo), marcos: await marcosDe(ruta, cargar) }),
+      ascua,
+      componer: async (pagina) => {
+        const esqueleto = await servidor.transformIndexHtml(url, leerEsqueleto());
+        const mapa = await mapaDeIslas(dirIslas(), raiz(), cargar);
+        const script = `${config.base}@id/${CLIENTE}`;
+        return componer(esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, mapa, { script }) });
+      },
+      seguridad: reglas,
+      desarrollo: true,
+      secreto: secretoDev,
+    });
+    // Ninguna ruta, ni 404 propia: que siga Vite, que quizá lo tiene
+    // —`/docs/docs.css` encaja con `/docs/:pagina` y es un archivo de public/—.
+    if (!resultado) return false;
+    escribir(respuesta, resultado, entrante.method);
     return true;
   }
 
@@ -451,6 +493,7 @@ export function sitio(opciones) {
           hojas: suyos.flatMap((f) => [...(chunks[f].viteMetadata?.importedCss ?? [])]).map((h) => `${config.base}${h}`),
         };
       }
+      wasmConstruido = Object.keys(bundle).some((nombre) => nombre.endsWith(".wasm")) || hayWasm(config.publicDir);
       for (const parte of Object.values(bundle)) {
         if (parte.type === "chunk" && parte.facadeModuleId === `\0${VACIO}`) {
           rmSync(join(dir, parte.fileName), { force: true });
@@ -499,6 +542,7 @@ export function sitio(opciones) {
         script: scriptConstruido,
         precargas: precargasConstruidas,
         islas: islasConstruidas,
+        seguridad: seguridad(wasmConstruido),
       };
       const dentro = conLaConfig({ root, mode: config.mode, logLevel: "error" });
 
@@ -530,6 +574,14 @@ export function sitio(opciones) {
         if (rutas.length === 0) logger.warn(`ascua: no hay rutas en ${ajustes.routes}/`);
         const ascua = await ascuaDe(vite);
         const mapa = await mapaDeIslas(dirIslas(), root, (archivo) => vite.ssrLoadModule(archivo));
+        // Antes de pintar nada: un formulario sin servidor se perdería en silencio.
+        for (const ruta of rutas) {
+          if ((await vite.ssrLoadModule(ruta.modulo)).actions) {
+            throw new Error(
+              `${relative(root, ruta.modulo)}: las acciones necesitan un servidor que las reciba; usa site: { mode: "server" }`,
+            );
+          }
+        }
 
         for (const ruta of rutas) {
           const modulo = await vite.ssrLoadModule(ruta.modulo);
@@ -574,14 +626,16 @@ export function sitio(opciones) {
       });
 
       const atender = (soloNoEncontradas) => async (peticion, respuesta, seguir) => {
-        if (peticion.method !== "GET" && peticion.method !== "HEAD") return seguir();
+        // Una ruta recibe formularios; lo que no existe, solo se lee.
+        const lectura = peticion.method === "GET" || peticion.method === "HEAD";
+        if (soloNoEncontradas && !lectura) return seguir();
         const url = peticion.url ?? "/";
         const camino = sinBase(new URL(url, "http://x").pathname);
         if (camino.startsWith("/@")) return seguir();
         try {
           const encontrada = buscar(descubrir(dirRutas()).rutas, camino);
           if (!encontrada || (encontrada.estado === 404) !== soloNoEncontradas) return seguir();
-          if (!(await servirRuta(servidor, url, encontrada, respuesta))) seguir();
+          if (!(await servirRuta(servidor, peticion, respuesta))) seguir();
         } catch (error) {
           servidor.ssrFixStacktrace?.(error);
           seguir(error);

@@ -44,7 +44,7 @@ paso "Tipos del runtime"
 (cd packages/runtime && npx --no-install tsc --noEmit -p tsconfig.build.json)
 
 paso "Tests de TypeScript"
-for dir in packages/runtime packages/router packages/testing packages/check packages/ts-plugin \
+for dir in packages/runtime packages/router packages/testing packages/security packages/check packages/ts-plugin \
            packages/vite-plugin examples/panel-ts examples/ssr-ts; do
   printf '  %-22s' "$dir"
   (cd "$dir" && npx --no-install vitest run 2>&1 | grep -E "Tests " || { npx --no-install vitest run; exit 1; })

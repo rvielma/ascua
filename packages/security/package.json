@@ -1,0 +1,42 @@
+{
+  "name": "ascua-security",
+  "version": "0.1.0",
+  "description": "Seguridad de la capa web sin dependencias: CSP con hashes, cabeceras, cookies firmadas y defensa contra CSRF.",
+  "keywords": [
+    "security",
+    "csp",
+    "csrf",
+    "cookies",
+    "ascua"
+  ],
+  "homepage": "https://ascua.gitweave.run",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

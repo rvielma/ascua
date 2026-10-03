@@ -21,6 +21,7 @@ export default { plugins: [ascua({ site: true })] };
 | 1 | **Estático (SSG)**: rutas por archivo, layout, islas, `404`, desarrollo con recarga | hecha |
 | 2 | **Datos por ruta**: `load()`, `description`, `notFound()`, rutas que son archivos (`sitemap.xml.ts`), esqueleto propio (`shell`) | hecha |
 | 3 | **Servidor Node**: `mode: "server"`, SSR en cada petición, un `index.mjs` con todo dentro | hecha |
+| 4 | **Formularios y seguridad**: `actions`, `redirect`, `fail`, `validate`; CSP con hashes, cabeceras, cookies firmadas y origen comprobado | hecha |
 
 El primer usuario es la documentación del propio sitio de Ascua: sus rutas
 están en `web/rutas/docs/`, con su esqueleto en `web/docs/esqueleto.html`, y
@@ -107,6 +108,120 @@ A cada página se le añaden:
   módulos de las islas de esa página. Una página sin islas sale sin una línea
   de JavaScript.
 
+## Formularios: `actions`
+
+Una ruta recibe los `POST` de sus formularios exportando `actions`. Es un
+`<form method="post">` de HTML: funciona sin una línea de JavaScript, y el
+navegador hace lo que sabe hacer —enviar, seguir la redirección, volver
+atrás—. Necesita servidor (`mode: "server"`); un sitio estático con acciones
+no se construye, para que un formulario no se pierda en silencio.
+
+```ts
+// src/routes/pedidos/nuevo.ts
+import { fail, field, fields, redirect, validate, type ActionContext, type FormResult } from "vite-plugin-ascua/site";
+
+const Pedido = fields({
+  producto: field.text({ max: 80 }),
+  cantidad: field.number({ min: 1, integer: true }),
+  urgente: field.checkbox(),
+});
+
+export const actions = {
+  async default({ formData }: ActionContext) {
+    const resultado = await validate(Pedido, formData);
+    if (!resultado.ok) return fail(400, resultado);
+    const id = await guardar(resultado.data);
+    throw redirect(`/pedidos/${id}`);
+  },
+};
+
+export default function Nuevo({ form }: { form?: FormResult<typeof Pedido> }) {
+  const errores = form?.ok === false ? form.errors : {};
+  const valores = form?.ok === false ? form.values : {};
+  return view`
+    <form method="post">
+      <input name="producto" value=${String(valores.producto ?? "")}>
+      <p class="error">${errores.producto ?? ""}</p>
+      …
+    </form>`;
+}
+```
+
+- **`default`** atiende `<form method="post">`; cualquier otra, un formulario
+  con `action="?/nombre"`. Recibe `{ params, url, request, cookies, formData }`.
+- **`redirect(url)`**, devuelto o lanzado, responde con un **303**: el
+  navegador pide la página nueva con GET y recargarla no reenvía el
+  formulario. Es lo normal tras guardar.
+- **`fail(status, datos)`** vuelve a pintar la página con ese código y los
+  datos en la prop **`form`**. Lo que devuelva la acción sin `fail` también
+  llega en `form`, con un 200. Después de la acción corre `load()`, así que la
+  página ya ve lo que se guardó.
+- **`validate(esquema, formData)`** acepta cualquier Standard Schema. Si no
+  vale, devuelve `errors` —el primer mensaje de cada campo— y `values` —lo
+  escrito, sin archivos ni contraseñas— para volver a llenar el formulario.
+- **`field`**: esquemas para lo que llega de un formulario, que siempre es
+  texto: `text`, `email`, `number` (acepta coma decimal), `checkbox`,
+  `choice` y `optional`. **`fields`** los junta y, a diferencia de un
+  esquema de objeto corriente, reúne los errores de todos los campos a la vez.
+  `p` sigue siendo para los props de las islas, que llegan como JSON.
+
+`load()` recibe ahora como segundo argumento `{ url, request, cookies }`, y
+con servidor puede lanzar `redirect()`: una página sin sesión manda a entrar.
+
+## Seguridad
+
+En `mode: "server"` —y en desarrollo— el kit aplica `ascua-security` sin
+configurar nada. Cada página HTML sale con:
+
+- **Content-Security-Policy** sin `'unsafe-inline'` en los scripts: el hash
+  de cada script en línea de la página —el del esqueleto, por ejemplo— se
+  calcula sobre el HTML que se envía. Lo que se cuele por una plantilla no
+  corre. Si el cliente lleva WebAssembly, añade `'wasm-unsafe-eval'`. Con una
+  `base` en otro origen, ese origen entra en la política.
+- `X-Content-Type-Options: nosniff`, `Referrer-Policy:
+  strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin`
+  y, si la petición llegó por HTTPS —también detrás de un proxy, por
+  `X-Forwarded-Proto`—, `Strict-Transport-Security`.
+
+Y para los formularios:
+
+- **Origen comprobado.** Una acción solo corre si `Origin` es el del sitio
+  (`X-Forwarded-Host` detrás de un proxy). Un formulario de otro sitio recibe
+  un 403. Es la defensa contra CSRF que no necesita tokens en cada formulario.
+- **Cookies seguras por defecto.** `cookies.set` las escribe `HttpOnly`,
+  `SameSite=Lax`, `Secure` (salvo en `localhost`) y `Path=/`.
+  `cookies.setSigned` y `getSigned` las firman con HMAC-SHA256 y la clave de
+  la variable de entorno **`ASCUA_SECRET`** (32 caracteres o más); una cookie
+  tocada se lee como si no estuviera. En desarrollo, sin `ASCUA_SECRET`, se
+  usa una clave aleatoria por proceso.
+- **Cuerpo limitado** a 1 MiB: más es un 413.
+- Lo que responde a un POST o escribe cookies lleva `Cache-Control: private,
+  no-store`.
+
+En desarrollo, la CSP va como `Content-Security-Policy-Report-Only`: avisa en
+la consola sin romper nada, para ver antes de desplegar lo que se bloquearía.
+
+```ts
+ascua({
+  site: {
+    mode: "server",
+    security: {
+      csp: { "img-src": ["https://cdn.ejemplo.cl"], "frame-ancestors": null },
+      headers: { "Permissions-Policy": "camera=()" },
+      origins: ["https://admin.ejemplo.cl"],
+      bodyLimit: 10 * 1024 * 1024,
+    },
+  },
+});
+```
+
+`csp` suma fuentes a cada directiva y `null` la quita; `csp: false` no manda
+la política; `headers` añade, reemplaza o quita (`null`); `origins` son otros
+orígenes de confianza para las acciones. `security: false` lo apaga todo.
+
+Los sitios estáticos no mandan cabeceras —las pone quien los sirve—, así que
+esto no les cambia nada.
+
 ## Cómo construye
 
 ```mermaid
@@ -161,5 +276,17 @@ navegador. Las islas tienen su recarga de siempre.
   contenedor mínimo.
 - **`notFound()` es una marca, no una clase.** El servidor lleva su propia
   copia del módulo, y `instanceof` fallaría entre las dos.
+- **Formularios de HTML y no RPC.** Una acción es un `POST` que el
+  navegador sabe enviar sin JavaScript; no hay un cliente que generar ni un
+  protocolo propio. Mejorarlo con una isla —enviar sin recargar— es trabajo
+  aparte, encima de esto.
+- **Origen y no tokens contra CSRF.** Todos los navegadores mandan `Origin`
+  en un POST, y `SameSite=Lax` ya impide que las cookies viajen en el de otro
+  sitio. Un token por formulario añadiría estado sin cubrir nada más.
+- **`'unsafe-inline'` en los estilos, no en los scripts.** Los atributos
+  `style` no se pueden contar con hashes, y un estilo inyectado no ejecuta
+  código. Los scripts sí se cuentan: ahí está el riesgo.
+- **El secreto, del entorno.** Nunca dentro del build: `dist/server/` se
+  copia y se sube, y un secreto ahí acabaría en cualquier imagen.
 - **`paths()` y no rastrear enlaces.** Explícito: lo que se genera es lo
   que la ruta dice, sin adivinar a partir del HTML.
