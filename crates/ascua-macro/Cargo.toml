@@ -1,6 +1,7 @@
 [package]
 name = "ascua-macro"
-description = "Compilador de templates de Ascua: la macro view! { } y su codegen a operaciones de DOM."
+description = "Experimental. Compilador de templates de Ascua: la macro view! { } y su codegen a operaciones de DOM."
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

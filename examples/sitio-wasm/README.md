@@ -1,9 +1,10 @@
 # El sitio, en la vía Rust/WebAssembly
 
-**Este fue el sitio del proyecto hasta que se reescribió con la vía de
-TypeScript**, que es la que está publicada hoy en ascua.gitweave.run. Se
-conserva como ejemplo porque demuestra lo que la otra vía todavía no tiene: SSR
-con hidratación real, midiendo *40 nodos adoptados y 0 creados*.
+**Este fue el sitio del proyecto hasta que se reescribió en TypeScript**, que
+es lo que está publicado hoy en ascua.gitweave.run. La vía Rust es
+**experimental**: se conserva como ejemplo de SSR con hidratación real en Rust,
+midiendo *40 nodos adoptados y 0 creados*. La vía TypeScript ya hace lo mismo
+con el kit de sitios.
 
 Construido con Ascua. No es una demostración de juguete: el contenido que se lee
 sale del mismo `render_to_string_hydratable` que usaría cualquier aplicación, y

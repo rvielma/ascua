@@ -1,6 +1,7 @@
 [package]
 name = "ascua-reactive"
-description = "Sistema de reactividad fine-grained (signals, effects, memos) del framework Ascua. Cero dependencias."
+description = "Experimental. Sistema de reactividad fine-grained (signals, effects, memos) del framework Ascua. Cero dependencias."
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

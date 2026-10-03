@@ -1,6 +1,7 @@
 [package]
 name = "ascua-router"
-description = "Router de Ascua: la ruta actual es un signal, y navegar es escribir en él."
+description = "Experimental. Router de Ascua: la ruta actual es un signal, y navegar es escribir en él."
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

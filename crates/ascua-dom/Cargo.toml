@@ -1,6 +1,7 @@
 [package]
 name = "ascua-dom"
-description = "Runtime DOM de Ascua: actualizaciones directas al nodo, sin VDOM ni diffing global."
+description = "Experimental. Runtime DOM de Ascua: actualizaciones directas al nodo, sin VDOM ni diffing global."
+publish = false
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
