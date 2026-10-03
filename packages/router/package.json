@@ -33,7 +33,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "size": "node ../../scripts/medir-router.mjs",
+    "size": "node ../../scripts/measure-router.mjs",
     "prepublishOnly": "tsc -p tsconfig.build.json"
   },
   "peerDependencies": {

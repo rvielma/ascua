@@ -3,12 +3,12 @@
 #
 # Los paquetes de Ascua se apartan mientras se instala: dentro del repositorio tienen
 # que ser las de packages/, no las publicadas —los tests prueban el código de
-# ahora—, y las pone después scripts/enlazar-paquetes.sh. Sin apartarlas, el
+# ahora—, y las pone después scripts/link-packages.sh. Sin apartarlas, el
 # gestor iría a buscarlas al registro.
 #
 # Usa stil si está, y npm si no, que es el caso del CI.
 #
-#   bash scripts/instalar-dependencias.sh packages/check examples/ssr-ts
+#   bash scripts/install-deps.sh packages/check examples/ssr-ts
 set -euo pipefail
 
 raiz="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -40,4 +40,4 @@ for dir in "$@"; do
   trap - EXIT
 done
 
-bash "$raiz/scripts/enlazar-paquetes.sh"
+bash "$raiz/scripts/link-packages.sh"

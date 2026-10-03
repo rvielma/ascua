@@ -64,10 +64,10 @@ function comunes(nombre, origenDe, { desarrollo }) {
     });
 
     it("?/nombre elige la acción, y lo que devuelve llega en form", async () => {
-      const respuesta = await enviar(origenDe(), "/?/suscribir", { correo: "a@b.cl" });
+      const respuesta = await enviar(origenDe(), "/?/subscribe", { correo: "a@b.cl" });
       expect(respuesta.status).toBe(200);
       expect(await respuesta.text()).toContain('<p class="suscrito">a@b.cl</p>');
-      expect((await enviar(origenDe(), "/?/nada", {})).status).toBe(404);
+      expect((await enviar(origenDe(), "/?/missing", {})).status).toBe(404);
     });
 
     it("un formulario de otro origen no llega a la acción", async () => {
@@ -97,7 +97,7 @@ function comunes(nombre, origenDe, { desarrollo }) {
       const tocada = await fetch(`${origenDe()}/sesion`, { headers: { cookie: cookie.replace("ana.", "eva.") } });
       expect(await tocada.text()).toContain('<p class="quien">nadie</p>');
 
-      const salir = await enviar(origenDe(), "/sesion?/salir", {}, { cookie });
+      const salir = await enviar(origenDe(), "/sesion?/logout", {}, { cookie });
       expect(salir.status).toBe(303);
       expect(salir.headers.get("set-cookie")).toMatch(/^sesion=; Path=\/; Max-Age=0/);
     });

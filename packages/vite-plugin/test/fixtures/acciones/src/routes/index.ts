@@ -13,7 +13,7 @@ export const actions = {
     const { nombre, cantidad, urgente } = resultado.data;
     throw redirect(`/gracias?pedido=${encodeURIComponent(`${cantidad} ${nombre}${urgente ? " urgente" : ""}`)}`);
   },
-  async suscribir({ formData }: ActionContext) {
+  async subscribe({ formData }: ActionContext) {
     return { suscrito: String(formData.get("correo")) };
   },
 };

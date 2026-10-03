@@ -9,7 +9,7 @@ Los resultados y el método están en
 for d in vanilla ascua solid svelte react; do
   (cd $d && stil install && stil exec vite build)
 done
-bash ../scripts/enlazar-paquetes.sh
+bash ../scripts/link-packages.sh
 python3 servir.py
 # http://127.0.0.1:5191/ → «correr», o en la consola:
 #   await correr({ rondas: 3, vueltas: 15, calentamiento: 5 })

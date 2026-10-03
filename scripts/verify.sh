@@ -5,15 +5,15 @@
 # la versión mínima), el compilador en WebAssembly, las suites de TypeScript,
 # ascua-check sobre los ejemplos y el build del sitio con su documentación.
 #
-#   bash scripts/verificar.sh            # todo
-#   bash scripts/verificar.sh --rapido   # sin MSRV ni el build del sitio
+#   bash scripts/verify.sh            # todo
+#   bash scripts/verify.sh --quick   # sin MSRV ni el build del sitio
 set -euo pipefail
 
 raiz="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$raiz"
 
 rapido=false
-[[ "${1:-}" == "--rapido" ]] && rapido=true
+[[ "${1:-}" == "--quick" ]] && rapido=true
 
 paso() { printf '\n\033[1m→ %s\033[0m\n' "$1"; }
 
@@ -35,10 +35,10 @@ fi
 
 paso "El compilador: nativo y WebAssembly"
 cargo build --quiet --bin ascuac
-bash scripts/compilar-wasm.sh | tail -1
+bash scripts/build-wasm.sh | tail -1
 
 paso "Enlaces a packages/"
-bash scripts/enlazar-paquetes.sh
+bash scripts/link-packages.sh
 
 paso "Tipos del runtime"
 (cd packages/runtime && npx --no-install tsc --noEmit -p tsconfig.build.json)

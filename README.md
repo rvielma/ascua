@@ -271,8 +271,8 @@ Esto es para trabajar **en** Ascua, no para usarla. Aquí sí hace falta Rust
 Todo lo que hay que comprobar antes de registrar un cambio, en un comando:
 
 ```sh
-bash scripts/verificar.sh            # Rust, MSRV, WASM, TypeScript, ascua-check y los ejemplos
-bash scripts/verificar.sh --rapido   # sin MSRV ni el build de los ejemplos
+bash scripts/verify.sh            # Rust, MSRV, WASM, TypeScript, ascua-check y los ejemplos
+bash scripts/verify.sh --quick   # sin MSRV ni el build de los ejemplos
 ```
 
 Los comandos de Node usan [**stil**](https://stil.gitweave.run), el gestor de
@@ -285,10 +285,10 @@ curl -fsSL https://stil.gitweave.run/install.sh | bash
 ```
 
 No es obligatorio: `stil run test` es `npm run test`, y
-`scripts/instalar-dependencias.sh` usa npm si no encuentra stil.
+`scripts/install-deps.sh` usa npm si no encuentra stil.
 
 Las dependencias de cada directorio se instalan con
-`bash scripts/instalar-dependencias.sh <dir>…`, que enlaza los paquetes
+`bash scripts/install-deps.sh <dir>…`, que enlaza los paquetes
 de Ascua desde `packages/`. Por partes:
 
 ```sh
@@ -308,7 +308,7 @@ cd examples/ssr-ts && stil run test     # 8 tests del ejemplo con SSR
 cd examples/panel-ts && stil run dev
 ```
 
-`verificar.sh` recompila el `.wasm` del compilador antes de probar nada, así
+`verify.sh` recompila el `.wasm` del compilador antes de probar nada, así
 que un cambio en el compilador llega solo al plugin de Vite y a los ejemplos.
 
 ## Lo que queda fuera, a propósito

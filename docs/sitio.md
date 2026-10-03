@@ -117,31 +117,31 @@ atrás—. Necesita servidor (`mode: "server"`); un sitio estático con acciones
 no se construye, para que un formulario no se pierda en silencio.
 
 ```ts
-// src/routes/pedidos/nuevo.ts
+// src/routes/orders/new.ts
 import { fail, field, fields, redirect, validate, type ActionContext, type FormResult } from "vite-plugin-ascua/site";
 
-const Pedido = fields({
-  producto: field.text({ max: 80 }),
-  cantidad: field.number({ min: 1, integer: true }),
-  urgente: field.checkbox(),
+const Order = fields({
+  product: field.text({ max: 80 }),
+  quantity: field.number({ min: 1, integer: true }),
+  urgent: field.checkbox(),
 });
 
 export const actions = {
   async default({ formData }: ActionContext) {
-    const resultado = await validate(Pedido, formData);
-    if (!resultado.ok) return fail(400, resultado);
-    const id = await guardar(resultado.data);
-    throw redirect(`/pedidos/${id}`);
+    const result = await validate(Order, formData);
+    if (!result.ok) return fail(400, result);
+    const id = await saveOrder(result.data);
+    throw redirect(`/orders/${id}`);
   },
 };
 
-export default function Nuevo({ form }: { form?: FormResult<typeof Pedido> }) {
-  const errores = form?.ok === false ? form.errors : {};
-  const valores = form?.ok === false ? form.values : {};
+export default function NewOrder({ form }: { form?: FormResult<typeof Order> }) {
+  const errors = form?.ok === false ? form.errors : {};
+  const values = form?.ok === false ? form.values : {};
   return view`
     <form method="post">
-      <input name="producto" value=${String(valores.producto ?? "")}>
-      <p class="error">${errores.producto ?? ""}</p>
+      <input name="product" value=${String(values.product ?? "")}>
+      <p class="error">${errors.product ?? ""}</p>
       …
     </form>`;
 }

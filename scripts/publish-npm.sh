@@ -22,7 +22,7 @@ if [[ "${1:-}" == "--dry-run" ]]; then
 fi
 
 echo "==> El compilador, a WebAssembly"
-bash scripts/compilar-wasm.sh > /dev/null
+bash scripts/build-wasm.sh > /dev/null
 
 echo "==> El runtime, a dist/"
 (cd packages/runtime && rm -rf dist && stil run build)

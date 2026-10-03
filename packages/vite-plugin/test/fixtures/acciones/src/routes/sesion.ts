@@ -9,7 +9,7 @@ export const actions = {
     await cookies.setSigned("sesion", String(formData.get("nombre")));
     throw redirect("/sesion");
   },
-  async salir({ cookies }: ActionContext) {
+  async logout({ cookies }: ActionContext) {
     cookies.delete("sesion");
     return redirect("/sesion");
   },

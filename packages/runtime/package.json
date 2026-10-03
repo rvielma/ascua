@@ -38,7 +38,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "size": "node ../../scripts/medir-runtime.mjs",
+    "size": "node ../../scripts/measure-runtime.mjs",
     "prepublishOnly": "tsc -p tsconfig.build.json"
   },
   "devDependencies": {
