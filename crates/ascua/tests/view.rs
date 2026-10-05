@@ -337,3 +337,23 @@ fn for_y_show_se_combinan() {
         r#"<body><section><p class="vacio">No hay tareas</p></section></body>"#
     );
 }
+
+#[test]
+fn acepta_palabras_reservadas_de_rust_como_atributos() {
+    let (dom, body) = escenario();
+
+    let _app = dom.mount(&body, |dom| {
+        view! { dom,
+            <form>
+                <label for="qty">"Cantidad"</label>
+                <input type="range" id="qty" min="0" max="10"/>
+                <input r#type="checkbox" data-for="qty"/>
+            </form>
+        }
+    });
+
+    assert_eq!(
+        dom.backend().html(&body),
+        r#"<body><form><label for="qty">Cantidad</label><input type="range" id="qty" min="0" max="10"><input type="checkbox" data-for="qty"></form></body>"#
+    );
+}

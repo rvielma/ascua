@@ -5,6 +5,7 @@
 //! del proyecto.
 
 use syn::braced;
+use syn::ext::IdentExt;
 use syn::parse::{Parse, ParseStream};
 use syn::{Expr, Ident, LitStr, Token};
 
@@ -337,12 +338,15 @@ fn parse_braced_expr(input: ParseStream) -> syn::Result<Expr> {
 
 /// Nombres con guiones (`data-id`, `aria-label`). El lexer de Rust parte
 /// `data-id` en tres tokens, así que hay que recomponerlo.
+///
+/// Se aceptan palabras reservadas de Rust (`type`, `for`, `loop`): en HTML son
+/// nombres de atributo corrientes. `r#type` también vale y queda como `type`.
 fn parse_name(input: ParseStream) -> syn::Result<String> {
-    let mut name = input.parse::<Ident>()?.to_string();
+    let mut name = Ident::parse_any(input)?.unraw().to_string();
     while input.peek(Token![-]) {
         input.parse::<Token![-]>()?;
         name.push('-');
-        name.push_str(&input.parse::<Ident>()?.to_string());
+        name.push_str(&Ident::parse_any(input)?.unraw().to_string());
     }
     Ok(name)
 }
