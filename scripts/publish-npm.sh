@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publica los ocho paquetes de Ascua en npm, en el orden en que dependen.
+# Publica los nueve paquetes de Ascua en npm, en el orden en que dependen.
 #
 # Antes de correrlo, una sola vez:
 #
@@ -29,6 +29,9 @@ echo "==> El runtime, a dist/"
 
 echo "==> El router, a dist/"
 (cd packages/router && rm -rf dist && stil run build)
+
+echo "==> ascua-query, a dist/"
+(cd packages/query && rm -rf dist && stil run build)
 
 echo "==> El paquete de testing, a dist/"
 (cd packages/testing && rm -rf dist && stil run build)
@@ -74,7 +77,7 @@ publicar() {
   done
 }
 
-for paquete in compilador runtime router testing security vite-plugin check ts-plugin; do
+for paquete in compilador runtime router query testing security vite-plugin check ts-plugin; do
   publicar "$paquete"
 done
 

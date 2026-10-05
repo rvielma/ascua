@@ -1,0 +1,49 @@
+{
+  "name": "ascua-query",
+  "version": "0.1.0",
+  "description": "Datos remotos para Ascua: caché por clave, recarga, sondeo, invalidación y mutaciones optimistas. Sin contexto ni proveedor.",
+  "keywords": [
+    "query",
+    "cache",
+    "fetch",
+    "signals",
+    "ascua"
+  ],
+  "homepage": "https://ascua.gitweave.run",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "size": "node ../../scripts/measure-query.mjs",
+    "prepublishOnly": "tsc -p tsconfig.build.json"
+  },
+  "peerDependencies": {
+    "ascua": "^0.5.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "terser": "^5.51.2"
+  }
+}

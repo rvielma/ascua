@@ -147,6 +147,7 @@ CSS, gzip, la aplicación entera.
 | [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 103 KB, en build |
 | [`vite-plugin-ascua`](packages/vite-plugin) | Compila las plantillas en Vite; con `site: true`, una página HTML por archivo de `src/routes/` | en build |
 | [`ascua-router`](packages/router) | La ruta como signal: parámetros, query, enlaces | 1,03 kB gzip |
+| [`ascua-query`](packages/query) | Datos remotos con caché por clave: sondeo, invalidación, mutaciones optimistas | 2,15 kB gzip |
 | [`ascua-testing`](packages/testing) | Montar, `click`, `input`, `drag`, `waitFor` y desmontar en un test | en tests |
 | [`ascua-security`](packages/security) | CSP con hashes, cabeceras, cookies firmadas y defensa contra CSRF; el kit la aplica sola | en el servidor |
 | [`ascua-check`](packages/check) | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | en CI |
@@ -181,6 +182,7 @@ verificado en navegador real.
 | El runtime con `hydrate` e `island` | 4,59 kB |
 | La validación de props de `defineIsland` | +0,75 kB |
 | El router | 1,03 kB |
+| La caché de datos remotos (`ascua-query`) | 2,15 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
 
 En velocidad, las operaciones de js-framework-benchmark dan a Ascua **1,10×** el
@@ -197,6 +199,7 @@ packages/
   compilador/       ascua-compilador — el compilador como .wasm
   vite-plugin/      vite-plugin-ascua
   router/           ascua-router — la ruta como signal
+  query/            ascua-query — datos remotos con caché por clave
   testing/          ascua-testing — montar y tocar componentes en un test
   security/         ascua-security — CSP, cabeceras, cookies firmadas, CSRF
   check/            ascua-check — ascua-check, los tipos de dentro de las plantillas
@@ -297,6 +300,7 @@ cargo clippy --all-targets   # sin warnings
 
 cd packages/runtime && stil run test    # 125 tests del runtime
 cd packages/router && stil run test     # 20 tests del router
+cd packages/query && stil run test      # 25 tests de ascua-query
 cd packages/testing && stil run test    # 17 tests del paquete de testing
 cd packages/security && stil run test   # 19 tests de ascua-security
 cd packages/check && stil run test      # 8 tests de ascua-check

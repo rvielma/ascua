@@ -32,6 +32,7 @@ enlazar() {
 }
 
 enlazar packages/router     runtime
+enlazar packages/query      runtime
 enlazar packages/testing    runtime
 enlazar packages/check      compilador
 enlazar packages/ts-plugin  compilador
