@@ -76,6 +76,30 @@ navegador ignora su atributo `value`, así que hasta que la isla hidrata se ve
 la primera opción (o el `<textarea>` vacío). Si eso importa, marca la opción
 con `selected` o pon el texto como hijo del `<textarea>`.
 
+## Referencias: `ref`
+
+Para lo que no es un atributo ni una propiedad —dar el foco, medir, ubicar un
+menú bajo su botón— el template entrega el elemento a un `ElementRef`:
+
+```rust
+let campo = ElementRef::new();
+view! { dom,
+    <div>
+        <input ref={campo}/>
+        <button on:click={move |_| {
+            if let Some(input) = campo.cast::<HtmlInputElement>() {
+                let _ = input.focus();
+            }
+        }}>"Editar"</button>
+    </div>
+}
+```
+
+`ElementRef` es `Copy`, como un `Signal`, y por dentro es uno: `get()` suscribe
+(un efecto se entera cuando el nodo aparece dentro de un `<Show>`) y
+`get_untracked()` no. `cast::<T>()`, solo en la web, lo convierte al tipo
+concreto del DOM. Así no hace falta poner un `id` y buscarlo en el documento.
+
 ## Elementos y componentes
 
 Los tags que empiezan por **minúscula** son elementos HTML. Los que empiezan por

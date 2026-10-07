@@ -438,3 +438,34 @@ fn bind_ata_en_los_dos_sentidos() {
     texto.set("otra".to_string());
     assert!(b.html(&body).contains(r#"value="otra""#));
 }
+
+#[test]
+fn ref_apunta_al_elemento() {
+    use ascua::ElementRef;
+    let (dom, body) = escenario();
+    let campo = ElementRef::new();
+    let visible = Signal::new(false);
+    let oculto = ElementRef::new();
+
+    let _app = dom.mount(&body, |dom| {
+        view! { dom,
+            <div>
+                <input ref={campo} id="nombre"/>
+                <Show when={move || visible.get()}>
+                    <p ref={oculto}>"tarde"</p>
+                </Show>
+            </div>
+        }
+    });
+
+    let b = dom.backend();
+    let input = campo.get_untracked().expect("el input ya existe");
+    assert_eq!(b.attribute(&input, "id").as_deref(), Some("nombre"));
+    assert!(
+        oculto.get_untracked().is_none(),
+        "lo que no se mostró no existe"
+    );
+    visible.set(true);
+    let p = oculto.get_untracked().expect("apareció con el <Show>");
+    assert_eq!(b.tag_name(&p).as_deref(), Some("p"));
+}

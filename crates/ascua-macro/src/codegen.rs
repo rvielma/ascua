@@ -316,6 +316,9 @@ fn generate_attribute(node: &Ident, attribute: &Attribute) -> TokenStream {
                 );
             },
         },
+        AttributeValue::Ref(referencia) => quote! {
+            ::ascua::ElementRef::set(&#referencia, ::std::clone::Clone::clone(&#node));
+        },
         AttributeValue::Bind { prop, signal } => {
             // Una función por propiedad, para que el tipo del signal lo
             // compruebe el compilador (`parse` ya rechazó las demás).

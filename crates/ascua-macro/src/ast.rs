@@ -85,6 +85,8 @@ pub enum AttributeValue {
     /// `bind:value={signal}` o `bind:checked={signal}`: la propiedad y el
     /// signal, atados en los dos sentidos.
     Bind { prop: String, signal: Expr },
+    /// `ref={referencia}`: apunta un `ElementRef` al elemento.
+    Ref(Expr),
 }
 
 /// Entrada completa de la macro: `view! { dom, <div/> }`.

@@ -45,6 +45,7 @@ mod dom;
 mod hydrate;
 mod list;
 mod memory;
+mod refs;
 mod ssr;
 #[cfg(feature = "web")]
 mod web;
@@ -55,6 +56,7 @@ pub use dom::{BindableProp, Dom, IntoAttrValue, IntoPropValue, Mount};
 pub use hydrate::{hydrate_islands, HydratedNode, HydratingBackend, HydrationStats};
 pub use list::keyed_list;
 pub use memory::{MemoryBackend, MemoryEvent, NodeRef, HYDRATION_ATTR};
+pub use refs::ElementRef;
 pub use ssr::{
     island, mount_islands, render_to_string, render_to_string_hydratable, IslandBuilder,
     ISLAND_ATTR, ISLAND_PROPS_ATTR,

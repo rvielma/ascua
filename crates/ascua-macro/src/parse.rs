@@ -295,6 +295,12 @@ impl Parse for Attribute {
 
         input.parse::<Token![=]>()?;
 
+        if name == "ref" && input.peek(LitStr) {
+            return Err(input.error(
+                "`ref` recibe una referencia, no un texto: \
+                 `let campo = ElementRef::new();` y `ref={campo}`",
+            ));
+        }
         if input.peek(LitStr) {
             return Ok(Attribute {
                 name,
@@ -303,6 +309,12 @@ impl Parse for Attribute {
         }
 
         let expr = parse_braced_expr(input)?;
+        if name == "ref" {
+            return Ok(Attribute {
+                name,
+                value: AttributeValue::Ref(expr),
+            });
+        }
         let value = match expr {
             Expr::Closure(closure) => AttributeValue::Dynamic(closure),
             other => AttributeValue::Static(other),
