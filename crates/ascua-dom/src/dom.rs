@@ -9,9 +9,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use ascua_reactive::{create_effect, create_memo, create_root, current_owner, on_cleanup, Root};
+use ascua_reactive::{
+    create_effect, create_memo, create_root, current_owner, on_cleanup, Root, Signal,
+};
 
-use crate::backend::Backend;
+use crate::backend::{Backend, PropValue};
 
 /// Handle sobre un backend, clonable a coste de un `Rc`.
 ///
@@ -122,6 +124,84 @@ impl<B: Backend> Dom<B> {
         create_effect(move || match f() {
             Some(value) => backend.set_attribute(&node, &name, &value),
             None => backend.remove_attribute(&node, &name),
+        });
+    }
+
+    /// Escribe una propiedad del nodo una vez (`prop:value={expr}`).
+    pub fn set_prop(&self, node: &B::Node, name: &str, value: &PropValue) {
+        self.backend.set_property(node, name, value);
+    }
+
+    /// Ata una propiedad a `f` (`prop:value={move || …}`).
+    ///
+    /// Solo escribe si el nodo tiene otro valor: reescribir el `value` de un
+    /// campo con lo mismo que ya tiene movería el cursor al final mientras el
+    /// usuario escribe.
+    pub fn bind_prop(
+        &self,
+        node: &B::Node,
+        name: impl Into<String>,
+        mut f: impl FnMut() -> PropValue + 'static,
+    ) {
+        let backend = Rc::clone(&self.backend);
+        let node = node.clone();
+        let name = name.into();
+        create_effect(move || {
+            let valor = f();
+            let logico = matches!(valor, PropValue::Bool(_));
+            if backend.property(&node, &name, logico).as_ref() != Some(&valor) {
+                backend.set_property(&node, &name, &valor);
+            }
+        });
+    }
+
+    /// `bind:value={signal}`: el texto de un campo y un `Signal<String>`,
+    /// atados. Escucha `input`, que también dispara un `<select>`.
+    pub fn bind_input(&self, node: &B::Node, signal: Signal<String>) {
+        self.bind_value(node, "value", "input", signal);
+    }
+
+    /// `bind:checked={signal}`: una casilla y un `Signal<bool>`, atados.
+    /// Escucha `change`.
+    ///
+    /// Tiene su propia función para que el tipo lo compruebe el compilador:
+    /// con un `Signal<String>`, el navegador recibiría `checked = "false"`,
+    /// que en JS es verdadero.
+    ///
+    /// ```compile_fail
+    /// use ascua_dom::{Dom, MemoryBackend};
+    /// use ascua_reactive::Signal;
+    ///
+    /// let dom = Dom::new(MemoryBackend::new());
+    /// let casilla = dom.element("input");
+    /// dom.bind_checked(&casilla, Signal::new(String::new()));
+    /// ```
+    pub fn bind_checked(&self, node: &B::Node, signal: Signal<bool>) {
+        self.bind_value(node, "checked", "change", signal);
+    }
+
+    /// Ata una propiedad a un signal en los dos sentidos: el signal escribe
+    /// la propiedad y `evento` (lo que hace el usuario) escribe el signal.
+    pub fn bind_value<T: BindableProp>(
+        &self,
+        node: &B::Node,
+        name: &str,
+        evento: &str,
+        signal: Signal<T>,
+    ) {
+        self.bind_prop(node, name, move || signal.get().into_prop_value());
+        let backend = Rc::clone(&self.backend);
+        let destino = node.clone();
+        let nombre = name.to_string();
+        self.on(node, evento, move |_| {
+            let leido = backend
+                .property(&destino, &nombre, T::LOGICO)
+                .and_then(T::from_prop_value);
+            if let Some(v) = leido {
+                if signal.with_untracked(|actual| *actual != v) {
+                    signal.set(v);
+                }
+            }
         });
     }
 
@@ -294,3 +374,80 @@ macro_rules! impl_into_attr_value_display {
 impl_into_attr_value_display!(
     i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64, char
 );
+
+/// Conversión al valor de una propiedad (`prop:value={…}`).
+pub trait IntoPropValue {
+    fn into_prop_value(self) -> PropValue;
+}
+
+impl IntoPropValue for PropValue {
+    fn into_prop_value(self) -> PropValue {
+        self
+    }
+}
+
+impl IntoPropValue for String {
+    fn into_prop_value(self) -> PropValue {
+        PropValue::Text(self)
+    }
+}
+
+impl IntoPropValue for &String {
+    fn into_prop_value(self) -> PropValue {
+        PropValue::Text(self.clone())
+    }
+}
+
+impl IntoPropValue for &str {
+    fn into_prop_value(self) -> PropValue {
+        PropValue::Text(self.to_string())
+    }
+}
+
+impl IntoPropValue for bool {
+    fn into_prop_value(self) -> PropValue {
+        PropValue::Bool(self)
+    }
+}
+
+macro_rules! impl_into_prop_value_display {
+    ($($tipo:ty),* $(,)?) => {
+        $(
+            impl IntoPropValue for $tipo {
+                fn into_prop_value(self) -> PropValue {
+                    PropValue::Text(self.to_string())
+                }
+            }
+        )*
+    };
+}
+
+impl_into_prop_value_display!(char, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize, f32, f64);
+
+/// Lo que se puede atar con `bind:`: un texto (`bind:value`) o un lógico
+/// (`bind:checked`).
+pub trait BindableProp: IntoPropValue + Clone + PartialEq + 'static {
+    /// Se lee como lógico (`checked`) o como texto (`value`).
+    const LOGICO: bool;
+    fn from_prop_value(v: PropValue) -> Option<Self>;
+}
+
+impl BindableProp for String {
+    const LOGICO: bool = false;
+    fn from_prop_value(v: PropValue) -> Option<Self> {
+        match v {
+            PropValue::Text(t) => Some(t),
+            PropValue::Bool(_) => None,
+        }
+    }
+}
+
+impl BindableProp for bool {
+    const LOGICO: bool = true;
+    fn from_prop_value(v: PropValue) -> Option<Self> {
+        match v {
+            PropValue::Bool(b) => Some(b),
+            PropValue::Text(_) => None,
+        }
+    }
+}

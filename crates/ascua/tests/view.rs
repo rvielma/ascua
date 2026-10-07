@@ -357,3 +357,84 @@ fn acepta_palabras_reservadas_de_rust_como_atributos() {
         r#"<body><form><label for="qty">Cantidad</label><input type="range" id="qty" min="0" max="10"><input type="checkbox" data-for="qty"></form></body>"#
     );
 }
+
+#[test]
+fn prop_escribe_la_propiedad_despues_de_los_hijos() {
+    let (dom, body) = escenario();
+    let elegido = Signal::new("b".to_string());
+
+    let _app = dom.mount(&body, |dom| {
+        view! { dom,
+            <select prop:value={move || elegido.get()}>
+                <option value="a">"A"</option>
+                <option value="b">"B"</option>
+            </select>
+        }
+    });
+
+    // Sin navegador la propiedad se ve como atributo.
+    assert_eq!(
+        dom.backend().html(&body),
+        r#"<body><select value="b"><option value="a">A</option><option value="b">B</option></select></body>"#
+    );
+
+    elegido.set("a".to_string());
+    assert!(dom.backend().html(&body).contains(r#"<select value="a">"#));
+}
+
+#[test]
+fn prop_acepta_expresiones_y_logicos() {
+    let (dom, body) = escenario();
+    let marcado = Signal::new(false);
+
+    let _app = dom.mount(&body, |dom| {
+        view! { dom,
+            <div>
+                <input prop:value={"fijo"}/>
+                <input type="checkbox" prop:checked={move || marcado.get()}/>
+            </div>
+        }
+    });
+
+    let html = || dom.backend().html(&body);
+    assert!(html().contains(r#"<input value="fijo">"#));
+    assert!(html().contains(r#"<input type="checkbox">"#));
+    marcado.set(true);
+    assert!(html().contains(r#"<input type="checkbox" checked="">"#));
+}
+
+#[test]
+fn bind_ata_en_los_dos_sentidos() {
+    let (dom, body) = escenario();
+    let texto = Signal::new("hola".to_string());
+    let si = Signal::new(false);
+
+    let _app = dom.mount(&body, |dom| {
+        view! { dom,
+            <div>
+                <input id="t" bind:value={texto}/>
+                <input id="c" type="checkbox" bind:checked={si}/>
+            </div>
+        }
+    });
+
+    let b = dom.backend();
+    assert!(
+        b.html(&body).contains(r#"value="hola""#),
+        "el signal escribe el campo"
+    );
+
+    // El usuario escribe: cambia la propiedad y llega `input`.
+    let campo = b.query_all("[id=t]").remove(0);
+    b.set_attribute(&campo, "value", "chao");
+    b.dispatch(&campo, "input");
+    assert_eq!(texto.get(), "chao", "el campo escribe el signal");
+
+    let casilla = b.query_all("[id=c]").remove(0);
+    b.set_attribute(&casilla, "checked", "");
+    b.dispatch(&casilla, "change");
+    assert!(si.get());
+
+    texto.set("otra".to_string());
+    assert!(b.html(&body).contains(r#"value="otra""#));
+}

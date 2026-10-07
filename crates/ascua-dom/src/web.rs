@@ -9,10 +9,10 @@
 use std::rc::Rc;
 
 use wasm_bindgen::closure::Closure;
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{Document, Event, Node};
 
-use crate::backend::{Backend, NodeKind};
+use crate::backend::{Backend, NodeKind, PropValue};
 
 /// Backend que opera sobre el DOM real del navegador.
 pub struct WebBackend {
@@ -91,6 +91,23 @@ impl Backend for WebBackend {
     fn remove_attribute(&self, node: &Node, name: &str) {
         if let Some(element) = node.dyn_ref::<web_sys::Element>() {
             let _ = element.remove_attribute(name);
+        }
+    }
+
+    fn set_property(&self, node: &Node, name: &str, value: &PropValue) {
+        let valor = match value {
+            PropValue::Text(texto) => JsValue::from_str(texto),
+            PropValue::Bool(si) => JsValue::from_bool(*si),
+        };
+        let _ = web_sys::js_sys::Reflect::set(node, &JsValue::from_str(name), &valor);
+    }
+
+    fn property(&self, node: &Node, name: &str, como_logico: bool) -> Option<PropValue> {
+        let valor = web_sys::js_sys::Reflect::get(node, &JsValue::from_str(name)).ok()?;
+        if como_logico {
+            valor.as_bool().map(PropValue::Bool)
+        } else {
+            valor.as_string().map(PropValue::Text)
         }
     }
 

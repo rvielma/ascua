@@ -238,28 +238,59 @@ impl Parse for Component {
     }
 }
 
+/// Lo que `bind:` sabe atar, como en el compilador de `.ascua`: `value`
+/// (un `Signal<String>`, escucha `input`) y `checked` (un `Signal<bool>`,
+/// escucha `change`).
+const ENLAZABLES: &[&str] = &["value", "checked"];
+
 impl Parse for Attribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let name = parse_name(input)?;
 
-        // on:click={...}
+        // on:click={...}, prop:value={...}, bind:value={...}
         if input.peek(Token![:]) {
             input.parse::<Token![:]>()?;
             let event = parse_name(input)?;
             input.parse::<Token![=]>()?;
-            let handler = parse_braced_expr(input)?;
-            if name != "on" {
-                return Err(syn::Error::new(
+            let value = parse_braced_expr(input)?;
+            return match name.as_str() {
+                "on" => Ok(Attribute {
+                    name: format!("on:{event}"),
+                    value: AttributeValue::Event {
+                        event,
+                        handler: value,
+                    },
+                }),
+                "prop" => Ok(Attribute {
+                    name: format!("prop:{event}"),
+                    value: AttributeValue::Prop { prop: event, value },
+                }),
+                "bind" if ENLAZABLES.contains(&event.as_str()) => Ok(Attribute {
+                    name: format!("bind:{event}"),
+                    value: AttributeValue::Bind {
+                        prop: event,
+                        signal: value,
+                    },
+                }),
+                "bind" => Err(syn::Error::new(
                     input.span(),
                     format!(
-                        "prefijo de atributo desconocido: `{name}:`; el único soportado es `on:`"
+                        "`bind:{event}` no existe; se puede atar {}",
+                        ENLAZABLES
+                            .iter()
+                            .map(|e| format!("`{e}`"))
+                            .collect::<Vec<_>>()
+                            .join(" y ")
                     ),
-                ));
-            }
-            return Ok(Attribute {
-                name: format!("on:{event}"),
-                value: AttributeValue::Event { event, handler },
-            });
+                )),
+                _ => Err(syn::Error::new(
+                    input.span(),
+                    format!(
+                        "prefijo de atributo desconocido: `{name}:`; \
+                         los soportados son `on:`, `prop:` y `bind:`"
+                    ),
+                )),
+            };
         }
 
         input.parse::<Token![=]>()?;

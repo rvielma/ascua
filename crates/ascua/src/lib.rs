@@ -47,9 +47,9 @@
 
 pub use ascua_dom::{
     hydrate_islands, island, keyed_list, mount_islands, render_to_string,
-    render_to_string_hydratable, Backend, Children, Dom, HydratingBackend, HydrationStats,
-    IntoAttrValue, IslandBuilder, MemoryBackend, MemoryEvent, Mount, NodeKind, NodeRef,
-    ISLAND_ATTR, ISLAND_PROPS_ATTR,
+    render_to_string_hydratable, Backend, BindableProp, Children, Dom, HydratingBackend,
+    HydrationStats, IntoAttrValue, IntoPropValue, IslandBuilder, MemoryBackend, MemoryEvent, Mount,
+    NodeKind, NodeRef, PropValue, ISLAND_ATTR, ISLAND_PROPS_ATTR,
 };
 pub use ascua_macro::{component, view};
 pub use ascua_reactive::{

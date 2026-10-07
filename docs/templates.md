@@ -36,6 +36,41 @@ puede cambiar y qué no, sin conocer los tipos involucrados ni confiar en
 ninguna regla implícita. Es una decisión deliberada contra la "magia": el
 framework no adivina tus intenciones.
 
+## Campos de formulario: `prop:` y `bind:`
+
+Un atributo no sirve para un campo: el atributo `value` de un `<input>` es su
+valor **inicial**; lo que el usuario escribe vive en la **propiedad** `value`.
+Para eso hay dos prefijos, los mismos de los archivos `.ascua`:
+
+| Escribes | Qué ocurre |
+|---|---|
+| `prop:value={expr}` | Escribe la propiedad una vez. |
+| `prop:value={move \|\| ...}` | La propiedad sigue a la closure (texto o `bool`: `prop:checked`, `prop:selected`). |
+| `bind:value={senal}` | `Signal<String>` y campo atados en los dos sentidos; escucha `input`. |
+| `bind:checked={senal}` | `Signal<bool>` y casilla atados; escucha `change`. |
+
+```rust
+let nombre = Signal::new(String::new());
+let acepto = Signal::new(false);
+view! { dom,
+    <form>
+        <input bind:value={nombre}/>
+        <input type="checkbox" bind:checked={acepto}/>
+        <select prop:value={move || pais.get()} on:change={...}>
+            <option value="cl">"Chile"</option>
+            <option value="ar">"Argentina"</option>
+        </select>
+    </form>
+}
+```
+
+Las propiedades se aplican **después** de los hijos, para que un `<select>` ya
+tenga sus opciones cuando recibe su `value`. Y solo se escriben si cambian:
+reescribir el `value` de un campo con lo mismo movería el cursor al final
+mientras el usuario escribe.
+
+Sin navegador (`MemoryBackend`, SSR) una propiedad se escribe como atributo.
+
 ## Elementos y componentes
 
 Los tags que empiezan por **minúscula** son elementos HTML. Los que empiezan por

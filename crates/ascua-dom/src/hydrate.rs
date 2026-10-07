@@ -34,7 +34,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::backend::{Backend, NodeKind};
+use crate::backend::{Backend, NodeKind, PropValue};
 use crate::dom::{Dom, Mount};
 use crate::memory::HYDRATION_ATTR;
 use crate::ssr::{IslandBuilder, ISLAND_ATTR, ISLAND_PROPS_ATTR};
@@ -53,6 +53,7 @@ enum Operacion {
     Text(String),
     Attribute(String, String),
     RemoveAttribute(String),
+    Property(String, PropValue),
 }
 
 struct Slot<B: Backend> {
@@ -179,6 +180,9 @@ impl<B: Backend> HydratingBackend<B> {
                 }
                 Operacion::RemoveAttribute(nombre) => {
                     self.inner.remove_attribute(real, &nombre);
+                }
+                Operacion::Property(nombre, valor) => {
+                    self.inner.set_property(real, &nombre, &valor);
                 }
             }
         }
@@ -331,6 +335,15 @@ impl<B: Backend> Backend for HydratingBackend<B> {
     fn attribute(&self, node: &Self::Node, name: &str) -> Option<String> {
         let real = node.0.borrow().real.clone()?;
         self.inner.attribute(&real, name)
+    }
+
+    fn set_property(&self, node: &Self::Node, name: &str, value: &PropValue) {
+        self.operar(node, Operacion::Property(name.to_string(), value.clone()));
+    }
+
+    fn property(&self, node: &Self::Node, name: &str, como_logico: bool) -> Option<PropValue> {
+        let real = node.0.borrow().real.clone()?;
+        self.inner.property(&real, name, como_logico)
     }
 
     fn node_kind(&self, node: &Self::Node) -> NodeKind {

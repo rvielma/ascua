@@ -22,6 +22,18 @@ pub enum NodeKind {
     Other,
 }
 
+/// El valor de una **propiedad** de un nodo, que no es lo mismo que un
+/// atributo: el atributo `value` de un `<input>` es su valor inicial; la
+/// propiedad `value` es lo que tiene escrito ahora. Lo que el usuario cambia
+/// en un campo solo se ve en la propiedad.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum PropValue {
+    /// `value` de un `<input>`, `<select>` o `<textarea>`.
+    Text(String),
+    /// `checked`, `selected`, `disabled`…
+    Bool(bool),
+}
+
 /// Operaciones mínimas sobre un árbol de nodos.
 ///
 /// Deliberadamente pequeño: son las únicas operaciones que el codegen del
@@ -54,6 +66,32 @@ pub trait Backend: 'static {
     fn set_text(&self, node: &Self::Node, data: &str);
     fn set_attribute(&self, node: &Self::Node, name: &str, value: &str);
     fn remove_attribute(&self, node: &Self::Node, name: &str);
+
+    /// Escribe una propiedad del nodo (ver [`PropValue`]).
+    ///
+    /// Por defecto la escribe como atributo, que es lo que vale cuando no hay
+    /// un navegador detrás (un texto como `value="…"`, un lógico como atributo
+    /// presente o ausente). [`crate::WebBackend`] escribe la propiedad de
+    /// verdad.
+    fn set_property(&self, node: &Self::Node, name: &str, value: &PropValue) {
+        match value {
+            PropValue::Text(texto) => self.set_attribute(node, name, texto),
+            PropValue::Bool(true) => self.set_attribute(node, name, ""),
+            PropValue::Bool(false) => self.remove_attribute(node, name),
+        }
+    }
+
+    /// Lee una propiedad del nodo. `como_logico` dice qué tipo se espera,
+    /// porque sin navegador solo hay atributos y el mismo atributo se lee
+    /// distinto: `checked` existe o no; `value` es un texto.
+    fn property(&self, node: &Self::Node, name: &str, como_logico: bool) -> Option<PropValue> {
+        let atributo = self.attribute(node, name);
+        Some(if como_logico {
+            PropValue::Bool(atributo.is_some())
+        } else {
+            PropValue::Text(atributo?)
+        })
+    }
 
     /// Inserta `child` antes de `before`, o al final de `parent` si es `None`.
     /// Si `child` ya tenía padre, esto lo mueve.

@@ -132,11 +132,23 @@ impl Generator {
                 if let Some(atributo) = &self.scope_attr {
                     statements.push(quote! { __ascua_dom.set_attr(&#id, #atributo, ""); });
                 }
-                for attribute in &element.attributes {
+                let (props, attributes): (Vec<&Attribute>, Vec<&Attribute>) =
+                    element.attributes.iter().partition(|a| {
+                        matches!(
+                            a.value,
+                            AttributeValue::Prop { .. } | AttributeValue::Bind { .. }
+                        )
+                    });
+                for attribute in attributes {
                     statements.push(generate_attribute(&id, attribute));
                 }
                 for child in &element.children {
                     self.child(&id, child, statements);
+                }
+                // Las propiedades van después de los hijos: el `value` de un
+                // `<select>` solo se puede poner cuando ya tiene sus opciones.
+                for attribute in props {
+                    statements.push(generate_attribute(&id, attribute));
                 }
             }
             Node::Component(component) => {
@@ -288,6 +300,30 @@ fn generate_attribute(node: &Ident, attribute: &Attribute) -> TokenStream {
         },
         AttributeValue::Event { event, handler } => {
             quote! { __ascua_dom.on(&#node, #event, #handler); }
+        }
+        AttributeValue::Prop { prop, value } => match value {
+            syn::Expr::Closure(closure) => quote! {
+                __ascua_dom.bind_prop(&#node, #prop, {
+                    let mut __ascua_f = #closure;
+                    move || ::ascua::IntoPropValue::into_prop_value(__ascua_f())
+                });
+            },
+            otro => quote! {
+                __ascua_dom.set_prop(
+                    &#node,
+                    #prop,
+                    &::ascua::IntoPropValue::into_prop_value(#otro),
+                );
+            },
+        },
+        AttributeValue::Bind { prop, signal } => {
+            // Una función por propiedad, para que el tipo del signal lo
+            // compruebe el compilador (`parse` ya rechazó las demás).
+            if prop == "checked" {
+                quote! { __ascua_dom.bind_checked(&#node, #signal); }
+            } else {
+                quote! { __ascua_dom.bind_input(&#node, #signal); }
+            }
         }
     }
 }

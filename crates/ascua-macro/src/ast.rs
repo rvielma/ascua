@@ -78,6 +78,13 @@ pub enum AttributeValue {
     Dynamic(ExprClosure),
     /// `on:click={move |ev| ...}`
     Event { event: String, handler: Expr },
+    /// `prop:value={expr}` o `prop:value={move || ...}`: escribe la
+    /// **propiedad** del nodo, no el atributo (lo que tiene escrito un campo
+    /// ahora, no su valor inicial).
+    Prop { prop: String, value: Expr },
+    /// `bind:value={signal}` o `bind:checked={signal}`: la propiedad y el
+    /// signal, atados en los dos sentidos.
+    Bind { prop: String, signal: Expr },
 }
 
 /// Entrada completa de la macro: `view! { dom, <div/> }`.
