@@ -49,7 +49,7 @@ publicar() {
   nombre=$(node -p "require('./packages/$paquete/package.json').name")
   version=$(node -p "require('./packages/$paquete/package.json').version")
 
-  if [[ -z "$seco" ]] && npm view "$nombre@$version" version >/dev/null 2>&1; then
+  if npm view "$nombre@$version" version >/dev/null 2>&1; then
     echo "==> $nombre@$version ya está publicado: se salta"
     return
   fi
