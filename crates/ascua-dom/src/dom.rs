@@ -422,7 +422,9 @@ macro_rules! impl_into_prop_value_display {
     };
 }
 
-impl_into_prop_value_display!(char, i8, i16, i32, i64, isize, u8, u16, u32, u64, usize, f32, f64);
+impl_into_prop_value_display!(
+    i8, i16, i32, i64, i128, isize, u8, u16, u32, u64, u128, usize, f32, f64, char
+);
 
 /// Lo que se puede atar con `bind:`: un texto (`bind:value`) o un lógico
 /// (`bind:checked`).

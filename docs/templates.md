@@ -70,6 +70,11 @@ reescribir el `value` de un campo con lo mismo movería el cursor al final
 mientras el usuario escribe.
 
 Sin navegador (`MemoryBackend`, SSR) una propiedad se escribe como atributo.
+Para un `<input>` vale: el HTML del servidor sale con `value="…"` o `checked`
+y el campo aparece lleno. Para un `<select>` o un `<textarea>`, no: el
+navegador ignora su atributo `value`, así que hasta que la isla hidrata se ve
+la primera opción (o el `<textarea>` vacío). Si eso importa, marca la opción
+con `selected` o pon el texto como hijo del `<textarea>`.
 
 ## Elementos y componentes
 
