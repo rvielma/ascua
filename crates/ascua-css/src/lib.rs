@@ -36,8 +36,51 @@ pub fn scope_id(css: &str) -> String {
 /// `atributo`.
 pub fn scope_css(css: &str, atributo: &str) -> String {
     let mut salida = String::new();
-    escribir_reglas(css, atributo, &mut salida);
+    escribir_reglas(&quitar_comentarios(css), atributo, &mut salida);
     salida
+}
+
+/// Quita los comentarios `/* … */`, respetando los strings. Un comentario
+/// delante de una regla quedaría pegado a su prelude: `/* x */ @media …` ya no
+/// empieza por `@` y se scopearía como si fuera un selector.
+fn quitar_comentarios(css: &str) -> String {
+    let mut salida = String::with_capacity(css.len());
+    let mut resto = css;
+    while let Some(indice) = resto.find(['/', '"', '\'']) {
+        let (antes, desde) = resto.split_at(indice);
+        salida.push_str(antes);
+        if let Some(comentario) = desde.strip_prefix("/*") {
+            // Un comentario sin cerrar llega hasta el final, como en CSS.
+            resto = comentario
+                .find("*/")
+                .map_or("", |fin| &comentario[fin + 2..]);
+            salida.push(' ');
+        } else if desde.starts_with(['"', '\'']) {
+            let fin = fin_de_string(desde.as_bytes(), 0);
+            salida.push_str(&desde[..fin]);
+            resto = &desde[fin..];
+        } else {
+            salida.push('/');
+            resto = &desde[1..];
+        }
+    }
+    salida.push_str(resto);
+    salida
+}
+
+/// Posición siguiente al cierre del string que abre en `inicio`.
+fn fin_de_string(bytes: &[u8], inicio: usize) -> usize {
+    let comilla = bytes[inicio];
+    let mut posicion = inicio + 1;
+    while posicion < bytes.len() {
+        match bytes[posicion] {
+            b'\\' => posicion += 1,
+            b if b == comilla => return posicion + 1,
+            _ => {}
+        }
+        posicion += 1;
+    }
+    bytes.len()
 }
 
 fn escribir_reglas(entrada: &str, atributo: &str, salida: &mut String) {
@@ -77,8 +120,10 @@ fn escribir_reglas(entrada: &str, atributo: &str, salida: &mut String) {
 
 /// At-rules cuyo bloque contiene reglas completas, no declaraciones.
 fn contiene_reglas_anidadas(prelude: &str) -> bool {
+    // El nombre termina donde deja de ser identificador: `@media(min-width…)`
+    // es tan válido como `@media (min-width…)`.
     let nombre = prelude
-        .split_whitespace()
+        .split(|c: char| !(c == '@' || c == '-' || c.is_ascii_alphanumeric()))
         .next()
         .unwrap_or_default()
         .to_ascii_lowercase();
@@ -97,6 +142,11 @@ fn leer_bloque(entrada: &str, apertura: usize) -> Option<(&str, usize)> {
 
     while posicion < bytes.len() {
         match bytes[posicion] {
+            // `content: "}"` no cierra nada.
+            b'"' | b'\'' => {
+                posicion = fin_de_string(bytes, posicion);
+                continue;
+            }
             b'{' => profundidad += 1,
             b'}' => {
                 profundidad -= 1;
@@ -180,6 +230,32 @@ mod tests {
             "reglas dentro de @media deben scopearse: {css}"
         );
         assert!(css.contains("@media (min-width: 40rem) {"));
+    }
+
+    #[test]
+    fn un_comentario_delante_no_convierte_la_media_query_en_selector() {
+        let css = scope_css(
+            "/* móvil */\n@media (max-width: 900px) { .a { color: red; } }",
+            "data-x",
+        );
+        assert!(css.contains("@media (max-width: 900px) {"), "{css}");
+        assert!(css.contains(".a[data-x] { color: red; }"), "{css}");
+    }
+
+    #[test]
+    fn scopea_una_media_query_sin_espacio_tras_el_nombre() {
+        let css = scope_css("@media(max-width:900px){.a{color:red}}", "data-x");
+        assert!(css.contains(".a[data-x] {color:red}"), "{css}");
+    }
+
+    #[test]
+    fn las_llaves_y_comentarios_dentro_de_strings_no_cuentan() {
+        let css = scope_css(
+            r#".a::after { content: "} /* no */"; } .b { color: red; }"#,
+            "data-x",
+        );
+        assert!(css.contains(r#"content: "} /* no */";"#), "{css}");
+        assert!(css.contains(".b[data-x] { color: red; }"), "{css}");
     }
 
     #[test]
