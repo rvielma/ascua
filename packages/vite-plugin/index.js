@@ -11,6 +11,7 @@
  */
 
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -136,14 +137,15 @@ function compilador(opciones) {
       // El CSS se entrega como un módulo aparte: Vite lo inyecta en dev y lo
       // extrae a un .css en el build. No queda nada de estilos en runtime.
       //
-      // El id lleva **el scope del propio CSS**, que el compilador deriva de su
-      // contenido. Así, tocar un `<style>` produce otro módulo virtual en vez
-      // de cambiar el contenido de uno que ya existe: en dev, un id estable con
-      // contenido nuevo se queda servido con el de antes, y los estilos dejan
-      // de casar con los elementos, que sí llevan ya el scope nuevo.
+      // El id lleva **un hash de todo el CSS** del archivo. Así, tocar un
+      // `<style>` produce otro módulo virtual en vez de cambiar el contenido de
+      // uno que ya existe: en dev, un id estable con contenido nuevo se queda
+      // servido con el de antes, y los estilos dejan de casar con los
+      // elementos, que sí llevan ya el scope nuevo. No basta con el primer
+      // scope: un archivo con varias plantillas tiene uno por cada una.
       const nombre = archivo.replace(/[^a-zA-Z0-9]/g, "_").slice(-60);
-      const scope = /data-ascua-([0-9a-f]+)/.exec(salida.css)?.[1] ?? "css";
-      const idVirtual = `${PREFIJO}${nombre}-${scope}.css`;
+      const hash = createHash("sha256").update(salida.css).digest("hex").slice(0, 8);
+      const idVirtual = `${PREFIJO}${nombre}-${hash}.css`;
 
       // Las versiones anteriores de este mismo archivo ya no las pide nadie.
       for (const anterior of hojas.keys()) {
