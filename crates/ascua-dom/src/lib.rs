@@ -50,7 +50,7 @@ mod ssr;
 #[cfg(feature = "web")]
 mod web;
 
-pub use backend::{Backend, NodeKind, PropValue};
+pub use backend::{Backend, GlobalTarget, NodeKind, PropValue};
 pub use children::Children;
 pub use dom::{BindableProp, Dom, IntoAttrValue, IntoPropValue, Mount};
 pub use hydrate::{hydrate_islands, HydratedNode, HydratingBackend, HydrationStats};

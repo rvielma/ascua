@@ -13,7 +13,7 @@ use ascua_reactive::{
     create_effect, create_memo, create_root, current_owner, on_cleanup, Root, Signal,
 };
 
-use crate::backend::{Backend, PropValue};
+use crate::backend::{Backend, GlobalTarget, PropValue};
 
 /// Handle sobre un backend, clonable a coste de un `Rc`.
 ///
@@ -219,6 +219,56 @@ impl<B: Backend> Dom<B> {
         let backend = Rc::clone(&self.backend);
         let node = node.clone();
         on_cleanup(move || backend.remove_listener(&node, &event, token));
+    }
+
+    /// Registra un manejador en la ventana (`keydown` para un atajo,
+    /// `resize`, el `mouseup` que cierra un arrastre). Como [`Dom::on`], se
+    /// quita solo cuando el scope actual se libera: no hace falta
+    /// `Closure::forget` ni quitarlo a mano.
+    ///
+    /// ```
+    /// use ascua_dom::{Dom, GlobalTarget, MemoryBackend};
+    /// use ascua_reactive::Signal;
+    ///
+    /// let dom = Dom::new(MemoryBackend::new());
+    /// let body = dom.element("body");
+    /// let pulsadas = Signal::new(0);
+    ///
+    /// let vista = dom.mount(&body, |dom| {
+    ///     dom.on_window("keydown", move |_| pulsadas.update(|n| *n += 1));
+    ///     dom.element("main")
+    /// });
+    ///
+    /// dom.backend().dispatch_global(GlobalTarget::Window, "keydown");
+    /// assert_eq!(pulsadas.get(), 1);
+    ///
+    /// vista.unmount();
+    /// assert_eq!(dom.backend().global_listener_count(GlobalTarget::Window), 0);
+    /// ```
+    pub fn on_window(&self, event: impl Into<String>, handler: impl Fn(B::Event) + 'static) {
+        self.on_global(GlobalTarget::Window, event, handler);
+    }
+
+    /// Registra un manejador en el documento (`selectionchange`,
+    /// `visibilitychange`, un clic fuera de un menú). Se quita solo, como
+    /// [`Dom::on_window`].
+    pub fn on_document(&self, event: impl Into<String>, handler: impl Fn(B::Event) + 'static) {
+        self.on_global(GlobalTarget::Document, event, handler);
+    }
+
+    fn on_global(
+        &self,
+        target: GlobalTarget,
+        event: impl Into<String>,
+        handler: impl Fn(B::Event) + 'static,
+    ) {
+        let event = event.into();
+        let token = self
+            .backend
+            .add_global_listener(target, &event, Rc::new(handler));
+
+        let backend = Rc::clone(&self.backend);
+        on_cleanup(move || backend.remove_global_listener(target, &event, token));
     }
 
     /// Contenido que puede cambiar de identidad, no solo de valor.

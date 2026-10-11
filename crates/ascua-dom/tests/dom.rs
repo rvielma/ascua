@@ -5,7 +5,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use ascua_dom::{keyed_list, Dom, MemoryBackend, NodeRef};
+use ascua_dom::{keyed_list, Dom, GlobalTarget, MemoryBackend, NodeRef};
 use ascua_reactive::{create_root, live_node_count, on_cleanup, Signal};
 
 fn escenario() -> (Dom<MemoryBackend>, NodeRef) {
@@ -472,4 +472,77 @@ fn el_contenido_dinamico_puede_no_mostrar_nada() {
         dom.backend().html(&body),
         "<body><div><p></p><!----></div></body>"
     );
+}
+
+#[test]
+fn los_listeners_de_ventana_y_documento_se_quitan_al_desmontar() {
+    let (dom, body) = escenario();
+    let teclas = Signal::new(0);
+    let clics = Signal::new(0);
+
+    let vista = dom.mount(&body, move |dom| {
+        dom.on_window("keydown", move |_| teclas.update(|n| *n += 1));
+        dom.on_document("click", move |_| clics.update(|n| *n += 1));
+        dom.element("main")
+    });
+
+    dom.backend()
+        .dispatch_global(GlobalTarget::Window, "keydown");
+    dom.backend()
+        .dispatch_global(GlobalTarget::Document, "click");
+    // Cada uno recibe solo lo suyo.
+    dom.backend()
+        .dispatch_global(GlobalTarget::Document, "keydown");
+    assert_eq!((teclas.get(), clics.get()), (1, 1));
+
+    vista.unmount();
+    assert_eq!(dom.backend().global_listener_count(GlobalTarget::Window), 0);
+    assert_eq!(
+        dom.backend().global_listener_count(GlobalTarget::Document),
+        0
+    );
+
+    dom.backend()
+        .dispatch_global(GlobalTarget::Window, "keydown");
+    assert_eq!(teclas.get(), 1, "tras desmontar no debe llegar nada");
+}
+
+#[test]
+fn un_listener_de_ventana_vive_lo_que_su_rama() {
+    let (dom, body) = escenario();
+    let abierto = Signal::new(true);
+    let escapes = Signal::new(0);
+
+    let vista = dom.mount(&body, move |dom| {
+        let raiz = dom.element("div");
+        dom.dynamic_child(
+            &raiz,
+            move || abierto.get(),
+            move |dom, abierto| {
+                if !*abierto {
+                    return None;
+                }
+                // Un menú abierto escucha Escape en la ventana; al cerrarse,
+                // deja de escuchar.
+                dom.on_window("keydown", move |_| escapes.update(|n| *n += 1));
+                Some(dom.element("menu"))
+            },
+        );
+        raiz
+    });
+
+    dom.backend()
+        .dispatch_global(GlobalTarget::Window, "keydown");
+    assert_eq!(escapes.get(), 1);
+
+    abierto.set(false);
+    assert_eq!(dom.backend().global_listener_count(GlobalTarget::Window), 0);
+    dom.backend()
+        .dispatch_global(GlobalTarget::Window, "keydown");
+    assert_eq!(escapes.get(), 1);
+
+    abierto.set(true);
+    assert_eq!(dom.backend().global_listener_count(GlobalTarget::Window), 1);
+
+    vista.unmount();
 }

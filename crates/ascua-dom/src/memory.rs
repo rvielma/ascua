@@ -10,7 +10,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use crate::backend::{Backend, NodeKind};
+use crate::backend::{Backend, GlobalTarget, NodeKind};
 
 /// Referencia a un nodo del árbol en memoria.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -67,6 +67,8 @@ pub const HYDRATION_ATTR: &str = "data-ascua-h";
 pub struct MemoryBackend {
     nodes: RefCell<Vec<Option<MemNode>>>,
     next_listener_id: std::cell::Cell<usize>,
+    /// Manejadores de la ventana y el documento simulados.
+    globales: RefCell<Vec<(GlobalTarget, Listener)>>,
     /// Contador de elementos dentro de la isla que se está renderizando.
     /// `None` fuera de toda isla: ahí no hay nada que hidratar.
     hydration: std::cell::Cell<Option<u32>>,
@@ -182,6 +184,34 @@ impl MemoryBackend {
             }
         };
         // Fuera del préstamo: un manejador puede crear o borrar nodos.
+        Self::invocar(handlers, event)
+    }
+
+    /// Dispara un evento en la ventana o el documento simulados. Devuelve si
+    /// algún manejador llamó a `prevent_default`, como [`Self::dispatch`].
+    pub fn dispatch_global(&self, target: GlobalTarget, event: &str) -> bool {
+        let handlers: Vec<Rc<dyn Fn(MemoryEvent)>> = self
+            .globales
+            .borrow()
+            .iter()
+            .filter(|(t, l)| *t == target && l.event == event)
+            .map(|(_, l)| Rc::clone(&l.handler))
+            .collect();
+        Self::invocar(handlers, event)
+    }
+
+    /// Cuántos manejadores tiene la ventana o el documento. Sirve para
+    /// comprobar que desmontar no deja ninguno colgando.
+    #[must_use]
+    pub fn global_listener_count(&self, target: GlobalTarget) -> usize {
+        self.globales
+            .borrow()
+            .iter()
+            .filter(|(t, _)| *t == target)
+            .count()
+    }
+
+    fn invocar(handlers: Vec<Rc<dyn Fn(MemoryEvent)>>, event: &str) -> bool {
         let evento = MemoryEvent {
             kind: event.to_string(),
             cancelado: std::rc::Rc::new(std::cell::Cell::new(false)),
@@ -422,6 +452,29 @@ impl Backend for MemoryBackend {
         if let Some(Some(node)) = nodes.get_mut(node.0) {
             node.listeners.retain(|l| l.id != token);
         }
+    }
+
+    fn add_global_listener(
+        &self,
+        target: GlobalTarget,
+        event: &str,
+        handler: Rc<dyn Fn(MemoryEvent)>,
+    ) -> usize {
+        let id = self.next_listener_id.get();
+        self.next_listener_id.set(id + 1);
+        self.globales.borrow_mut().push((
+            target,
+            Listener {
+                id,
+                event: event.to_string(),
+                handler,
+            },
+        ));
+        id
+    }
+
+    fn remove_global_listener(&self, _target: GlobalTarget, _event: &str, token: usize) {
+        self.globales.borrow_mut().retain(|(_, l)| l.id != token);
     }
 }
 

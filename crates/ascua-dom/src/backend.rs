@@ -34,6 +34,17 @@ pub enum PropValue {
     Bool(bool),
 }
 
+/// Los objetos globales que reciben eventos sin ser nodos del árbol.
+///
+/// Un atajo de teclado, el `mouseup` que termina un arrastre fuera del
+/// elemento o un `resize` no los recibe ningún nodo de un componente: los
+/// recibe la ventana o el documento.
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub enum GlobalTarget {
+    Window,
+    Document,
+}
+
 /// Operaciones mínimas sobre un árbol de nodos.
 ///
 /// Deliberadamente pequeño: son las únicas operaciones que el codegen del
@@ -147,6 +158,17 @@ pub trait Backend: 'static {
     ) -> Self::ListenerToken;
 
     fn remove_listener(&self, node: &Self::Node, event: &str, token: Self::ListenerToken);
+
+    /// Registra un manejador en la ventana o el documento (ver
+    /// [`GlobalTarget`]).
+    fn add_global_listener(
+        &self,
+        target: GlobalTarget,
+        event: &str,
+        handler: Rc<dyn Fn(Self::Event)>,
+    ) -> Self::ListenerToken;
+
+    fn remove_global_listener(&self, target: GlobalTarget, event: &str, token: Self::ListenerToken);
 
     /// Cancela el comportamiento por defecto del navegador para este evento.
     /// Lo necesita cualquier cosa que intercepte un `<a>` o un `<form>`, como

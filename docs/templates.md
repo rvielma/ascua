@@ -100,6 +100,26 @@ view! { dom,
 `get_untracked()` no. `cast::<T>()`, solo en la web, lo convierte al tipo
 concreto del DOM. Así no hace falta poner un `id` y buscarlo en el documento.
 
+## Eventos de la ventana y el documento
+
+Un atajo de teclado, el `mouseup` que termina un arrastre fuera del elemento o
+un `resize` no llegan a ningún nodo del componente. Se escuchan con
+`dom.on_window` y `dom.on_document`, dentro del componente:
+
+```rust
+let abierto = Signal::new(false);
+dom.on_window("keydown", move |e| {
+    let tecla = e.dyn_ref::<KeyboardEvent>().map(KeyboardEvent::key);
+    if tecla.as_deref() == Some("Escape") {
+        abierto.set(false);
+    }
+});
+```
+
+Igual que un `on:click`, el manejador se quita solo cuando se libera el scope
+en que se registró: al desmontar, o al cerrarse el `<Show>` que lo contiene.
+No hace falta `Closure::forget` ni guardar el closure para quitarlo a mano.
+
 ## Elementos y componentes
 
 Los tags que empiezan por **minúscula** son elementos HTML. Los que empiezan por

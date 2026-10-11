@@ -34,7 +34,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use crate::backend::{Backend, NodeKind, PropValue};
+use crate::backend::{Backend, GlobalTarget, NodeKind, PropValue};
 use crate::dom::{Dom, Mount};
 use crate::memory::HYDRATION_ATTR;
 use crate::ssr::{IslandBuilder, ISLAND_ATTR, ISLAND_PROPS_ATTR};
@@ -409,6 +409,24 @@ impl<B: Backend> Backend for HydratingBackend<B> {
     fn remove_listener(&self, node: &Self::Node, event: &str, token: Self::ListenerToken) {
         let real = self.materializar(node);
         self.inner.remove_listener(&real, event, token);
+    }
+
+    fn add_global_listener(
+        &self,
+        target: GlobalTarget,
+        event: &str,
+        handler: Rc<dyn Fn(Self::Event)>,
+    ) -> Self::ListenerToken {
+        self.inner.add_global_listener(target, event, handler)
+    }
+
+    fn remove_global_listener(
+        &self,
+        target: GlobalTarget,
+        event: &str,
+        token: Self::ListenerToken,
+    ) {
+        self.inner.remove_global_listener(target, event, token);
     }
 
     fn prevent_default(&self, event: &Self::Event) {

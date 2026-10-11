@@ -10,9 +10,9 @@ use std::rc::Rc;
 
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::{JsCast, JsValue};
-use web_sys::{Document, Event, Node};
+use web_sys::{Document, Event, EventTarget, Node};
 
-use crate::backend::{Backend, NodeKind, PropValue};
+use crate::backend::{Backend, GlobalTarget, NodeKind, PropValue};
 
 /// Backend que opera sobre el DOM real del navegador.
 pub struct WebBackend {
@@ -44,6 +44,14 @@ impl WebBackend {
 
     /// Busca un elemento por selector, para montar la aplicación en él.
     #[must_use]
+    /// La ventana o el documento, como destino de eventos.
+    fn global(&self, target: GlobalTarget) -> Option<EventTarget> {
+        match target {
+            GlobalTarget::Window => self.document.default_view().map(Into::into),
+            GlobalTarget::Document => Some(self.document.clone().into()),
+        }
+    }
+
     pub fn query_selector(&self, selector: &str) -> Option<Node> {
         self.document
             .query_selector(selector)
@@ -176,6 +184,36 @@ impl Backend for WebBackend {
         // Al soltar el `Closure` se libera el callback de Rust. Hacerlo después
         // de quitar el listener es obligatorio: al revés, el navegador podría
         // invocar memoria ya liberada.
+        drop(token);
+    }
+
+    fn add_global_listener(
+        &self,
+        target: GlobalTarget,
+        event: &str,
+        handler: Rc<dyn Fn(Event)>,
+    ) -> Closure<dyn FnMut(Event)> {
+        let closure =
+            Closure::wrap(Box::new(move |event: Event| handler(event)) as Box<dyn FnMut(Event)>);
+        if let Some(destino) = self.global(target) {
+            let _ =
+                destino.add_event_listener_with_callback(event, closure.as_ref().unchecked_ref());
+        }
+        closure
+    }
+
+    fn remove_global_listener(
+        &self,
+        target: GlobalTarget,
+        event: &str,
+        token: Closure<dyn FnMut(Event)>,
+    ) {
+        if let Some(destino) = self.global(target) {
+            let _ =
+                destino.remove_event_listener_with_callback(event, token.as_ref().unchecked_ref());
+        }
+        // Igual que en `remove_listener`: soltar el callback después de
+        // quitar el listener, nunca antes.
         drop(token);
     }
 }
