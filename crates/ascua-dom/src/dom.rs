@@ -127,6 +127,46 @@ impl<B: Backend> Dom<B> {
         });
     }
 
+    /// Pone o quita una clase una vez (`class:activa={expr}`).
+    pub fn set_class(&self, node: &B::Node, name: &str, on: bool) {
+        self.backend.set_class(node, name, on);
+    }
+
+    /// Ata una clase a `f` (`class:activa={move || …}`): la pone cuando `f`
+    /// devuelve `true` y la quita cuando devuelve `false`, sin tocar las
+    /// demás clases del elemento.
+    pub fn bind_class(
+        &self,
+        node: &B::Node,
+        name: impl Into<String>,
+        mut f: impl FnMut() -> bool + 'static,
+    ) {
+        let backend = Rc::clone(&self.backend);
+        let node = node.clone();
+        let name = name.into();
+        create_effect(move || backend.set_class(&node, &name, f()));
+    }
+
+    /// Escribe una propiedad de estilo una vez (`style:left={expr}`); `None`
+    /// la quita.
+    pub fn set_style(&self, node: &B::Node, name: &str, value: Option<&str>) {
+        self.backend.set_style(node, name, value);
+    }
+
+    /// Ata una propiedad de estilo a `f` (`style:left={move || …}`).
+    /// Devolver `None` la quita.
+    pub fn bind_style(
+        &self,
+        node: &B::Node,
+        name: impl Into<String>,
+        mut f: impl FnMut() -> Option<String> + 'static,
+    ) {
+        let backend = Rc::clone(&self.backend);
+        let node = node.clone();
+        let name = name.into();
+        create_effect(move || backend.set_style(&node, &name, f().as_deref()));
+    }
+
     /// Escribe una propiedad del nodo una vez (`prop:value={expr}`).
     pub fn set_prop(&self, node: &B::Node, name: &str, value: &PropValue) {
         self.backend.set_property(node, name, value);

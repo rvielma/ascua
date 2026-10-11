@@ -190,6 +190,25 @@ impl Backend for WebBackend {
         drop(token);
     }
 
+    fn set_class(&self, node: &Node, name: &str, on: bool) {
+        if let Some(element) = node.dyn_ref::<web_sys::Element>() {
+            let _ = element.class_list().toggle_with_force(name, on);
+        }
+    }
+
+    fn set_style(&self, node: &Node, name: &str, value: Option<&str>) {
+        // `style` es de los elementos HTML; un `<svg>` cae al atributo.
+        let Some(element) = node.dyn_ref::<web_sys::HtmlElement>() else {
+            crate::backend::style_por_atributo(self, node, name, value);
+            return;
+        };
+        let estilo = element.style();
+        let _ = match value {
+            Some(valor) => estilo.set_property(name, valor),
+            None => estilo.remove_property(name).map(drop),
+        };
+    }
+
     fn set_timer(
         &self,
         ms: u32,

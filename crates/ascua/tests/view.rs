@@ -469,3 +469,55 @@ fn ref_apunta_al_elemento() {
     let p = oculto.get_untracked().expect("apareció con el <Show>");
     assert_eq!(b.tag_name(&p).as_deref(), Some("p"));
 }
+
+#[test]
+fn class_pone_y_quita_una_clase_sin_tocar_las_demas() {
+    let (dom, body) = escenario();
+    let activa = Signal::new(false);
+    let fija = true;
+
+    let _app = dom.mount(&body, |dom| {
+        // `class:` escrito antes que `class` no se pierde.
+        view! { dom,
+            <li class:activa={move || activa.get()} class="fila" class:fija={fija}>"x"</li>
+        }
+    });
+
+    let html = || dom.backend().html(&body);
+    assert_eq!(html(), r#"<body><li class="fila fija">x</li></body>"#);
+    activa.set(true);
+    assert_eq!(
+        html(),
+        r#"<body><li class="fila fija activa">x</li></body>"#
+    );
+    activa.set(false);
+    assert_eq!(html(), r#"<body><li class="fila fija">x</li></body>"#);
+}
+
+#[test]
+fn style_escribe_una_propiedad_y_none_la_quita() {
+    let (dom, body) = escenario();
+    let x = Signal::new(10);
+    let cursor: Signal<Option<&'static str>> = Signal::new(Some("cell"));
+
+    let _app = dom.mount(&body, |dom| {
+        view! { dom,
+            <div
+                style="position: absolute"
+                style:left={move || format!("{}px", x.get())}
+                style:cursor={move || cursor.get()}
+                style:--ancho={"120px"}
+            >"x"</div>
+        }
+    });
+
+    let html = || dom.backend().html(&body);
+    assert_eq!(
+        html(),
+        r#"<body><div style="position: absolute; left: 10px; cursor: cell; --ancho: 120px">x</div></body>"#
+    );
+    x.set(25);
+    assert!(html().contains("left: 25px"), "{}", html());
+    cursor.set(None);
+    assert!(!html().contains("cursor"), "{}", html());
+}

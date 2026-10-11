@@ -85,6 +85,12 @@ pub enum AttributeValue {
     /// `bind:value={signal}` o `bind:checked={signal}`: la propiedad y el
     /// signal, atados en los dos sentidos.
     Bind { prop: String, signal: Expr },
+    /// `class:activa={expr}` o `class:activa={move || ...}`: pone y quita
+    /// **esa** clase, sin tocar las demás.
+    Class { class: String, on: Expr },
+    /// `style:left={expr}` o `style:left={move || ...}`: escribe **esa**
+    /// propiedad de estilo; `None` la quita.
+    Style { property: String, value: Expr },
     /// `ref={referencia}`: apunta un `ElementRef` al elemento.
     Ref(Expr),
 }

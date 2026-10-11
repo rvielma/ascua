@@ -412,6 +412,16 @@ impl<B: Backend> Backend for HydratingBackend<B> {
         self.inner.remove_listener(&real, event, token);
     }
 
+    fn set_class(&self, node: &Self::Node, name: &str, on: bool) {
+        let real = self.materializar(node);
+        self.inner.set_class(&real, name, on);
+    }
+
+    fn set_style(&self, node: &Self::Node, name: &str, value: Option<&str>) {
+        let real = self.materializar(node);
+        self.inner.set_style(&real, name, value);
+    }
+
     fn set_timer(&self, ms: u32, repeat: bool, callback: Rc<dyn Fn()>) -> Self::TimerToken {
         self.inner.set_timer(ms, repeat, callback)
     }

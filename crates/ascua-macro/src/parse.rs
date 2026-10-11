@@ -247,10 +247,17 @@ impl Parse for Attribute {
     fn parse(input: ParseStream) -> syn::Result<Self> {
         let name = parse_name(input)?;
 
-        // on:click={...}, prop:value={...}, bind:value={...}
+        // on:click={...}, prop:value={...}, bind:value={...}, class:…, style:…
         if input.peek(Token![:]) {
             input.parse::<Token![:]>()?;
-            let event = parse_name(input)?;
+            // Las variables de CSS empiezan por `--`: `style:--ancho={…}`.
+            let event = if name == "style" && input.peek(Token![-]) {
+                input.parse::<Token![-]>()?;
+                input.parse::<Token![-]>()?;
+                format!("--{}", parse_name(input)?)
+            } else {
+                parse_name(input)?
+            };
             input.parse::<Token![=]>()?;
             let value = parse_braced_expr(input)?;
             return match name.as_str() {
@@ -264,6 +271,20 @@ impl Parse for Attribute {
                 "prop" => Ok(Attribute {
                     name: format!("prop:{event}"),
                     value: AttributeValue::Prop { prop: event, value },
+                }),
+                "class" => Ok(Attribute {
+                    name: format!("class:{event}"),
+                    value: AttributeValue::Class {
+                        class: event,
+                        on: value,
+                    },
+                }),
+                "style" => Ok(Attribute {
+                    name: format!("style:{event}"),
+                    value: AttributeValue::Style {
+                        property: event,
+                        value,
+                    },
                 }),
                 "bind" if ENLAZABLES.contains(&event.as_str()) => Ok(Attribute {
                     name: format!("bind:{event}"),
@@ -287,7 +308,7 @@ impl Parse for Attribute {
                     input.span(),
                     format!(
                         "prefijo de atributo desconocido: `{name}:`; \
-                         los soportados son `on:`, `prop:` y `bind:`"
+                         los soportados son `on:`, `prop:`, `bind:`, `class:` y `style:`"
                     ),
                 )),
             };

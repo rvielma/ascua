@@ -11,7 +11,7 @@ repository.workspace = true
 [dependencies]
 ascua-reactive = { path = "../ascua-reactive" }
 wasm-bindgen = { version = "0.2", optional = true }
-web-sys = { version = "0.3", features = ["Document", "Element", "Node", "Text", "Comment", "Window", "Event", "EventTarget", "HtmlElement", "CharacterData", "NodeList"], optional = true }
+web-sys = { version = "0.3", features = ["Document", "Element", "Node", "Text", "Comment", "Window", "Event", "EventTarget", "HtmlElement", "CharacterData", "NodeList", "DomTokenList", "CssStyleDeclaration"], optional = true }
 
 [lints]
 workspace = true

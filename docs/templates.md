@@ -76,6 +76,31 @@ navegador ignora su atributo `value`, así que hasta que la isla hidrata se ve
 la primera opción (o el `<textarea>` vacío). Si eso importa, marca la opción
 con `selected` o pon el texto como hijo del `<textarea>`.
 
+## Una clase o un estilo sueltos: `class:` y `style:`
+
+`class={move || ...}` reescribe la lista entera, así que para alternar una sola
+clase habría que construirla a mano. `class:` pone y quita **esa** clase, sin
+tocar las demás; `style:` hace lo mismo con una propiedad de estilo:
+
+```rust
+view! { dom,
+    <li class="fila" class:activa={move || elegida.get() == id}>"…"</li>
+    <div
+        class="editor"
+        style:left={move || format!("{}px", x.get())}
+        style:cursor={move || arrastrando.get().then_some("grabbing")}
+        style:--ancho={format!("{ancho}px")}
+    >"…"</div>
+}
+```
+
+Siguen la regla única: con una closure son reactivos, con otra expresión se
+aplican una vez. `class:` recibe un `bool`; `style:` recibe lo mismo que un
+atributo, y `None` quita la propiedad. Valen las variables de CSS (`--ancho`).
+No conviene mezclarlos con un `class={move || ...}` o un `style={move || ...}`
+en el mismo elemento: el atributo entero, al reescribirse, se lleva lo que
+pusieron.
+
 ## Referencias: `ref`
 
 Para lo que no es un atributo ni una propiedad —dar el foco, medir, ubicar un

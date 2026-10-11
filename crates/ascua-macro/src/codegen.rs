@@ -139,7 +139,16 @@ impl Generator {
                             AttributeValue::Prop { .. } | AttributeValue::Bind { .. }
                         )
                     });
-                for attribute in attributes {
+                // `class:` y `style:` van después de los atributos: un
+                // `class="fila"` escrito después pisaría la clase ya puesta.
+                let (sueltos, attributes): (Vec<&Attribute>, Vec<&Attribute>) =
+                    attributes.into_iter().partition(|a| {
+                        matches!(
+                            a.value,
+                            AttributeValue::Class { .. } | AttributeValue::Style { .. }
+                        )
+                    });
+                for attribute in attributes.into_iter().chain(sueltos) {
                     statements.push(generate_attribute(&id, attribute));
                 }
                 for child in &element.children {
@@ -313,6 +322,27 @@ fn generate_attribute(node: &Ident, attribute: &Attribute) -> TokenStream {
                     &#node,
                     #prop,
                     &::ascua::IntoPropValue::into_prop_value(#otro),
+                );
+            },
+        },
+        AttributeValue::Class { class, on } => match on {
+            syn::Expr::Closure(closure) => quote! {
+                __ascua_dom.bind_class(&#node, #class, #closure);
+            },
+            otro => quote! { __ascua_dom.set_class(&#node, #class, #otro); },
+        },
+        AttributeValue::Style { property, value } => match value {
+            syn::Expr::Closure(closure) => quote! {
+                __ascua_dom.bind_style(&#node, #property, {
+                    let mut __ascua_f = #closure;
+                    move || ::ascua::IntoAttrValue::into_attr_value(__ascua_f())
+                });
+            },
+            otro => quote! {
+                __ascua_dom.set_style(
+                    &#node,
+                    #property,
+                    ::ascua::IntoAttrValue::into_attr_value(#otro).as_deref(),
                 );
             },
         },

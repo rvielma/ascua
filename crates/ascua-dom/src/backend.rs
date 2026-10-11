@@ -95,6 +95,23 @@ pub trait Backend: 'static {
         }
     }
 
+    /// Pone o quita **una** clase, sin tocar las demás (`class:activa`).
+    ///
+    /// Por defecto reescribe el atributo `class`; [`crate::WebBackend`] usa
+    /// `classList`.
+    fn set_class(&self, node: &Self::Node, name: &str, on: bool) {
+        class_por_atributo(self, node, name, on);
+    }
+
+    /// Escribe **una** propiedad de estilo (`style:left`), o la quita con
+    /// `None`, sin tocar las demás.
+    ///
+    /// Por defecto reescribe el atributo `style`; [`crate::WebBackend`] usa
+    /// `style.setProperty`.
+    fn set_style(&self, node: &Self::Node, name: &str, value: Option<&str>) {
+        style_por_atributo(self, node, name, value);
+    }
+
     /// Lee una propiedad del nodo. `como_logico` dice qué tipo se espera,
     /// porque sin navegador solo hay atributos y el mismo atributo se lee
     /// distinto: `checked` existe o no; `value` es un texto.
@@ -184,4 +201,55 @@ pub trait Backend: 'static {
     /// Lo necesita cualquier cosa que intercepte un `<a>` o un `<form>`, como
     /// el router.
     fn prevent_default(&self, event: &Self::Event);
+}
+
+/// [`Backend::set_class`] sobre el atributo `class`, para los backends sin
+/// `classList`.
+pub(crate) fn class_por_atributo<B: Backend + ?Sized>(
+    backend: &B,
+    node: &B::Node,
+    name: &str,
+    on: bool,
+) {
+    let actual = backend.attribute(node, "class").unwrap_or_default();
+    let mut clases: Vec<&str> = actual.split_whitespace().filter(|c| *c != name).collect();
+    if on {
+        clases.push(name);
+    }
+    if clases.is_empty() {
+        backend.remove_attribute(node, "class");
+    } else {
+        backend.set_attribute(node, "class", &clases.join(" "));
+    }
+}
+
+/// [`Backend::set_style`] sobre el atributo `style`, para los backends sin
+/// `style.setProperty` (y los elementos SVG en el navegador).
+pub(crate) fn style_por_atributo<B: Backend + ?Sized>(
+    backend: &B,
+    node: &B::Node,
+    name: &str,
+    value: Option<&str>,
+) {
+    let actual = backend.attribute(node, "style").unwrap_or_default();
+    let mut declaraciones: Vec<(&str, &str)> = actual
+        .split(';')
+        .filter_map(|d| {
+            let (propiedad, valor) = d.split_once(':')?;
+            Some((propiedad.trim(), valor.trim()))
+        })
+        .filter(|(propiedad, _)| !propiedad.is_empty() && *propiedad != name)
+        .collect();
+    if let Some(valor) = value {
+        declaraciones.push((name, valor));
+    }
+    if declaraciones.is_empty() {
+        backend.remove_attribute(node, "style");
+    } else {
+        let texto: Vec<String> = declaraciones
+            .iter()
+            .map(|(propiedad, valor)| format!("{propiedad}: {valor}"))
+            .collect();
+        backend.set_attribute(node, "style", &texto.join("; "));
+    }
 }
