@@ -52,7 +52,7 @@ mod web;
 
 pub use backend::{Backend, GlobalTarget, NodeKind, PropValue};
 pub use children::Children;
-pub use dom::{BindableProp, Dom, IntoAttrValue, IntoPropValue, Mount};
+pub use dom::{BindableProp, Dom, IntoAttrValue, IntoPropValue, Mount, Timer};
 pub use hydrate::{hydrate_islands, HydratedNode, HydratingBackend, HydrationStats};
 pub use list::keyed_list;
 pub use memory::{MemoryBackend, MemoryEvent, NodeRef, HYDRATION_ATTR};

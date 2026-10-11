@@ -68,6 +68,9 @@ impl Backend for WebBackend {
     /// listener funciona. Guardarlo como token es lo que permite quitar el
     /// listener y liberar la memoria del callback a la vez, sin `forget()`.
     type ListenerToken = Closure<dyn FnMut(Event)>;
+    /// El número que devuelve el navegador, si es un intervalo, y el
+    /// `Closure` que hay que mantener vivo mientras pueda dispararse.
+    type TimerToken = (i32, bool, Closure<dyn FnMut()>);
 
     fn create_element(&self, tag: &str) -> Node {
         match self.document.create_element(tag) {
@@ -185,6 +188,42 @@ impl Backend for WebBackend {
         // de quitar el listener es obligatorio: al revés, el navegador podría
         // invocar memoria ya liberada.
         drop(token);
+    }
+
+    fn set_timer(
+        &self,
+        ms: u32,
+        repeat: bool,
+        callback: Rc<dyn Fn()>,
+    ) -> (i32, bool, Closure<dyn FnMut()>) {
+        let closure = Closure::wrap(Box::new(move || callback()) as Box<dyn FnMut()>);
+        let ms = i32::try_from(ms).unwrap_or(i32::MAX);
+        let funcion = closure.as_ref().unchecked_ref();
+        let id = self.document.default_view().and_then(|ventana| {
+            if repeat {
+                ventana
+                    .set_interval_with_callback_and_timeout_and_arguments_0(funcion, ms)
+                    .ok()
+            } else {
+                ventana
+                    .set_timeout_with_callback_and_timeout_and_arguments_0(funcion, ms)
+                    .ok()
+            }
+        });
+        (id.unwrap_or(0), repeat, closure)
+    }
+
+    fn clear_timer(&self, (id, repeat, closure): (i32, bool, Closure<dyn FnMut()>)) {
+        if let Some(ventana) = self.document.default_view() {
+            if repeat {
+                ventana.clear_interval_with_handle(id);
+            } else {
+                ventana.clear_timeout_with_handle(id);
+            }
+        }
+        // Soltarlo dentro de su propia ejecución es seguro: el glue de
+        // wasm-bindgen cuenta las invocaciones en curso y libera al terminar.
+        drop(closure);
     }
 
     fn add_global_listener(

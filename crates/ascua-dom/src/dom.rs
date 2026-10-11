@@ -271,6 +271,89 @@ impl<B: Backend> Dom<B> {
         on_cleanup(move || backend.remove_global_listener(target, &event, token));
     }
 
+    /// Ejecuta `f` una vez, dentro de `ms` milisegundos (`setTimeout`).
+    ///
+    /// Si el scope se libera antes —se desmonta el componente, se cierra el
+    /// `<Show>`—, se cancela: un aviso que se oculta a los tres segundos no
+    /// escribe en un signal de un componente que ya no está. El [`Timer`]
+    /// devuelto permite cancelarlo antes, que es como se hace un *debounce*:
+    ///
+    /// ```
+    /// use std::cell::Cell;
+    /// use ascua_dom::{Dom, MemoryBackend, Timer};
+    /// use ascua_reactive::{create_root, Signal};
+    ///
+    /// let dom = Dom::new(MemoryBackend::new());
+    /// let guardados = Signal::new(0);
+    ///
+    /// let (_, root) = create_root(|| {
+    ///     // Cada cambio reprograma el guardado; solo el último llega a correr.
+    ///     let pendiente: Cell<Option<Timer>> = Cell::new(None);
+    ///     for _ in 0..3 {
+    ///         if let Some(anterior) = pendiente.take() {
+    ///             anterior.cancel();
+    ///         }
+    ///         pendiente.set(Some(dom.timeout(500, move || guardados.update(|n| *n += 1))));
+    ///         dom.backend().advance_time(100);
+    ///     }
+    /// });
+    ///
+    /// dom.backend().advance_time(500);
+    /// assert_eq!(guardados.get(), 1);
+    /// root.dispose();
+    /// ```
+    pub fn timeout(&self, ms: u32, f: impl FnOnce() + 'static) -> Timer {
+        let f = RefCell::new(Some(f));
+        self.timer(ms, false, move || {
+            if let Some(f) = f.borrow_mut().take() {
+                f();
+            }
+        })
+    }
+
+    /// Ejecuta `f` cada `ms` milisegundos (`setInterval`) hasta que el scope
+    /// se libere o se llame a [`Timer::cancel`].
+    pub fn interval(&self, ms: u32, f: impl FnMut() + 'static) -> Timer {
+        let f = RefCell::new(f);
+        self.timer(ms, true, move || {
+            // Un intervalo que se dispara mientras su callback sigue en
+            // marcha no puede pasar en el navegador, pero sí si el callback
+            // avanza el reloj de un backend de prueba: se salta.
+            if let Ok(mut f) = f.try_borrow_mut() {
+                f();
+            }
+        })
+    }
+
+    fn timer(&self, ms: u32, repeat: bool, f: impl Fn() + 'static) -> Timer {
+        // El token vive en una casilla compartida entre el callback, la
+        // cancelación y el cleanup del scope: el primero que llegue lo saca.
+        let casilla: Rc<RefCell<Option<B::TimerToken>>> = Rc::new(RefCell::new(None));
+
+        let propia = Rc::clone(&casilla);
+        let callback: Rc<dyn Fn()> = Rc::new(move || {
+            if !repeat {
+                // Un timeout que ya corrió no hay que cancelarlo: se suelta
+                // su token para no retenerlo hasta que se libere el scope.
+                let token = propia.borrow_mut().take();
+                drop(token);
+            }
+            f();
+        });
+        *casilla.borrow_mut() = Some(self.backend.set_timer(ms, repeat, callback));
+
+        let backend = Rc::clone(&self.backend);
+        let cancel: Rc<dyn Fn()> = Rc::new(move || {
+            let token = casilla.borrow_mut().take();
+            if let Some(token) = token {
+                backend.clear_timer(token);
+            }
+        });
+        let al_liberar = Rc::clone(&cancel);
+        on_cleanup(move || al_liberar());
+        Timer { cancel }
+    }
+
     /// Contenido que puede cambiar de identidad, no solo de valor.
     ///
     /// `bind_text` cubre el caso de un nodo que cambia de contenido. Esto cubre
@@ -349,6 +432,23 @@ impl<B: Backend> Dom<B> {
             node,
             root: Some(root),
         }
+    }
+}
+
+/// Un temporizador de [`Dom::timeout`] o [`Dom::interval`].
+///
+/// No hace falta guardarlo: se cancela solo cuando se libera el scope en que
+/// se creó. Sirve para cancelarlo antes.
+#[derive(Clone)]
+pub struct Timer {
+    cancel: Rc<dyn Fn()>,
+}
+
+impl Timer {
+    /// Cancela el temporizador. Si ya se disparó, o ya se canceló, no hace
+    /// nada.
+    pub fn cancel(&self) {
+        (self.cancel)();
     }
 }
 

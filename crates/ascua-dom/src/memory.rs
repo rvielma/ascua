@@ -32,6 +32,16 @@ struct Listener {
     handler: Rc<dyn Fn(MemoryEvent)>,
 }
 
+/// Temporizador simulado: vence cuando el reloj de [`MemoryBackend`] avanza
+/// hasta `vence`.
+struct MemTimer {
+    id: usize,
+    vence: u64,
+    /// `Some` para un intervalo: cada cuánto se repite.
+    cada: Option<u64>,
+    callback: Rc<dyn Fn()>,
+}
+
 enum Kind {
     Element(String),
     Text(String),
@@ -69,6 +79,10 @@ pub struct MemoryBackend {
     next_listener_id: std::cell::Cell<usize>,
     /// Manejadores de la ventana y el documento simulados.
     globales: RefCell<Vec<(GlobalTarget, Listener)>>,
+    /// Reloj simulado, en milisegundos. Solo avanza con
+    /// [`MemoryBackend::advance_time`]: en un test el tiempo no pasa solo.
+    ahora: std::cell::Cell<u64>,
+    timers: RefCell<Vec<MemTimer>>,
     /// Contador de elementos dentro de la isla que se está renderizando.
     /// `None` fuera de toda isla: ahí no hay nada que hidratar.
     hydration: std::cell::Cell<Option<u32>>,
@@ -211,6 +225,48 @@ impl MemoryBackend {
             .count()
     }
 
+    /// Avanza el reloj simulado `ms` milisegundos y dispara, en orden, los
+    /// temporizadores que vencen por el camino. Un intervalo puede dispararse
+    /// varias veces en un mismo avance.
+    pub fn advance_time(&self, ms: u64) {
+        let fin = self.ahora.get() + ms;
+        loop {
+            // Se toma el callback y se suelta el préstamo antes de llamarlo:
+            // un temporizador puede programar o cancelar otros.
+            let siguiente = {
+                let mut timers = self.timers.borrow_mut();
+                let Some(i) = timers
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, t)| t.vence <= fin)
+                    .min_by_key(|(_, t)| (t.vence, t.id))
+                    .map(|(i, _)| i)
+                else {
+                    break;
+                };
+                let vence = timers[i].vence;
+                let callback = Rc::clone(&timers[i].callback);
+                match timers[i].cada {
+                    Some(cada) => timers[i].vence += cada,
+                    None => {
+                        timers.remove(i);
+                    }
+                }
+                (vence, callback)
+            };
+            let (vence, callback) = siguiente;
+            self.ahora.set(vence);
+            callback();
+        }
+        self.ahora.set(fin);
+    }
+
+    /// Cuántos temporizadores siguen programados.
+    #[must_use]
+    pub fn pending_timers(&self) -> usize {
+        self.timers.borrow().len()
+    }
+
     fn invocar(handlers: Vec<Rc<dyn Fn(MemoryEvent)>>, event: &str) -> bool {
         let evento = MemoryEvent {
             kind: event.to_string(),
@@ -234,6 +290,7 @@ impl Backend for MemoryBackend {
     type Node = NodeRef;
     type Event = MemoryEvent;
     type ListenerToken = usize;
+    type TimerToken = usize;
 
     fn create_element(&self, tag: &str) -> NodeRef {
         let node = self.insert_node(MemNode {
@@ -452,6 +509,25 @@ impl Backend for MemoryBackend {
         if let Some(Some(node)) = nodes.get_mut(node.0) {
             node.listeners.retain(|l| l.id != token);
         }
+    }
+
+    fn set_timer(&self, ms: u32, repeat: bool, callback: Rc<dyn Fn()>) -> usize {
+        let id = self.next_listener_id.get();
+        self.next_listener_id.set(id + 1);
+        // Un intervalo de 0 ms se repetiría sin fin dentro de un mismo
+        // avance; el navegador también lo sube a un mínimo.
+        let ms = u64::from(ms);
+        self.timers.borrow_mut().push(MemTimer {
+            id,
+            vence: self.ahora.get() + ms,
+            cada: repeat.then_some(ms.max(1)),
+            callback,
+        });
+        id
+    }
+
+    fn clear_timer(&self, token: usize) {
+        self.timers.borrow_mut().retain(|t| t.id != token);
     }
 
     fn add_global_listener(

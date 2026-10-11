@@ -66,6 +66,9 @@ pub trait Backend: 'static {
     /// Token que identifica un listener registrado, para poder quitarlo.
     type ListenerToken: 'static;
 
+    /// Token de un temporizador programado, para poder cancelarlo.
+    type TimerToken: 'static;
+
     fn create_element(&self, tag: &str) -> Self::Node;
     fn create_text(&self, data: &str) -> Self::Node;
 
@@ -169,6 +172,13 @@ pub trait Backend: 'static {
     ) -> Self::ListenerToken;
 
     fn remove_global_listener(&self, target: GlobalTarget, event: &str, token: Self::ListenerToken);
+
+    /// Programa `callback` dentro de `ms` milisegundos; con `repeat`, cada
+    /// `ms` hasta cancelarlo (`setTimeout` y `setInterval`).
+    fn set_timer(&self, ms: u32, repeat: bool, callback: Rc<dyn Fn()>) -> Self::TimerToken;
+
+    /// Cancela un temporizador. Vale también con uno que ya se disparó.
+    fn clear_timer(&self, token: Self::TimerToken);
 
     /// Cancela el comportamiento por defecto del navegador para este evento.
     /// Lo necesita cualquier cosa que intercepte un `<a>` o un `<form>`, como

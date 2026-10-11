@@ -120,6 +120,22 @@ Igual que un `on:click`, el manejador se quita solo cuando se libera el scope
 en que se registró: al desmontar, o al cerrarse el `<Show>` que lo contiene.
 No hace falta `Closure::forget` ni guardar el closure para quitarlo a mano.
 
+## Temporizadores
+
+`dom.timeout(ms, f)` y `dom.interval(ms, f)` son `setTimeout` y `setInterval`
+atados al scope: si el componente se desmonta antes, se cancelan. Un aviso que
+se oculta a los tres segundos no escribe en el signal de un componente que ya
+no está:
+
+```rust
+dom.timeout(3000, move || aviso.set(None));
+dom.interval(30_000, move || guardar(documento.get_untracked()));
+```
+
+Los dos devuelven un `Timer` que se puede cancelar antes, que es como se hace
+un *debounce*: cancelar el anterior y programar otro en cada cambio.
+`cancel()` sobre uno que ya corrió no hace nada.
+
 ## Elementos y componentes
 
 Los tags que empiezan por **minúscula** son elementos HTML. Los que empiezan por

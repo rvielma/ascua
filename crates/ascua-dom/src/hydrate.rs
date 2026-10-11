@@ -237,6 +237,7 @@ impl<B: Backend> Backend for HydratingBackend<B> {
     type Node = HydratedNode<B>;
     type Event = B::Event;
     type ListenerToken = B::ListenerToken;
+    type TimerToken = B::TimerToken;
 
     fn create_element(&self, tag: &str) -> Self::Node {
         // El elemento número N del cliente es el elemento número N del
@@ -409,6 +410,14 @@ impl<B: Backend> Backend for HydratingBackend<B> {
     fn remove_listener(&self, node: &Self::Node, event: &str, token: Self::ListenerToken) {
         let real = self.materializar(node);
         self.inner.remove_listener(&real, event, token);
+    }
+
+    fn set_timer(&self, ms: u32, repeat: bool, callback: Rc<dyn Fn()>) -> Self::TimerToken {
+        self.inner.set_timer(ms, repeat, callback)
+    }
+
+    fn clear_timer(&self, token: Self::TimerToken) {
+        self.inner.clear_timer(token);
     }
 
     fn add_global_listener(

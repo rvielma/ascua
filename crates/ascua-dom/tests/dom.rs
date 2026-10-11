@@ -546,3 +546,91 @@ fn un_listener_de_ventana_vive_lo_que_su_rama() {
 
     vista.unmount();
 }
+
+#[test]
+fn un_timeout_corre_una_vez_y_no_queda_programado() {
+    let (dom, body) = escenario();
+    let avisos = Signal::new(0);
+
+    let vista = dom.mount(&body, move |dom| {
+        dom.timeout(3000, move || avisos.update(|n| *n += 1));
+        dom.element("main")
+    });
+
+    dom.backend().advance_time(2999);
+    assert_eq!(avisos.get(), 0);
+    dom.backend().advance_time(1);
+    assert_eq!(avisos.get(), 1);
+    assert_eq!(dom.backend().pending_timers(), 0);
+
+    dom.backend().advance_time(10_000);
+    assert_eq!(avisos.get(), 1);
+    vista.unmount();
+}
+
+#[test]
+fn desmontar_cancela_los_temporizadores() {
+    let (dom, body) = escenario();
+    let avisos = Signal::new(0);
+    let latidos = Signal::new(0);
+
+    let vista = dom.mount(&body, move |dom| {
+        dom.timeout(3000, move || avisos.update(|n| *n += 1));
+        dom.interval(1000, move || latidos.update(|n| *n += 1));
+        dom.element("main")
+    });
+
+    dom.backend().advance_time(2500);
+    assert_eq!((avisos.get(), latidos.get()), (0, 2));
+
+    vista.unmount();
+    assert_eq!(dom.backend().pending_timers(), 0);
+
+    dom.backend().advance_time(10_000);
+    assert_eq!(
+        (avisos.get(), latidos.get()),
+        (0, 2),
+        "tras desmontar no debe correr ningún temporizador"
+    );
+}
+
+#[test]
+fn un_intervalo_se_cancela_a_mano_y_al_cerrarse_su_rama() {
+    let (dom, body) = escenario();
+    let visible = Signal::new(true);
+    let latidos = Signal::new(0);
+    let manual = Signal::new(0);
+    let timer = Rc::new(RefCell::new(None));
+    let guardado = Rc::clone(&timer);
+
+    let vista = dom.mount(&body, move |dom| {
+        *guardado.borrow_mut() = Some(dom.interval(100, move || manual.update(|n| *n += 1)));
+        let raiz = dom.element("div");
+        dom.dynamic_child(
+            &raiz,
+            move || visible.get(),
+            move |dom, visible| {
+                visible.then(|| {
+                    dom.interval(100, move || latidos.update(|n| *n += 1));
+                    dom.element("p")
+                })
+            },
+        );
+        raiz
+    });
+
+    dom.backend().advance_time(300);
+    assert_eq!((manual.get(), latidos.get()), (3, 3));
+
+    if let Some(t) = timer.borrow().as_ref() {
+        t.cancel();
+        // Cancelar dos veces no hace nada.
+        t.cancel();
+    }
+    visible.set(false);
+    dom.backend().advance_time(300);
+    assert_eq!((manual.get(), latidos.get()), (3, 3));
+    assert_eq!(dom.backend().pending_timers(), 0);
+
+    vista.unmount();
+}
