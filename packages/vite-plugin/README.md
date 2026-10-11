@@ -42,7 +42,8 @@ prop `data`, o `notFound()` de `vite-plugin-ascua/site` para dar un 404—, un
 layout común (`_layout.ts`), `title`, `description` y `head` por ruta,
 `404.ts` y rutas que son archivos (`sitemap.xml.ts`). Las islas van en
 `src/islands/`; las carpetas se cambian con `site: { routes, islands }` y el
-esqueleto HTML con `site: { shell }`.
+esqueleto HTML con `site: { shell }`. Cada página lleva su
+Content-Security-Policy en un `<meta>`, con el hash de sus scripts en línea.
 
 Con `ascua({ site: { mode: "server" } })`, el build deja el cliente en
 `dist/client/` y además `dist/server/index.mjs`, un servidor Node con todo

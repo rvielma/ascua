@@ -10,7 +10,9 @@ import { join } from "node:path";
 import { build, createServer } from "vite";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { descubrir } from "../sitio.js";
+import { hash } from "ascua-security";
+
+import { conPoliticaEnMeta, descubrir } from "../sitio.js";
 import { encajar } from "../sitio-comun.js";
 
 const PROYECTO = new URL("./fixtures/sitio/", import.meta.url).pathname;
@@ -77,6 +79,15 @@ describe("vite build", () => {
     expect(inicio).toMatch(/<div id="app"><div data-ascua-\w+ class="marco">/);
     expect(inicio).toMatch(/<link rel="stylesheet" crossorigin href="\/assets\/index-[\w-]+\.css">/);
     expect(inicio).toContain("<title>Inicio</title>");
+  });
+
+  it("cada página lleva su CSP en un <meta>, justo después del charset", () => {
+    for (const archivo of ["index.html", "acerca/index.html", "404.html"]) {
+      const html = leer(archivo);
+      expect(html, archivo).toMatch(/<meta charset="utf-8">\s*<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self';/);
+      // `frame-ancestors` en un <meta> no vale, y el navegador lo anota en la consola.
+      expect(html, archivo).not.toContain("frame-ancestors");
+    }
   });
 
   it("cada página lleva los estilos de lo que usa, dentro", () => {
@@ -200,3 +211,23 @@ describe("vite en desarrollo", () => {
     expect(await respuesta.text()).toContain("<h1>No existe</h1>");
   });
 });
+
+describe("la CSP en un <meta>", () => {
+  const pagina = `<!doctype html><html><head><meta charset="utf-8"><title>x</title><script>window.a = 1;</script></head><body></body></html>`;
+
+  it("cuenta los scripts en línea y suma lo de site.security.csp", async () => {
+    const html = await conPoliticaEnMeta(pagina, { csp: { "img-src": ["https://cdn.ejemplo.cl"] } });
+    const politica = /<meta http-equiv="Content-Security-Policy" content="([^"]+)">/.exec(html)?.[1];
+    expect(politica).toContain(`script-src 'self' ${await hash("window.a = 1;")}`);
+    expect(politica).toContain("img-src 'self' data: blob: https://cdn.ejemplo.cl");
+    expect(politica).not.toContain("frame-ancestors");
+    // Antes que el script, que si no quedaría fuera de la política.
+    expect(html.indexOf("Content-Security-Policy")).toBeLessThan(html.indexOf("<script>"));
+  });
+
+  it("con WebAssembly deja compilarlo; sin charset va al principio del <head>", async () => {
+    const html = await conPoliticaEnMeta("<html><head><title>x</title></head></html>", { wasm: true });
+    expect(html).toMatch(/^<html><head>\s*<meta http-equiv="Content-Security-Policy" content="[^"]*'wasm-unsafe-eval'/);
+  });
+});
+

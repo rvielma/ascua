@@ -17,6 +17,8 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, wri
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { contentSecurityPolicy } from "ascua-security";
+
 import {
   buscar,
   caminoDe,
@@ -303,6 +305,30 @@ async function ascuaDe(vite) {
   const { renderToString, collectStyles } = await vite.ssrLoadModule("ascua/server");
   const { append } = await vite.ssrLoadModule("ascua");
   return { renderToString, collectStyles, append };
+}
+
+/**
+ * Directivas que el navegador ignora —y anota en la consola— si la política
+ * llega en un `<meta>`: solo valen como cabecera.
+ */
+const SOLO_CABECERA = { "frame-ancestors": null, "report-uri": null, "report-to": null, sandbox: null };
+
+/**
+ * Un sitio estático no manda cabeceras, así que su política va en un
+ * `<meta http-equiv>`: la misma que en desarrollo, con el hash de cada script
+ * en línea de la página. Va lo antes posible en el `<head>`, porque solo
+ * cubre lo que viene después.
+ */
+export async function conPoliticaEnMeta(html, { csp = {}, wasm = false } = {}) {
+  const politica = await contentSecurityPolicy(html, { directives: { ...csp, ...SOLO_CABECERA }, wasm });
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${politica.replace(/&/g, "&amp;").replace(/"/g, "&quot;")}">`;
+  // Detrás del `<meta charset>`, que tiene que ir en los primeros bytes.
+  const charset = /<meta\s+charset=[^>]*>/i.exec(html);
+  if (charset) {
+    const fin = charset.index + charset[0].length;
+    return `${html.slice(0, fin)}\n    ${meta}${html.slice(fin)}`;
+  }
+  return html.replace(/<head[^>]*>/i, (apertura) => `${apertura}\n    ${meta}`);
 }
 
 /** ¿Hay algún `.wasm` en `dir`? */
@@ -601,6 +627,8 @@ export function sitio(opciones) {
                 ...pagina,
                 ...conIslas(pagina.nombresIslas, mapa, construido),
               });
+              const reglas = construido.seguridad;
+              if (reglas && reglas.csp !== false) contenido = await conPoliticaEnMeta(contenido, reglas);
             }
             mkdirSync(dirname(archivo), { recursive: true });
             writeFileSync(archivo, contenido);
