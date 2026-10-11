@@ -7,6 +7,11 @@
 import { checkOrigin, contentSecurityPolicy, createCookies, securityHeaders } from "ascua-security";
 
 export const ISLA = "data-ascua-island";
+/**
+ * La cabecera con la que `enhance()` pide el resultado de una acción en JSON
+ * en vez de la página entera. Debe coincidir con la de `form.js`.
+ */
+export const CABECERA_ACCION = "x-ascua-action";
 /** El `id` del `<script type="application/json">` con las islas de una página. */
 export const LISTA = "ascua-islands";
 
@@ -479,6 +484,14 @@ function porHttps(peticion, url) {
  *   Después, la página se pinta con lo que devolvió en `form`, salvo que la
  *   acción redirija.
  *
+ * Con la cabecera `x-ascua-action: 1` —la que pone `enhance()` desde una
+ * isla—, un `POST` no pinta la página: responde el resultado de la acción en
+ * JSON, `{ type, status, data | location | message }`, con `type` uno de
+ * `success`, `failure`, `redirect` o `error`. Una redirección va con un 200,
+ * para que `fetch` no la siga por su cuenta, y un `fail` también: su código
+ * va en `status`. Solo un rechazo (otro origen, una acción que no existe)
+ * lleva su código de error.
+ *
  * `cargar(ruta)` da `{ modulo, marcos }`; `componer(pagina)`, el HTML entero.
  * `seguridad` es la de `site.security` —`false` la apaga— y, en
  * `desarrollo`, la CSP solo avisa.
@@ -504,6 +517,17 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
     conCookies({ status, headers: { "content-type": TIPOS[".txt"], "x-content-type-options": "nosniff", ...extra }, body });
   const redirigir = ({ status, location }) => conCookies({ status, headers: { location, "cache-control": "no-store" }, body: "" });
 
+  // El resultado de una acción en JSON, para `enhance()`.
+  const comoDatos = metodo === "POST" && peticion.headers.get(CABECERA_ACCION) === "1";
+  const json = (status, cuerpo) =>
+    conCookies({
+      status,
+      headers: { "content-type": TIPOS[".json"], "x-content-type-options": "nosniff", "cache-control": "private, no-store" },
+      body: JSON.stringify(cuerpo),
+    });
+  const rechazar = (status, mensaje, extra) =>
+    comoDatos ? json(status, { type: "error", status, message: mensaje }) : texto(status, mensaje, extra);
+
   /** A la página 404, si la hay. */
   const aLa404 = async () => {
     const noEncontrada = rutas.find((r) => r.es404);
@@ -518,19 +542,19 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
 
   const conAcciones = estado === 200 && !ruta.archivo && modulo.actions && typeof modulo.actions === "object";
   if (metodo === "POST" && estado === 200) {
-    if (!conAcciones) return texto(405, "Esta página no recibe formularios", { allow: "GET, HEAD" });
+    if (!conAcciones) return rechazar(405, "Esta página no recibe formularios", { allow: "GET, HEAD" });
     if (seguridad !== false && !checkOrigin(peticion, { origins: seguridad.origins })) {
-      return texto(403, "Formulario enviado desde otro origen");
+      return rechazar(403, "Formulario enviado desde otro origen");
     }
     const nombre = url.search.startsWith("?/") ? decodeURIComponent(url.search.slice(2).split("&")[0]) : "default";
     const accion = Object.hasOwn(modulo.actions, nombre) ? modulo.actions[nombre] : undefined;
-    if (typeof accion !== "function") return texto(404, `No hay ninguna acción «${nombre}»`);
+    if (typeof accion !== "function") return rechazar(404, `No hay ninguna acción «${nombre}»`);
 
     let formData;
     try {
       formData = await peticion.formData();
     } catch {
-      return texto(400, "El formulario no se pudo leer");
+      return rechazar(400, "El formulario no se pudo leer");
     }
 
     let resultado;
@@ -538,12 +562,20 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
       resultado = await accion({ params: { ...parametros }, url, request: peticion, cookies, formData });
     } catch (error) {
       const destino = redireccionDe(error);
-      if (destino) return redirigir(destino);
+      if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
       if (!esNoExiste(error)) throw error;
+      if (comoDatos) return json(404, { type: "error", status: 404, message: "No existe" });
       if (!(await aLa404())) return null;
     }
     const destino = redireccionDe(resultado);
-    if (destino) return redirigir(destino);
+    if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
+    if (comoDatos) {
+      return esFallo(resultado)
+        ? // Con un 200: el código va en el JSON, y un 400 de un formulario
+          // mal llenado no es un error que el navegador deba anotar en la consola.
+          json(200, { type: "failure", status: resultado.status, data: resultado.data ?? null })
+        : json(200, { type: "success", status: 200, data: resultado ?? null });
+    }
     if (estado !== 404) {
       if (esFallo(resultado)) {
         estado = resultado.status;

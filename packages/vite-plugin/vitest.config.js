@@ -6,4 +6,8 @@ export default {
     testTimeout: 60_000,
     hookTimeout: 60_000,
   },
+  resolve: {
+    // `form.js` importa el runtime; en el repositorio, el de packages/.
+    alias: [{ find: /^ascua$/, replacement: new URL("../runtime/src/index.ts", import.meta.url).pathname }],
+  },
 };

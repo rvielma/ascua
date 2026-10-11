@@ -6,6 +6,7 @@ export const alias = [
   { find: /^ascua$/, replacement: paquete("runtime/src/index.ts") },
   { find: /^ascua\/server$/, replacement: paquete("runtime/src/server.ts") },
   { find: /^vite-plugin-ascua\/site$/, replacement: paquete("vite-plugin/sitio-comun.js") },
+  { find: /^vite-plugin-ascua\/form$/, replacement: paquete("vite-plugin/form.js") },
 ];
 
 export default {

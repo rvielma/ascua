@@ -114,6 +114,58 @@ function comunes(nombre, origenDe, { desarrollo }) {
       expect(await dentro.text()).toContain("<h1>Panel de ana</h1>");
     });
 
+    it("con x-ascua-action, una acción responde su resultado en JSON", async () => {
+      const comoDatos = { "x-ascua-action": "1" };
+      const fallo = await enviar(origenDe(), "/", { nombre: "pan", cantidad: "0" }, comoDatos);
+      // El código del `fail` va en el JSON: un 400 se anotaría como error en la consola.
+      expect(fallo.status).toBe(200);
+      expect(fallo.headers.get("content-type")).toContain("application/json");
+      expect(fallo.headers.get("cache-control")).toBe("private, no-store");
+      expect(await fallo.json()).toEqual({
+        type: "failure",
+        status: 400,
+        data: { ok: false, errors: { cantidad: "Como mínimo 1" }, values: { nombre: "pan", cantidad: "0" } },
+      });
+
+      // La redirección va con un 200: si no, `fetch` la seguiría solo.
+      const bien = await enviar(origenDe(), "/", { nombre: "pan", cantidad: "3" }, comoDatos);
+      expect(bien.status).toBe(200);
+      expect(await bien.json()).toEqual({ type: "redirect", status: 303, location: "/gracias?pedido=3%20pan" });
+
+      const suscrito = await enviar(origenDe(), "/?/subscribe", { correo: "a@b.cl" }, comoDatos);
+      expect(await suscrito.json()).toEqual({ type: "success", status: 200, data: { suscrito: "a@b.cl" } });
+
+      const otro = await enviar(origenDe(), "/", {}, { ...comoDatos, origin: "https://malo.cl" });
+      expect(otro.status).toBe(403);
+      expect(await otro.json()).toEqual({ type: "error", status: 403, message: "Formulario enviado desde otro origen" });
+
+      const ninguna = await enviar(origenDe(), "/?/missing", {}, comoDatos);
+      expect((await ninguna.json()).type).toBe("error");
+    });
+
+    it("con x-ascua-action, las cookies de la acción también llegan", async () => {
+      const entrar = await enviar(origenDe(), "/sesion", { nombre: "ana" }, { "x-ascua-action": "1" });
+      expect(await entrar.json()).toEqual({ type: "redirect", status: 303, location: "/sesion" });
+      expect(entrar.headers.get("set-cookie")).toMatch(/^sesion=ana\./);
+    });
+
+    it("una página con una isla que mejora su formulario", async () => {
+      const html = await (await fetch(`${origenDe()}/isla`)).text();
+      expect(html).toContain('data-ascua-island="pedido"');
+      // Sin JavaScript sigue siendo un formulario corriente; con él, la
+      // isla trae `enhance`.
+      expect(html).toMatch(/<form[^>]* method="post">/);
+      expect(html).toMatch(/<script type="module" src="[^"]+">/);
+
+      // Enviado sin JavaScript, la isla recibe el resultado en su prop `form`
+      // y pinta los errores igual.
+      const sinJs = await enviar(origenDe(), "/isla", { nombre: "", cantidad: "0" });
+      expect(sinJs.status).toBe(400);
+      const pintada = await sinJs.text();
+      expect(pintada).toContain('class="error-nombre">Obligatorio</p>');
+      expect(pintada).toContain('class="error-cantidad">Como mínimo 1</p>');
+    });
+
     it("las rutas-archivo y la 404 siguen como antes", async () => {
       const json = await fetch(`${origenDe()}/datos.json`);
       expect(await json.json()).toEqual({ ok: true });
