@@ -3,7 +3,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { accessSync, chmodSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -95,5 +95,32 @@ it("el idioma del sitio va al esqueleto y a la opción del kit", () => {
   crear(join(raiz, "es"), "static", "es");
   expect(readFileSync(join(raiz, "es/index.html"), "utf8")).toContain('<html lang="es">');
   expect(readFileSync(join(raiz, "es/vite.config.ts"), "utf8")).toContain('site: { lang: "es" }');
+});
+
+it("el sitio sale editable aunque la plantilla sea de solo lectura, como en el store de stil", async () => {
+  const raiz = nuevo();
+  // Una copia del paquete con todo en 0444, como lo deja stil.
+  const paquete = join(raiz, "paquete");
+  cpSync(new URL("..", import.meta.url).pathname, paquete, {
+    recursive: true,
+    filter: (f) => !f.includes("node_modules") && !f.includes(`${"/"}test${"/"}`),
+  });
+  const soloLectura = (dir) => {
+    for (const n of readdirSync(dir)) {
+      const f = join(dir, n);
+      if (statSync(f).isDirectory()) soloLectura(f);
+      else chmodSync(f, 0o444);
+    }
+  };
+  // Como el publicado: con sus versiones al lado, sin el repositorio alrededor.
+  writeFileSync(join(paquete, "versions.json"), JSON.stringify({ ascua: "0.5.0", "vite-plugin-ascua": "0.10.0" }));
+  soloLectura(join(paquete, "templates"));
+  const { crear: crearDesde } = await import(join(paquete, "index.js"));
+  const destino = join(raiz, "web");
+  crearDesde(destino, "server", "en");
+  for (const archivo of ["index.html", "vite.config.ts", "src/routes/contact.ts"]) {
+    expect(() => accessSync(join(destino, archivo), constants.W_OK), archivo).not.toThrow();
+  }
+  expect(readFileSync(join(destino, "index.html"), "utf8")).toContain('<html lang="en">');
 });
 

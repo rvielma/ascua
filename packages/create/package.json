@@ -1,6 +1,6 @@
 {
   "name": "create-ascua",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Crea un sitio de Ascua: npm create ascua, stil dlx create-ascua, deno run -A npm:create-ascua.",
   "keywords": [
     "ascua",

@@ -10,7 +10,7 @@
  * versiones de Ascua que se publicaron junto con este paquete.
  */
 
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
@@ -67,6 +67,22 @@ export function leerArgumentos(argv) {
   return salida;
 }
 
+/**
+ * Copia una carpeta escribiendo cada archivo de nuevo, con los permisos de un
+ * archivo recién creado. `cpSync` conserva los del origen, y un gestor como
+ * stil guarda los paquetes de solo lectura: el sitio nuevo saldría sin poder
+ * editarse.
+ */
+function copiar(origen, destino) {
+  mkdirSync(destino, { recursive: true });
+  for (const nombre of readdirSync(origen)) {
+    const de = join(origen, nombre);
+    const a = join(destino, nombre);
+    if (statSync(de).isDirectory()) copiar(de, a);
+    else writeFileSync(a, readFileSync(de));
+  }
+}
+
 /** El `package.json` del sitio nuevo. */
 function paqueteDe(nombre, plantilla, v) {
   const scripts = { dev: "vite", build: "vite build" };
@@ -98,8 +114,8 @@ export function crear(destino, plantilla = "static", idioma = español ? "es" : 
   }
   mkdirSync(destino, { recursive: true });
   const plantillas = join(AQUI, "templates");
-  cpSync(join(plantillas, "base"), destino, { recursive: true });
-  if (plantilla === "server") cpSync(join(plantillas, "server"), destino, { recursive: true });
+  copiar(join(plantillas, "base"), destino);
+  if (plantilla === "server") copiar(join(plantillas, "server"), destino);
   // npm no publica un `.gitignore`: viaja como `_gitignore`.
   if (existsSync(join(destino, "_gitignore"))) renameSync(join(destino, "_gitignore"), join(destino, ".gitignore"));
   // El idioma, en el esqueleto y en la opción del kit.
