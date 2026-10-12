@@ -119,3 +119,16 @@ it("formResult acepta el resultado de una acción o nada", () => {
   expect(validate({ ok: false })).toEqual({ value: { ok: false } });
   expect(validate("x").issues).toHaveLength(1);
 });
+
+it("sus mensajes siguen el lang de la página", async () => {
+  const { form } = preparar(`<form method="post"></form>`, {});
+  vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("sin red"); }));
+  const pedido = enhance();
+  document.documentElement.lang = "en";
+  await pedido.submit(enviar(form));
+  expect(pedido.error()).toBe("The form could not be sent");
+  document.documentElement.lang = "es";
+  await pedido.submit(enviar(form));
+  expect(pedido.error()).toBe("No se pudo enviar el formulario");
+  document.documentElement.lang = "";
+});

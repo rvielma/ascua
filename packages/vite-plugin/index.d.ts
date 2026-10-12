@@ -27,6 +27,12 @@ export interface SiteOptions {
   shell?: string;
   /** `static` (por defecto) escribe una página por ruta; `server` deja un servidor en `dist/server/`. */
   mode?: "static" | "server";
+  /**
+   * El idioma de lo que ve quien usa el sitio: los mensajes de validación de
+   * `field` y las respuestas del kit (403, 404, 405, 413). Por defecto, `es`.
+   * Los errores de build siguen la variable de entorno `LANG`.
+   */
+  lang?: "es" | "en";
   /** CSP, cabeceras, cookies y origen. `false` lo apaga todo. */
   security?: false | SiteSecurity;
 }

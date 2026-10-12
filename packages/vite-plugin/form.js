@@ -8,6 +8,11 @@
 
 import { signal } from "ascua";
 
+/** Los mensajes propios, en el idioma de la página: `<html lang="en">` o español. */
+const enIngles = () => typeof document !== "undefined" && /^en\b/i.test(document.documentElement.lang);
+const respondio = (status) => (enIngles() ? `The server answered ${status}` : `El servidor respondió ${status}`);
+const sinRed = () => (enIngles() ? "The form could not be sent" : "No se pudo enviar el formulario");
+
 /** La cabecera que pide el resultado en JSON. La misma que en `sitio-comun.js`. */
 const CABECERA_ACCION = "x-ascua-action";
 
@@ -75,10 +80,10 @@ export function enhance(options = {}) {
           result.set(cuerpo.data ?? undefined);
           break;
         default:
-          error.set(cuerpo?.message ?? `El servidor respondió ${respuesta.status}`);
+          error.set(cuerpo?.message ?? respondio(respuesta.status));
       }
     } catch {
-      error.set("No se pudo enviar el formulario");
+      error.set(sinRed());
     } finally {
       pending.set(false);
     }

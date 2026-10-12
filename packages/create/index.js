@@ -88,9 +88,11 @@ function paqueteDe(nombre, plantilla, v) {
 
 /**
  * Crea el sitio en `destino`. La plantilla `server` es la base más lo suyo,
- * encima. Devuelve los archivos escritos, relativos a `destino`.
+ * encima. `idioma` es el del sitio —`<html lang>` y los mensajes del kit, como
+ * los de validación—; por defecto, el de quien lo crea. Devuelve los archivos
+ * escritos, relativos a `destino`.
  */
-export function crear(destino, plantilla = "static") {
+export function crear(destino, plantilla = "static", idioma = español ? "es" : "en") {
   if (existsSync(destino) && readdirSync(destino).length > 0) {
     throw new Error(t(`${destino} ya existe y no está vacío`, `${destino} already exists and is not empty`));
   }
@@ -100,6 +102,16 @@ export function crear(destino, plantilla = "static") {
   if (plantilla === "server") cpSync(join(plantillas, "server"), destino, { recursive: true });
   // npm no publica un `.gitignore`: viaja como `_gitignore`.
   if (existsSync(join(destino, "_gitignore"))) renameSync(join(destino, "_gitignore"), join(destino, ".gitignore"));
+  // El idioma, en el esqueleto y en la opción del kit.
+  const esqueleto = join(destino, "index.html");
+  writeFileSync(esqueleto, readFileSync(esqueleto, "utf8").replace('<html lang="en">', `<html lang="${idioma}">`));
+  const config = join(destino, "vite.config.ts");
+  writeFileSync(
+    config,
+    readFileSync(config, "utf8")
+      .replace("site: true", `site: { lang: "${idioma}" }`)
+      .replace('site: { mode: "server" }', `site: { mode: "server", lang: "${idioma}" }`),
+  );
   const nombre = basename(resolve(destino)).toLowerCase().replace(/[^a-z0-9-~._]/g, "-");
   writeFileSync(join(destino, "package.json"), `${JSON.stringify(paqueteDe(nombre, plantilla, versiones()), null, 2)}\n`);
   return readdirSync(destino, { recursive: true }).map(String).sort();

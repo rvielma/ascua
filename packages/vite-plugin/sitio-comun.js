@@ -6,6 +6,11 @@
 
 import { checkOrigin, contentSecurityPolicy, createCookies, securityHeaders } from "ascua-security";
 
+import { paraDesarrollo, paraUsuario } from "./mensajes.js";
+
+// Para el servidor construido, que lleva este módulo dentro y no ve el otro.
+export { fijarIdioma, paraDesarrollo, paraUsuario } from "./mensajes.js";
+
 export const ISLA = "data-ascua-island";
 /**
  * La cabecera con la que `enhance()` pide el resultado de una acción en JSON
@@ -197,10 +202,10 @@ export const field = {
   text({ min = 1, max = Infinity, pattern, trim = true, message } = {}) {
     return esquema((valor) => {
       const leido = trim ? texto(valor).trim() : texto(valor);
-      if (leido.length === 0 && min > 0) return problema(message ?? "Obligatorio");
-      if (leido.length < min) return problema(message ?? `Al menos ${min} caracteres`);
-      if (leido.length > max) return problema(message ?? `Como mucho ${max} caracteres`);
-      if (pattern && !pattern.test(leido)) return problema(message ?? "No tiene el formato pedido");
+      if (leido.length === 0 && min > 0) return problema(message ?? paraUsuario().obligatorio);
+      if (leido.length < min) return problema(message ?? paraUsuario().alMenos(min));
+      if (leido.length > max) return problema(message ?? paraUsuario().comoMucho(max));
+      if (pattern && !pattern.test(leido)) return problema(message ?? paraUsuario().formato);
       return { value: leido };
     });
   },
@@ -209,8 +214,8 @@ export const field = {
   email({ message } = {}) {
     return esquema((valor) => {
       const leido = texto(valor).trim();
-      if (!leido) return problema(message ?? "Obligatorio");
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leido) ? { value: leido } : problema(message ?? "No es un correo válido");
+      if (!leido) return problema(message ?? paraUsuario().obligatorio);
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(leido) ? { value: leido } : problema(message ?? paraUsuario().correo);
     });
   },
 
@@ -218,12 +223,12 @@ export const field = {
   number({ min = -Infinity, max = Infinity, integer = false, message } = {}) {
     return esquema((valor) => {
       const leido = texto(valor).trim();
-      if (!leido) return problema(message ?? "Obligatorio");
+      if (!leido) return problema(message ?? paraUsuario().obligatorio);
       const numero = Number(leido.replace(",", "."));
-      if (!Number.isFinite(numero)) return problema(message ?? "No es un número");
-      if (integer && !Number.isInteger(numero)) return problema(message ?? "Tiene que ser un número entero");
-      if (numero < min) return problema(message ?? `Como mínimo ${min}`);
-      if (numero > max) return problema(message ?? `Como máximo ${max}`);
+      if (!Number.isFinite(numero)) return problema(message ?? paraUsuario().numero);
+      if (integer && !Number.isInteger(numero)) return problema(message ?? paraUsuario().entero);
+      if (numero < min) return problema(message ?? paraUsuario().minimo(min));
+      if (numero > max) return problema(message ?? paraUsuario().maximo(max));
       return { value: numero };
     });
   },
@@ -237,7 +242,7 @@ export const field = {
   choice(opciones, { message } = {}) {
     return esquema((valor) => {
       const leido = texto(valor);
-      return opciones.includes(leido) ? { value: leido } : problema(message ?? "Opción no válida");
+      return opciones.includes(leido) ? { value: leido } : problema(message ?? paraUsuario().opcion);
     });
   },
 
@@ -357,7 +362,7 @@ export function caminoDe(ruta, parametros) {
     if (!s.startsWith(":") && !s.startsWith("*")) return s;
     const valor = parametros[s.slice(1)];
     if (valor === undefined || valor === null || valor === "") {
-      throw new Error(`falta el parámetro «${s.slice(1)}» para /${ruta.segmentos.join("/")}`);
+      throw new Error(paraDesarrollo().faltaParametro(s.slice(1), `/${ruta.segmentos.join("/")}`));
     }
     // El resto puede traer barras: cada trozo se codifica por separado.
     return s.startsWith("*")
@@ -444,13 +449,13 @@ export async function renderizar({ ruta, modulo, marcos = [], parametros, camino
   const props = await propsDe(modulo, parametros, contexto, form);
 
   if (ruta.archivo) {
-    if (typeof modulo.default !== "function") throw new Error(`/${ruta.segmentos.join("/")}: falta export default`);
+    if (typeof modulo.default !== "function") throw new Error(paraDesarrollo().faltaDefault(`/${ruta.segmentos.join("/")}`));
     const cuerpo = await modulo.default(props);
     return { tipo: tipoDe(ruta.segmentos.at(-1)), cuerpo };
   }
 
   if (typeof modulo.default !== "function") {
-    throw new Error(`${camino}: falta el componente de la página (export default)`);
+    throw new Error(paraDesarrollo().faltaComponente(camino));
   }
   const envolver = (i) =>
     i === marcos.length
@@ -585,25 +590,25 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
     const destino = redireccionDe(error);
     if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
     if (!esNoExiste(error)) throw error;
-    if (comoDatos) return json(404, { type: "error", status: 404, message: "No existe" });
+    if (comoDatos) return json(404, { type: "error", status: 404, message: paraUsuario().noExiste });
     if (!(await aLa404())) return null;
   }
 
   const conAcciones = estado === 200 && !ruta.archivo && modulo.actions && typeof modulo.actions === "object";
   if (metodo === "POST" && estado === 200) {
-    if (!conAcciones) return rechazar(405, "Esta página no recibe formularios", { allow: "GET, HEAD" });
+    if (!conAcciones) return rechazar(405, paraUsuario().sinFormularios, { allow: "GET, HEAD" });
     if (seguridad !== false && !checkOrigin(peticion, { origins: seguridad.origins })) {
-      return rechazar(403, "Formulario enviado desde otro origen");
+      return rechazar(403, paraUsuario().otroOrigen);
     }
     const nombre = url.search.startsWith("?/") ? decodeURIComponent(url.search.slice(2).split("&")[0]) : "default";
     const accion = Object.hasOwn(modulo.actions, nombre) ? modulo.actions[nombre] : undefined;
-    if (typeof accion !== "function") return rechazar(404, `No hay ninguna acción «${nombre}»`);
+    if (typeof accion !== "function") return rechazar(404, paraUsuario().sinAccion(nombre));
 
     let formData;
     try {
       formData = await peticion.formData();
     } catch {
-      return rechazar(400, "El formulario no se pudo leer");
+      return rechazar(400, paraUsuario().ilegible);
     }
 
     let resultado;
@@ -613,7 +618,7 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
       const destino = redireccionDe(error);
       if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
       if (!esNoExiste(error)) throw error;
-      if (comoDatos) return json(404, { type: "error", status: 404, message: "No existe" });
+      if (comoDatos) return json(404, { type: "error", status: 404, message: paraUsuario().noExiste });
       if (!(await aLa404())) return null;
     }
     const destino = redireccionDe(resultado);
@@ -634,7 +639,7 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
       }
     }
   } else if (metodo !== "GET" && metodo !== "HEAD" && estado === 200) {
-    return texto(405, "Método no permitido", { allow: conAcciones ? "GET, HEAD, POST" : "GET, HEAD" });
+    return texto(405, paraUsuario().metodo, { allow: conAcciones ? "GET, HEAD, POST" : "GET, HEAD" });
   }
 
   const pintar = () => renderizar({ ruta, modulo, marcos, parametros, camino, ascua, contexto, form });

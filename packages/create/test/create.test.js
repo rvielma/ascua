@@ -31,7 +31,7 @@ it("static: el sitio base, con .gitignore y las versiones de Ascua", () => {
   expect(paquete.dependencies.ascua).toBe(`^${v.ascua}`);
   expect(paquete.devDependencies["vite-plugin-ascua"]).toBe(`^${v["vite-plugin-ascua"]}`);
   expect(paquete.scripts).toEqual({ dev: "vite", build: "vite build", preview: "vite preview" });
-  expect(readFileSync(join(destino, "vite.config.ts"), "utf8")).toContain("site: true");
+  expect(readFileSync(join(destino, "vite.config.ts"), "utf8")).toMatch(/site: \{ lang: "(es|en)" \}/);
 });
 
 it("server: la base más el formulario, el middleware y el arranque", () => {
@@ -41,7 +41,7 @@ it("server: la base más el formulario, el middleware y el arranque", () => {
     expect(archivos).toContain(join("src", "routes", archivo));
   }
   expect(archivos).toContain(join("src", "islands", "contact-form.ts"));
-  expect(readFileSync(join(destino, "vite.config.ts"), "utf8")).toContain('mode: "server"');
+  expect(readFileSync(join(destino, "vite.config.ts"), "utf8")).toMatch(/site: \{ mode: "server", lang: "(es|en)" \}/);
   // El layout de server reemplaza al de la base: enlaza a contacto.
   expect(readFileSync(join(destino, "src/routes/_layout.ts"), "utf8")).toContain('href="/contact"');
   const paquete = JSON.parse(readFileSync(join(destino, "package.json"), "utf8"));
@@ -86,3 +86,14 @@ it("el comando crea el sitio y dice cómo seguir, con el gestor que lo corrió",
   expect(enEspañol).toContain("Listo: otro (static)");
   expect(enEspañol).toContain("npm install");
 });
+
+it("el idioma del sitio va al esqueleto y a la opción del kit", () => {
+  const raiz = nuevo();
+  crear(join(raiz, "en"), "server", "en");
+  expect(readFileSync(join(raiz, "en/index.html"), "utf8")).toContain('<html lang="en">');
+  expect(readFileSync(join(raiz, "en/vite.config.ts"), "utf8")).toContain('site: { mode: "server", lang: "en" }');
+  crear(join(raiz, "es"), "static", "es");
+  expect(readFileSync(join(raiz, "es/index.html"), "utf8")).toContain('<html lang="es">');
+  expect(readFileSync(join(raiz, "es/vite.config.ts"), "utf8")).toContain('site: { lang: "es" }');
+});
+

@@ -19,6 +19,8 @@ import { fileURLToPath } from "node:url";
 
 import { contentSecurityPolicy } from "ascua-security";
 
+import { fijarIdioma, paraDesarrollo, paraUsuario } from "./mensajes.js";
+
 import {
   buscar,
   caminoDe,
@@ -94,7 +96,7 @@ export function descubrir(dir) {
       const segmentos = trozos.map((t, i) => {
         if (t.startsWith("[...") && t.endsWith("]")) {
           if (i !== trozos.length - 1) {
-            throw new Error(`${relative(process.cwd(), completo)}: [...rest] solo puede ir al final`);
+            throw new Error(paraDesarrollo().restoAlFinal(relative(process.cwd(), completo)));
           }
           return `*${t.slice(4, -1)}`;
         }
@@ -141,7 +143,7 @@ export function descubrir(dir) {
     const otra = vistas.get(clave);
     if (otra && otra !== ruta.modulo) {
       throw new Error(
-        `${relative(process.cwd(), ruta.modulo)} y ${relative(process.cwd(), otra)} dan la misma URL: /${ruta.segmentos.join("/")}`,
+        paraDesarrollo().mismaUrl(relative(process.cwd(), ruta.modulo), relative(process.cwd(), otra), `/${ruta.segmentos.join("/")}`),
       );
     }
     vistas.set(clave, ruta.modulo);
@@ -234,8 +236,8 @@ function codigoManejador(dirRutas, dirIslas, root) {
   });
   return `import { collectStyles, renderToString } from "ascua/server";
 import { append } from "ascua";
-import { componer, conIslas, conLimite, esDemasiado as excede, nombresDe, responder } from ${JSON.stringify(COMUN)};
-export { esDemasiado, escribir, peticionWeb, tipoDe } from ${JSON.stringify(COMUN)};
+import { componer, conIslas, conLimite, esDemasiado as excede, fijarIdioma, nombresDe, paraDesarrollo, paraUsuario, responder } from ${JSON.stringify(COMUN)};
+export { esDemasiado, escribir, paraUsuario, peticionWeb, tipoDe } from ${JSON.stringify(COMUN)};
 ${importes.join("\n")}
 
 const RUTAS = [
@@ -243,6 +245,8 @@ ${tabla.join("\n")}
 ];
 /** Lo que dejó el build del cliente: base, esqueleto, script de islas, seguridad. */
 export const SITIO = __ASCUA_SITE__;
+// El idioma de lo que ve quien usa el sitio: validación, 403, 404…
+fijarIdioma(SITIO.lang);
 const ascua = { renderToString, collectStyles, append };
 
 /** Del nombre de cada isla al módulo que la define. */
@@ -263,12 +267,12 @@ export const sinBase = (camino) =>
 function secretoDe(env) {
   return () => {
     const valor = env?.ASCUA_SECRET ?? globalThis.process?.env?.ASCUA_SECRET;
-    if (!valor) throw new Error("ascua: las cookies firmadas necesitan ASCUA_SECRET, de 32 caracteres o más");
+    if (!valor) throw new Error(paraDesarrollo().sinSecreto);
     return valor;
   };
 }
 
-const NO_EXISTE = { status: 404, headers: { "content-type": "text/plain; charset=utf-8" }, body: "No existe" };
+const noExiste = () => ({ status: 404, headers: { "content-type": "text/plain; charset=utf-8" }, body: paraUsuario().noExiste });
 
 /**
  * De una petición a lo que se responde: \`status\`, \`headers\`, \`body\` y,
@@ -288,7 +292,7 @@ export async function handle(entrada, env) {
       componer: (pagina) => componer(SITIO.esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, ISLAS, SITIO) }),
       seguridad: SITIO.seguridad,
       secreto: secretoDe(env),
-    })) ?? NO_EXISTE;
+    })) ?? noExiste();
   return { ...respuesta, type: respuesta.headers["content-type"] };
 }
 
@@ -308,7 +312,7 @@ export async function fetch(request, env) {
     peticion = lectura ? request : await conLimite(request, SITIO.seguridad?.bodyLimit);
   } catch (error) {
     if (!excede(error)) throw error;
-    return new Response("Demasiado grande", { status: 413, headers: { "content-type": "text/plain; charset=utf-8" } });
+    return new Response(paraUsuario().demasiado, { status: 413, headers: { "content-type": "text/plain; charset=utf-8" } });
   }
   const { status, headers, body } = await handle(peticion, env);
   const salida = new Headers();
@@ -327,7 +331,7 @@ const CODIGO_SERVIDOR = `import { createServer } from "node:http";
 import { createReadStream, statSync } from "node:fs";
 import { dirname, join, normalize, sep } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { esDemasiado, escribir, handle, peticionWeb, sinBase, SITIO, tipoDe } from "./worker.mjs";
+import { esDemasiado, escribir, handle, paraUsuario, peticionWeb, sinBase, SITIO, tipoDe } from "./worker.mjs";
 
 export { handle };
 
@@ -369,12 +373,12 @@ export function serve(puerto = Number(process.env.PORT ?? 3000)) {
     } catch (error) {
       if (esDemasiado(error)) {
         salida.statusCode = 413;
-        salida.end("Demasiado grande");
+        salida.end(paraUsuario().demasiado);
         return;
       }
       console.error(error);
       salida.statusCode = 500;
-      salida.end("Error interno");
+      salida.end(paraUsuario().interno);
     }
   });
   return servidor.listen(puerto, () => console.log("ascua: http://localhost:" + servidor.address().port));
@@ -393,10 +397,10 @@ async function paginasDe(modulo, ruta, raiz) {
   if (!esVariable(ruta)) return [{}];
   const nombre = relative(raiz, ruta.modulo);
   if (typeof modulo.paths !== "function") {
-    throw new Error(`${nombre}: una ruta variable necesita export function paths(), que diga qué páginas generar`);
+    throw new Error(paraDesarrollo().sinPaths(nombre));
   }
   const lista = await modulo.paths();
-  if (!Array.isArray(lista)) throw new Error(`${nombre}: paths() tiene que devolver una lista`);
+  if (!Array.isArray(lista)) throw new Error(paraDesarrollo().pathsNoLista(nombre));
   // Con un opcional, cada variante se queda con lo suyo: la que lo lleva, con
   // las entradas que lo traen; la que no, con las que no.
   const presente = (valor) => valor !== undefined && valor !== null && valor !== "";
@@ -448,7 +452,7 @@ const secretoDev = () =>
   process.env.ASCUA_SECRET ?? (secretoDeDesarrollo ??= `${crypto.randomUUID()}${crypto.randomUUID()}`);
 
 /**
- * @param {true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server", security?: false | object }} opciones
+ * @param {true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server", lang?: "es" | "en", security?: false | object }} opciones
  */
 export function sitio(opciones) {
   const ajustes = {
@@ -456,10 +460,12 @@ export function sitio(opciones) {
     islands: "src/islands",
     shell: "index.html",
     mode: "static",
+    // El de lo que ve quien usa el sitio: validación, 403, 404…
+    lang: "es",
     ...(opciones === true ? {} : opciones),
   };
   if (ajustes.mode !== "static" && ajustes.mode !== "server") {
-    throw new Error(`ascua: site.mode es "static" o "server", no ${JSON.stringify(ajustes.mode)}`);
+    throw new Error(paraDesarrollo().modo(JSON.stringify(ajustes.mode)));
   }
 
   /** @type {import("vite").ResolvedConfig} */
@@ -512,13 +518,16 @@ export function sitio(opciones) {
     const url = entrante.url ?? "/";
     const camino = sinBase(new URL(url, "http://x").pathname);
     const reglas = seguridad(hayWasm(config.publicDir));
+    // Antes de cada petición: varios sitios pueden compartir el proceso (los
+    // tests lo hacen), y las rutas leen el idioma de `globalThis`.
+    fijarIdioma(ajustes.lang);
     let peticion;
     try {
       peticion = await peticionWeb(entrante, reglas ? reglas.bodyLimit : undefined);
     } catch (error) {
       if (!esDemasiado(error)) throw error;
       respuesta.statusCode = 413;
-      respuesta.end("Demasiado grande");
+      respuesta.end(paraUsuario().demasiado);
       return true;
     }
     const cargar = (archivo) => servidor.ssrLoadModule(archivo);
@@ -678,6 +687,7 @@ export function sitio(opciones) {
         precargas: precargasConstruidas,
         islas: islasConstruidas,
         seguridad: seguridad(wasmConstruido),
+        lang: ajustes.lang,
       };
       const dentro = conLaConfig({ root, mode: config.mode, logLevel: "error" });
 
@@ -701,7 +711,7 @@ export function sitio(opciones) {
           define: { __ASCUA_SITE__: JSON.stringify(construido) },
         });
         writeFileSync(join(dirServidor, "index.mjs"), CODIGO_SERVIDOR);
-        logger.info(`ascua: servidor en ${relative(root, dirServidor)}/index.mjs`);
+        logger.info(paraDesarrollo().servidorEn(`${relative(root, dirServidor)}/index.mjs`));
         return;
       }
 
@@ -711,7 +721,7 @@ export function sitio(opciones) {
       let archivos = 0;
       try {
         const { rutas } = descubrir(rutasDir);
-        if (rutas.length === 0) logger.warn(`ascua: no hay rutas en ${ajustes.routes}/`);
+        if (rutas.length === 0) logger.warn(paraDesarrollo().sinRutas(ajustes.routes));
         const ascua = await ascuaDe(vite);
         const mapa = await mapaDeIslas(dirIslas(), root, (archivo) => vite.ssrLoadModule(archivo));
         // Antes de pintar nada: un formulario sin servidor se perdería en
@@ -719,16 +729,12 @@ export function sitio(opciones) {
         // petición sobre la que correr.
         for (const ruta of rutas) {
           if ((await vite.ssrLoadModule(ruta.modulo)).actions) {
-            throw new Error(
-              `${relative(root, ruta.modulo)}: las acciones necesitan un servidor que las reciba; usa site: { mode: "server" }`,
-            );
+            throw new Error(paraDesarrollo().accionesSinServidor(relative(root, ruta.modulo)));
           }
         }
         const conMiddleware = rutas.find((r) => r.middlewares.length > 0);
         if (conMiddleware) {
-          throw new Error(
-            `${relative(root, conMiddleware.middlewares[0])}: un middleware necesita un servidor que reciba las peticiones; usa site: { mode: "server" }`,
-          );
+          throw new Error(paraDesarrollo().middlewareSinServidor(relative(root, conMiddleware.middlewares[0])));
         }
 
         for (const ruta of rutas) {
@@ -761,9 +767,7 @@ export function sitio(opciones) {
       } finally {
         await vite.close();
       }
-      const cuantos = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
-      const otros = archivos ? ` y ${cuantos(archivos, "archivo", "archivos")}` : "";
-      logger.info(`ascua: ${cuantos(paginas, "página", "páginas")}${otros} en ${relative(root, salida) || "."}/`);
+      logger.info(paraDesarrollo().construido(paginas, archivos, relative(root, salida) || "."));
     },
 
     configureServer(servidor) {
