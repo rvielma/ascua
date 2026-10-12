@@ -32,7 +32,9 @@ deno run -A npm:create-ascua my-site      # con Deno, de principio a fin
 ```
 
 Deja un sitio armado —rutas, un layout, una isla y, con `server`, un
-formulario con acción y un middleware— listo para `dev` y `build`. A mano es
+formulario con acción y un middleware— listo para `dev` y `build`. En la
+primera semana de una versión nueva, stil la bloquea por su política de edad:
+`stil dlx create-ascua --min-age 0 -- my-site`. A mano es
 esto:
 
 ```sh
