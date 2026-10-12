@@ -59,7 +59,14 @@ publicar() {
     local salida estado=0
     salida=$(cd "packages/$paquete" && npm publish --access public $seco ${otp:+--otp="$otp"} 2>&1) || estado=$?
     if [[ $estado -eq 0 ]]; then
-      echo "$salida" | grep -E "^\+ " || true
+      # La salida entera, y no solo la línea `+ paquete@versión`: npm avisa
+      # ahí de lo que no es un error, como una publicación que queda en
+      # espera de aprobación en vez de salir.
+      echo "$salida" | sed 's/^/    /'
+      if [[ -z "$seco" ]] && ! npm view "$nombre@$version" version >/dev/null 2>&1; then
+        echo "    Aviso: npm aceptó $nombre@$version pero el registro todavía no lo muestra." >&2
+        echo "    Puede estar propagándose (unos minutos) o en espera de aprobación en npmjs.com." >&2
+      fi
       return
     fi
     if grep -q "EOTP" <<<"$salida"; then
