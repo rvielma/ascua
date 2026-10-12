@@ -20,7 +20,7 @@ function compilar(plugin, codigo) {
 }
 
 it("editar el estilo de la segunda plantilla de un archivo cambia la hoja", () => {
-  const plugin = ascua();
+  const plugin = [ascua()].flat().find((p) => p.name === "ascua");
   const antes = compilar(plugin, fuente("blue"));
   const despues = compilar(plugin, fuente("green"));
 

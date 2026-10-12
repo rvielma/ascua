@@ -97,7 +97,7 @@ publicar() {
   done
 }
 
-for paquete in compilador runtime router query testing security vite-plugin create check ts-plugin; do
+for paquete in compilador runtime router query testing security passkey vite-plugin create check ts-plugin; do
   publicar "$paquete"
 done
 

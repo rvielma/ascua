@@ -12,6 +12,7 @@
 
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
@@ -68,7 +69,31 @@ function elegirCompilador(opciones) {
  */
 export default function ascua(opciones = {}) {
   const plantillas = compilador(opciones);
-  return opciones.site ? [plantillas, sitio(opciones.site)] : plantillas;
+  const deps = dependencias();
+  const plugins = [plantillas, ...(deps ? [deps] : []), ...(opciones.site ? [sitio(opciones.site)] : [])];
+  return plugins.length === 1 ? plantillas : plugins;
+}
+
+/**
+ * Que el navegador no se quede con dependencias viejas.
+ *
+ * Vite versiona lo que pre-empaqueta (`/node_modules/.vite/deps/x.js?v=…`) con
+ * un hash de los lockfiles que conoce —npm, pnpm, yarn, bun— y lo sirve como
+ * inmutable. `stil-lock.json` no está en su lista: al actualizar `ascua` con
+ * stil el hash no cambia, y el navegador sigue usando el runtime anterior de
+ * su caché aunque el servidor ya tenga el nuevo. Vite incluye en ese hash el
+ * nombre de cada plugin, así que este plugin vacío lleva la huella del
+ * lockfile en el suyo.
+ */
+function dependencias(raiz = process.cwd()) {
+  let lock;
+  try {
+    lock = readFileSync(join(raiz, "stil-lock.json"));
+  } catch {
+    return null;
+  }
+  const huella = createHash("sha256").update(lock).digest("hex").slice(0, 12);
+  return { name: `ascua:stil-lock-${huella}` };
 }
 
 function compilador(opciones) {

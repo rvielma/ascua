@@ -162,6 +162,7 @@ CSS, gzip, la aplicación entera.
 | [`ascua-query`](packages/query) | Datos remotos con caché por clave: sondeo, invalidación, mutaciones optimistas | 2,15 kB gzip |
 | [`ascua-testing`](packages/testing) | Montar, `click`, `input`, `drag`, `waitFor` y desmontar en un test | en tests |
 | [`ascua-security`](packages/security) | CSP con hashes, cabeceras, cookies firmadas y defensa contra CSRF; el kit la aplica sola | en el servidor |
+| [`ascua-passkey`](packages/passkey) | Passkeys: la ceremonia del navegador y la verificación en el servidor con Web Crypto | 1,8 kB gzip |
 | [`ascua-check`](packages/check) | Los tipos de dentro de las plantillas, con el `tsc` del proyecto | en CI |
 | [`ascua-ts-plugin`](packages/ts-plugin) | Lo mismo en el editor: errores, autocompletado, ir a la definición | en el editor |
 
@@ -183,7 +184,7 @@ Y lo que resuelven juntos:
 | Errores | `onError` por vista; los del compilador, con archivo y línea |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**440 tests** (168 en Rust, 272 en TypeScript), sin warnings de `clippy`, todo
+**586 tests** (189 en Rust, 397 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -214,6 +215,7 @@ packages/
   query/            ascua-query — datos remotos con caché por clave
   testing/          ascua-testing — montar y tocar componentes en un test
   security/         ascua-security — CSP, cabeceras, cookies firmadas, CSRF
+  passkey/          ascua-passkey — passkeys: navegador y verificación en el servidor
   check/            ascua-check — ascua-check, los tipos de dentro de las plantillas
   ts-plugin/        ascua-ts-plugin — las plantillas entendidas por el editor
 crates/
@@ -307,17 +309,18 @@ Las dependencias de cada directorio se instalan con
 de Ascua desde `packages/`. Por partes:
 
 ```sh
-cargo test                   # 168 tests del compilador y la vía Rust experimental
+cargo test                   # 189 tests del compilador y la vía Rust experimental
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 125 tests del runtime
+cd packages/runtime && stil run test    # 130 tests del runtime
 cd packages/router && stil run test     # 20 tests del router
-cd packages/query && stil run test      # 25 tests de ascua-query
+cd packages/query && stil run test      # 28 tests de ascua-query
 cd packages/testing && stil run test    # 17 tests del paquete de testing
 cd packages/security && stil run test   # 19 tests de ascua-security
+cd packages/passkey && stil run test    # 35 tests de ascua-passkey
 cd packages/check && stil run test      # 8 tests de ascua-check
 cd packages/ts-plugin && stil run test  # 17 tests del plugin del editor, con tsserver
-cd packages/vite-plugin && stil run test # 51 tests del plugin de Vite: sitio estático, desarrollo, servidor, acciones e hidratación
+cd packages/vite-plugin && stil run test # 101 tests del plugin de Vite: sitio estático, desarrollo, servidor, acciones e hidratación
 cd examples/panel-ts && stil run check  # ascua-check sobre el panel
 cd examples/panel-ts && stil run test   # 7 tests de la aplicación de ejemplo
 cd examples/ssr-ts && stil run test     # 8 tests del ejemplo con SSR
