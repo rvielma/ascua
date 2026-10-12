@@ -1,0 +1,38 @@
+{
+  "name": "create-ascua",
+  "version": "0.1.0",
+  "description": "Crea un sitio de Ascua: npm create ascua, stil dlx create-ascua, deno run -A npm:create-ascua.",
+  "keywords": [
+    "ascua",
+    "create",
+    "scaffold",
+    "islands",
+    "vite"
+  ],
+  "homepage": "https://ascua.gitweave.run",
+  "license": "MIT OR Apache-2.0",
+  "type": "module",
+  "bin": {
+    "create-ascua": "index.js"
+  },
+  "files": [
+    "index.js",
+    "versions.json",
+    "templates",
+    "LICENSE-MIT",
+    "LICENSE-APACHE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "prepack": "node scripts/versions.js",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^5.0.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

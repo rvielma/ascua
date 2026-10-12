@@ -21,9 +21,19 @@ pestaña: **[playground](https://ascua.gitweave.run/playground/)**
 
 ## Empezar
 
-Basta con Node y [stil](https://stil.gitweave.run) —o npm—. **No hace falta
-Rust**: el compilador llega como `.wasm` dentro del paquete, y el mismo archivo
-vale para macOS, Linux y Windows.
+Basta con Node —o Deno, o Bun— y [stil](https://stil.gitweave.run) o npm.
+**No hace falta Rust**: el compilador llega como `.wasm` dentro del paquete, y
+el mismo archivo vale para macOS, Linux y Windows.
+
+```sh
+stil dlx create-ascua my-site             # o: npm create ascua@latest my-site
+stil dlx create-ascua my-site --template server
+deno run -A npm:create-ascua my-site      # con Deno, de principio a fin
+```
+
+Deja un sitio armado —rutas, un layout, una isla y, con `server`, un
+formulario con acción y un middleware— listo para `dev` y `build`. A mano es
+esto:
 
 ```sh
 stil add ascua

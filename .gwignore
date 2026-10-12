@@ -125,3 +125,4 @@ benchmarks/*/dist/**
 # Ejemplo SSR: builds de cliente y servidor
 examples/ssr-ts/dist
 examples/ssr-ts/dist/**
+packages/create/versions.json
