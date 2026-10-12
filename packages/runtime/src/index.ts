@@ -46,6 +46,7 @@ export {
   island,
   list,
   marker,
+  region,
   mount,
   on,
   property,
@@ -64,6 +65,8 @@ export {
   type TemplateNodes,
   type TemplateStructure,
   type AttributeValue,
+  type Branch,
+  type Region,
   type Writable,
 } from "./dom.js";
 

@@ -240,10 +240,10 @@ nada que interpolar. Para estilos que cambian, un atributo reactivo.
 - **Una plantilla tiene un único elemento raíz.** Es lo que permite que montar,
   desmontar e hidratar sean operaciones sobre *un* nodo. Donde los fragmentos
   hacen falta —el contenido de un componente, una rama de `<Show>`— sí están.
-- **`<Show>` y `<For>` necesitan un elemento donde anclarse**, porque lo que
-  producen es un marcador dentro de un padre. No pueden ser la raíz, ni colgar
-  directamente de una rama de otro `<Show>`: hace falta un elemento de por
-  medio, y lo escribe quien sabe cuál debe ser.
+- **`<Show>` y `<For>` necesitan un padre donde anclarse**, porque lo que
+  producen es un marcador dentro de él. No pueden ser la raíz. En la rama de
+  otro `<Show>` se compilan como una región (`Region`) que la rama coloca con
+  el padre real al mostrarse, y que se quita sola al cerrarse la rama.
 - **`${expr}` nunca inserta un nodo**: un hueco siempre es texto. Para componer
   árboles, un componente. Distinguirlo por el tipo del valor sería adivinar la
   intención.

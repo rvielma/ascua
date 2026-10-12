@@ -40,7 +40,7 @@ cerrar la vista la suelta, y lo que nadie mira se borra pasado `gcTime`.
 | | |
 |---|---|
 | `remote({ key, load, … })` | Una consulta. Se lee llamándola; `state()`, `loading()`, `error()`, `placeholder()`, `updatedAt()`, `reload()`. |
-| `mutation({ run, onMutate, onSuccess, onError, onSettled })` | Una escritura: `mutate()`, `mutateAsync()`, `state()`, `pending()`, `data()`, `error()`, `reset()`. |
+| `mutation({ run, onMutate, onSuccess, onError, onSettled })` | Una escritura: `mutate(v, { onSuccess, onError })`, `mutateAsync()`, `state()`, `pending()`, `data()`, `error()`, `reset()`. |
 | `invalidate(prefix?)` | Caduca lo que empieza por `prefix`; lo que se está mirando, se recarga ya. |
 | `setData(key, value \| (old) => next)` / `getData(key)` | Leer y escribir la caché a mano: actualizaciones optimistas. |
 | `cancel(prefix?)` | Corta las cargas en camino, para que no pisen una escritura optimista. |

@@ -246,6 +246,83 @@ describe("list", () => {
   });
 });
 
+describe("list: actual()", () => {
+  interface Fila {
+    id: number;
+    estado: string;
+  }
+
+  it("un objeto nuevo con la misma clave actualiza la fila sin reconstruirla", () => {
+    const raiz = escenario();
+    const filas = signal<Fila[]>([
+      { id: 1, estado: "activa" },
+      { id: 2, estado: "activa" },
+    ]);
+    const construidas = vi.fn();
+
+    mount(raiz, () => {
+      const ul = element("ul");
+      list(
+        ul,
+        () => filas(),
+        (f) => f.id,
+        (f, actual) => {
+          construidas(f.id);
+          const li = element("li");
+          append(li, dynamicText(() => `${f.id}:${actual().estado}`));
+          return li;
+        },
+      );
+      return ul;
+    });
+
+    const lis = () => [...raiz.querySelectorAll("li")];
+    const antes = lis();
+    expect(antes.map((li) => li.textContent)).toEqual(["1:activa", "2:activa"]);
+
+    // El sondeo trae objetos nuevos: la fila 2 cambió, la 1 no.
+    filas.set([
+      { id: 1, estado: "activa" },
+      { id: 2, estado: "cerrada" },
+    ]);
+    expect(lis().map((li) => li.textContent)).toEqual(["1:activa", "2:cerrada"]);
+    expect(lis()).toEqual(antes);
+    expect(construidas).toHaveBeenCalledTimes(2);
+
+    // Reordenar y cambiar a la vez: se mueve el nodo y se actualiza.
+    filas.set([
+      { id: 2, estado: "reabierta" },
+      { id: 1, estado: "activa" },
+    ]);
+    expect(lis().map((li) => li.textContent)).toEqual(["2:reabierta", "1:activa"]);
+    expect(lis()).toEqual([antes[1], antes[0]]);
+    expect(construidas).toHaveBeenCalledTimes(2);
+  });
+
+  it("sin segundo parámetro, la fila conserva el item con que se construyó", () => {
+    const raiz = escenario();
+    const filas = signal<Fila[]>([{ id: 1, estado: "activa" }]);
+
+    mount(raiz, () => {
+      const ul = element("ul");
+      list(
+        ul,
+        () => filas(),
+        (f) => f.id,
+        (f) => {
+          const li = element("li");
+          append(li, text(f.estado));
+          return li;
+        },
+      );
+      return ul;
+    });
+
+    filas.set([{ id: 1, estado: "cerrada" }]);
+    expect(raiz.querySelector("li")!.textContent).toBe("activa");
+  });
+});
+
 describe("list: lo que cuesta reordenar", () => {
   /** Monta una lista de números y devuelve cómo cambiarla y qué mirar. */
   function montarLista(inicial: number[]) {

@@ -27,6 +27,7 @@ const SHOW_VALUE_FN: (&str, &str) = ("showValue", "_$showv");
 const BIND: (&str, &str) = ("bind", "_$bind");
 const COMPONENT: (&str, &str) = ("component", "_$comp");
 const LIST_FN: (&str, &str) = ("list", "_$list");
+const REGION_FN: (&str, &str) = ("region", "_$region");
 const TEMPLATE: (&str, &str) = ("template", "_$tpl");
 const CLONE: (&str, &str) = ("cloneTemplate", "_$clone");
 const SET_TEXT: (&str, &str) = ("setText", "_$settxt");
@@ -499,10 +500,10 @@ impl Generador {
         for hijo in hijos {
             match hijo {
                 Nodo::Componente(componente) if componente.nombre == SHOW => {
-                    self.show(componente, padre, lineas);
+                    self.show(componente, padre, None, lineas);
                 }
                 Nodo::Componente(componente) if componente.nombre == FOR => {
-                    self.lista(componente, padre, lineas);
+                    self.lista(componente, padre, None, lineas);
                 }
                 _ => {
                     let variable = self.nodo(hijo, lineas);
@@ -613,7 +614,17 @@ impl Generador {
     }
 
     /// `<Show>` — una región que se sustituye entera.
-    fn show(&mut self, componente: &Componente, padre: &str, lineas: &mut Vec<String>) {
+    ///
+    /// `antes` es para una región suelta en una rama: va delante de ese nodo,
+    /// no al final del padre.
+    fn show(
+        &mut self,
+        componente: &Componente,
+        padre: &str,
+        antes: Option<&str>,
+        lineas: &mut Vec<String>,
+    ) {
+        let antes = antes.map_or_else(String::new, |nodo| format!(", {nodo}"));
         let when = componente
             .prop("when")
             .map_or_else(|| "false".to_string(), |valor| self.expresion(valor));
@@ -642,7 +653,9 @@ impl Generador {
                 };
                 self.origen = componente.linea;
                 let showv = self.usar(SHOW_VALUE_FN);
-                lineas.push(self.linea(&format!("{showv}({padre}, {cuando}, {render}, {si_no});")));
+                lineas.push(self.linea(&format!(
+                    "{showv}({padre}, {cuando}, {render}, {si_no}{antes});"
+                )));
                 return;
             }
         }
@@ -656,7 +669,7 @@ impl Generador {
         self.origen = componente.linea;
         let show = self.usar(SHOW_FN);
         lineas.push(self.linea(&format!(
-            "{show}({padre}, {when}, ({condicion}) => {condicion} ? {rama_si} : {rama_no});"
+            "{show}({padre}, {when}, ({condicion}) => {condicion} ? {rama_si} : {rama_no}{antes});"
         )));
     }
 
@@ -665,6 +678,10 @@ impl Generador {
     /// Se construye dentro de la función, no fuera: el contenido de la rama
     /// que no se muestra **no existe** —ni sus nodos ni sus efectos— hasta que
     /// le toca.
+    ///
+    /// Un `<Show>` o un `<For>` suelto en la rama no es un nodo: va como una
+    /// función que recibe el padre real y dónde colocarse, y que `show` llama
+    /// al colocar la rama.
     fn rama(&mut self, hijos: &[&Nodo]) -> String {
         if hijos.is_empty() {
             return "null".to_string();
@@ -674,7 +691,14 @@ impl Generador {
         let mut internas = Vec::new();
         let variables: Vec<String> = hijos
             .iter()
-            .map(|hijo| self.nodo(hijo, &mut internas))
+            .map(|hijo| match hijo {
+                Nodo::Componente(componente)
+                    if componente.nombre == SHOW || componente.nombre == FOR =>
+                {
+                    self.region(componente, &mut internas)
+                }
+                _ => self.nodo(hijo, &mut internas),
+            })
             .collect();
         let devuelto = if let [unica] = variables.as_slice() {
             unica.clone()
@@ -691,8 +715,41 @@ impl Generador {
         )
     }
 
+    /// Un `<Show>` o un `<For>` suelto en una rama, como `Region`.
+    fn region(&mut self, componente: &Componente, lineas: &mut Vec<String>) -> String {
+        let padre = format!("_p{}", self.contador);
+        let antes = format!("_a{}", self.contador);
+        self.contador += 1;
+        let variable = self.siguiente_variable();
+
+        self.nivel += 1;
+        let mut dentro = Vec::new();
+        if componente.nombre == SHOW {
+            self.show(componente, &padre, Some(&antes), &mut dentro);
+        } else {
+            self.lista(componente, &padre, Some(&antes), &mut dentro);
+        }
+        self.nivel -= 1;
+
+        self.origen = componente.linea;
+        let region = self.usar(REGION_FN);
+        lineas.push(self.linea(&format!(
+            "const {variable} = {region}(({padre}, {antes}) => {{\n{}\n{}}});",
+            dentro.join("\n"),
+            "  ".repeat(self.nivel)
+        )));
+        variable
+    }
+
     /// `<For>` — lista con clave.
-    fn lista(&mut self, componente: &Componente, padre: &str, lineas: &mut Vec<String>) {
+    fn lista(
+        &mut self,
+        componente: &Componente,
+        padre: &str,
+        antes: Option<&str>,
+        lineas: &mut Vec<String>,
+    ) {
+        let antes = antes.map_or_else(String::new, |nodo| format!(", {nodo}"));
         let each = componente
             .prop("each")
             .map_or_else(|| "() => []".to_string(), |valor| self.expresion(valor));
@@ -706,7 +763,7 @@ impl Generador {
 
         self.origen = componente.linea;
         let list = self.usar(LIST_FN);
-        lineas.push(self.linea(&format!("{list}({padre}, {each}, {key}, {render});")));
+        lineas.push(self.linea(&format!("{list}({padre}, {each}, {key}, {render}{antes});")));
     }
 }
 
@@ -1022,6 +1079,32 @@ mod tests {
         assert_eq!(codigo.matches("_$clone(").count(), 3, "{codigo}");
         assert!(codigo.contains(r#"["p",0,["sí"]]"#), "{codigo}");
         assert!(codigo.contains(r#"["p",0,["no"]]"#), "{codigo}");
+    }
+
+    #[test]
+    fn una_region_suelta_en_una_rama_se_coloca_al_colocar_la_rama() {
+        let entrada = format!(
+            "<ul><Show when={ABRE}0{CIERRA}><li>antes</li><Show when={ABRE}1{CIERRA}><li>dentro</li></Show>\
+             <Else><For each={ABRE}2{CIERRA} key={ABRE}3{CIERRA} render={ABRE}4{CIERRA}/></Else></Show></ul>"
+        );
+        let generado = compilar(
+            &entrada,
+            &[
+                "() => a()",
+                "() => b()",
+                "() => items()",
+                "(i) => i.id",
+                "(i) => fila(i)",
+            ],
+        );
+        let codigo = &generado.codigo;
+        // La región es una función que recibe el padre real y dónde ir…
+        assert!(codigo.contains("= _$region((_p"), "{codigo}");
+        assert!(codigo.contains("_$show(_p"), "{codigo}");
+        assert!(codigo.contains("_$list(_p"), "{codigo}");
+        assert!(codigo.contains("(i) => fila(i), _a"), "{codigo}");
+        // …y va en la rama junto a los nodos, en su orden.
+        assert!(codigo.contains("return [_n2, _n4];"), "{codigo}");
     }
 
     #[test]

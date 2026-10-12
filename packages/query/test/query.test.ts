@@ -441,4 +441,48 @@ describe("mutation", () => {
     await vi.waitFor(() => expect(falla.state()).toBe("error"));
     expect(q()!.comments).toEqual(["hola", "¿qué tal?"]);
   });
+
+  it("mutate(v, { onSuccess, onError }): los de la llamada, después de los de la mutación", async () => {
+    const orden: string[] = [];
+    const m = mutation({
+      run: async (n: number) => {
+        if (n < 0) throw new Error("negativo");
+        return n + 1;
+      },
+      onSuccess: () => void orden.push("mutación ok"),
+      onError: () => void orden.push("mutación error"),
+    });
+
+    m.mutate(1, {
+      onSuccess: (data, v) => void orden.push(`llamada ok ${data} ${v}`),
+      onSettled: (_d, e) => void orden.push(`llamada fin ${e === undefined}`),
+    });
+    await vi.waitFor(() => expect(m.state()).toBe("success"));
+    expect(orden).toEqual(["mutación ok", "llamada ok 2 1", "llamada fin true"]);
+
+    orden.length = 0;
+    m.mutate(-1, { onError: (e) => void orden.push(`llamada error ${(e as Error).message}`) });
+    await vi.waitFor(() => expect(m.state()).toBe("error"));
+    expect(orden).toEqual(["mutación error", "llamada error negativo"]);
+  });
+
+  it("solo corren los de la última llamada", async () => {
+    const primera = diferida<number>();
+    const m = mutation({ run: (n: number) => (n === 1 ? primera.promesa : Promise.resolve(n)) });
+    const vistos: number[] = [];
+    m.mutate(1, { onSuccess: (d) => void vistos.push(d) });
+    m.mutate(2, { onSuccess: (d) => void vistos.push(d) });
+    primera.resolver(1);
+    await vi.waitFor(() => expect(m.state()).toBe("success"));
+    await flush();
+    expect(vistos).toEqual([2]);
+    expect(m.data()).toBe(2);
+  });
+
+  it("sin variables, los callbacks van en el segundo argumento", async () => {
+    const m = mutation({ run: async () => "hecho" });
+    const ok = vi.fn();
+    m.mutate(undefined, { onSuccess: ok });
+    await vi.waitFor(() => expect(ok).toHaveBeenCalledWith("hecho", undefined));
+  });
 });

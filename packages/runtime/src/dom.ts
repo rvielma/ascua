@@ -10,7 +10,7 @@
  * esto sigue siendo una librería de signals con helpers de DOM.
  */
 
-import { currentScope, effect, enRaizNueva, liberarScope, memo, onCleanup, registrarOyente, root, withScope, type Scope } from "./reactivo.js";
+import { currentScope, effect, enRaizNueva, liberarScope, memo, onCleanup, registrarOyente, root, signal, withScope, type Scope, type Signal } from "./reactivo.js";
 
 /**
  * El contenido que recibe un componente.
@@ -543,20 +543,41 @@ function repartir(evento: Event): void {
 }
 
 /**
+ * Un `<Show>` o un `<For>` puesto directamente en una rama, sin un elemento
+ * que lo contenga: no es un nodo, así que la rama no puede construirlo hasta
+ * saber dónde va. Quien coloca la rama lo llama con el padre real y el nodo
+ * delante del cual debe quedar.
+ */
+export type Region = (parent: Node, before: Node) => void;
+
+/** Lo que emite el compilador para una región suelta: solo le da su tipo. */
+export function region(colocarla: Region): Region {
+  return colocarla;
+}
+
+/** Lo que construye una rama: nodos, regiones sueltas, o nada. */
+export type Branch = Node | Region | readonly (Node | Region)[] | null;
+
+/**
  * Región cuyo contenido se **sustituye**: un `if`, un `match`, una pestaña.
  *
  * Está partida en dos funciones a propósito. `elegir` es lo reactivo: si
  * devuelve el mismo valor, no se reconstruye nada. `construir` levanta el
  * contenido en un scope propio y sin rastrear, así que lo que lea dentro no
  * vuelve a disparar la sustitución.
+ *
+ * Con `antes`, la región va delante de ese nodo y no al final del padre: es
+ * una región suelta dentro de la rama de otra. Entonces también se quita
+ * sola cuando esa rama se libera.
  */
 export function show<T>(
   padre: Node,
   elegir: () => T,
-  construir: (valor: T) => Node | readonly Node[] | null,
+  construir: (valor: T) => Branch,
+  antes: Node | null = null,
 ): void {
   const ancla = marker();
-  colocar(padre, ancla, null);
+  colocar(padre, ancla, antes);
 
   // El scope se captura fuera del efecto: lo que se construya dentro debe
   // pertenecer a quien contiene esta región, no al efecto que la actualiza.
@@ -565,13 +586,7 @@ export function show<T>(
   let actuales: readonly Node[] = [];
   let liberar: (() => void) | null = null;
 
-  // El selector va envuelto en un memo: si devuelve el mismo valor, no se
-  // reconstruye nada. Alternar un booleano que ya era `true` no toca el DOM.
-  const valorActual = memo(elegir);
-
-  effect(() => {
-    const valor = valorActual();
-
+  const vaciar = () => {
     // `remove` y no `removeChild`: si algo de fuera ya se llevó el nodo —un
     // test que vacía el documento, un script ajeno— quitarlo otra vez no debe
     // tirar la aplicación.
@@ -579,23 +594,51 @@ export function show<T>(
     if (liberar) liberar();
     actuales = [];
     liberar = null;
+  };
+
+  // El selector va envuelto en un memo: si devuelve el mismo valor, no se
+  // reconstruye nada. Alternar un booleano que ya era `true` no toca el DOM.
+  const valorActual = memo(elegir);
+
+  effect(() => {
+    const valor = valorActual();
+    vaciar();
 
     withScope(scope, () => {
-      const [construido, dispose] = root(() => construir(valor));
-      // Una rama puede tener varios nodos hermanos: son contenido dentro de
-      // un padre que ya existe, no una vista con raíz propia.
-      const nodos =
-        construido === null ? [] : Array.isArray(construido) ? construido : [construido as Node];
+      // Se coloca dentro del scope de la rama: las regiones sueltas que traiga
+      // se construyen al colocarlas, y tienen que pertenecerle.
+      const [colocados, dispose] = root(() => {
+        const construido = construir(valor);
+        // Una rama puede tener varios nodos hermanos: son contenido dentro de
+        // un padre que ya existe, no una vista con raíz propia.
+        const partes: readonly (Node | Region)[] =
+          construido === null ? [] : Array.isArray(construido) ? construido : [construido as Node | Region];
+        const nodos: Node[] = [];
+        for (const parte of partes) {
+          if (typeof parte === "function") parte(padre, ancla);
+          else {
+            colocar(padre, parte, ancla);
+            nodos.push(parte);
+          }
+        }
+        return partes.length === 0 ? null : nodos;
+      });
 
-      if (nodos.length === 0) {
+      if (colocados === null) {
         dispose();
         return;
       }
-      for (const nodo of nodos) colocar(padre, nodo, ancla);
-      actuales = nodos;
+      actuales = colocados;
       liberar = dispose;
     });
   });
+
+  if (antes) {
+    onCleanup(() => {
+      vaciar();
+      ancla.remove();
+    });
+  }
 }
 
 /** Lo que queda de `T` al quitarle lo que `<Show>` entiende como «no hay». */
@@ -619,8 +662,9 @@ export function showValue<T>(
   // `NoInfer`: `T` sale de `elegir`. Si saliera también de aquí, anotar el
   // parámetro dentro de un componente genérico —`(d: () => Present<U>) => …`—
   // haría que TypeScript dedujera otra `T` y rechazara el `when`.
-  construir: NoInfer<(valor: () => Present<T>) => Node | readonly Node[] | null>,
-  siNo: (() => Node | readonly Node[] | null) | null = null,
+  construir: NoInfer<(valor: () => Present<T>) => Branch>,
+  siNo: (() => Branch) | null = null,
+  antes: Node | null = null,
 ): void {
   const hay = (v: T): v is Present<T> => v !== null && v !== undefined && v !== false;
   let ultimo: Present<T>;
@@ -632,7 +676,7 @@ export function showValue<T>(
     if (hay(actual)) ultimo = actual;
     return ultimo;
   };
-  show(padre, () => hay(elegir()), (esta) => (esta ? construir(valor) : siNo ? siNo() : null));
+  show(padre, () => hay(elegir()), (esta) => (esta ? construir(valor) : siNo ? siNo() : null), antes);
 }
 
 /**
@@ -689,15 +733,20 @@ export function bind(
  * `construir` se ejecuta **una vez por clave**. Mientras la clave siga en la
  * lista, su nodo se conserva y se mueve; no se rehace. Eso es lo que preserva
  * el foco, el scroll y lo que el usuario estuviera escribiendo.
+ *
+ * Si `construir` declara un segundo parámetro, recibe `current()`: el último
+ * item que llegó con esa clave. Un sondeo que trae un objeto nuevo para la
+ * misma fila no la reconstruye, pero lo que lee `current()` se actualiza.
  */
 export function list<T, K>(
   padre: Node,
   items: () => readonly T[],
   clave: (item: T) => K,
-  construir: (item: T) => Node,
+  construir: (item: T, current: () => T) => Node,
+  antes: Node | null = null,
 ): void {
   const ancla = marker();
-  colocar(padre, ancla, null);
+  colocar(padre, ancla, antes);
 
   // Igual que en `show`: los scopes de los items no pueden colgar del efecto
   // que reconcilia, o cada reordenación los liberaría todos.
@@ -705,7 +754,18 @@ export function list<T, K>(
 
   let orden: K[] = [];
   // Cada fila: su nodo y su scope. Sin closure para liberarla: son miles.
-  const entradas = new Map<K, { nodo: Node; scope: Scope }>();
+  // `actual` solo existe si `construir` lo pide: un signal por fila tampoco
+  // es gratis.
+  const entradas = new Map<K, { nodo: Node; scope: Scope; actual?: Signal<T> }>();
+  const conActual = construir.length > 1;
+
+  const nueva = (item: T) => {
+    const raiz = { nodo: null as Scope };
+    if (!conActual) return { nodo: enRaizNueva(construir as (item: T) => Node, item, raiz), scope: raiz.nodo };
+    const actual = signal(item);
+    const nodo = enRaizNueva((it: T) => construir(it, actual), item, raiz);
+    return { nodo, scope: raiz.nodo, actual };
+  };
 
   effect(() => {
     const lista = items();
@@ -747,25 +807,27 @@ export function list<T, K>(
         for (let i = 0; i < lista.length; i++) {
           const k = claves[i]!;
           if (entradas.has(k)) continue;
-          const raiz = { nodo: null as Scope };
-          const nodo = enRaizNueva(construir, lista[i]!, raiz);
-          entradas.set(k, { nodo, scope: raiz.nodo });
-          padre.insertBefore(nodo, ancla);
+          const entrada = nueva(lista[i]!);
+          entradas.set(k, entrada);
+          padre.insertBefore(entrada.nodo, ancla);
         }
       });
       orden = claves;
       return;
     }
 
-    // 2. Construir los nuevos, cada uno en su propio scope.
+    // 2. Construir los nuevos, cada uno en su propio scope. A los que siguen
+    // se les da el item que llegó ahora, por si lo leen con `actual()`.
     let nuevas: Uint8Array | null = null;
     withScope(scope, () => {
       lista.forEach((item, indice) => {
         const k = claves[indice]!;
-        if (entradas.has(k)) return;
-        const raiz = { nodo: null as Scope };
-        const nodo = enRaizNueva(construir, item, raiz);
-        entradas.set(k, { nodo, scope: raiz.nodo });
+        const existente = entradas.get(k);
+        if (existente) {
+          existente.actual?.set(item);
+          return;
+        }
+        entradas.set(k, nueva(item));
         (nuevas ??= new Uint8Array(claves.length))[indice] = 1;
       });
     });
@@ -814,6 +876,14 @@ export function list<T, K>(
 
     orden = claves;
   });
+
+  // Suelta en una rama: al liberarse la rama, se lleva sus filas.
+  if (antes) {
+    onCleanup(() => {
+      for (const entrada of entradas.values()) (entrada.nodo as ChildNode).remove();
+      ancla.remove();
+    });
+  }
 }
 
 /**

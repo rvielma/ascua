@@ -479,14 +479,30 @@ export interface MutationOptions<V, R, C = unknown> {
   onSettled?: (data: R | undefined, error: unknown, variables: V, context: C | undefined) => unknown;
 }
 
+/**
+ * Lo que una llamada concreta quiere hacer al terminar: un aviso, cerrar un
+ * formulario. Corren después de los `on…` de la mutación, y solo los de la
+ * última llamada: si se lanza otra antes, los de la anterior no corren.
+ */
+export interface MutateCallbacks<V, R> {
+  onSuccess?: (data: R, variables: V) => unknown;
+  onError?: (error: unknown, variables: V) => unknown;
+  onSettled?: (data: R | undefined, error: unknown, variables: V) => unknown;
+}
+
 /** Sin variables, `mutate()` se llama sin argumentos. */
-type Variables<V> = undefined extends V ? [variables?: V] : [variables: V];
+type Variables<V, R> = undefined extends V
+  ? [variables?: V, callbacks?: MutateCallbacks<V, R>]
+  : [variables: V, callbacks?: MutateCallbacks<V, R>];
 
 export interface Mutation<V, R> {
-  /** Lanza la mutación. Un fallo queda en `error()`: no hace falta capturarlo. */
-  mutate(...variables: Variables<V>): void;
+  /**
+   * Lanza la mutación. Un fallo queda en `error()`: no hace falta capturarlo.
+   * `mutate(v, { onSuccess, onError })` añade lo que hacer al terminar esta llamada.
+   */
+  mutate(...args: Variables<V, R>): void;
   /** Igual, pero devuelve el resultado y rechaza si falla. */
-  mutateAsync(...variables: Variables<V>): Promise<R>;
+  mutateAsync(...args: Variables<V, R>): Promise<R>;
   state(): MutationState;
   pending(): boolean;
   /** El resultado de la última que fue bien. */
@@ -510,8 +526,9 @@ export function mutation<V = void, R = unknown, C = unknown>(opciones: MutationO
   /** Si se lanza otra antes de que termine, el estado es de la última. */
   let vuelta = 0;
 
-  const mutateAsync = async (...args: Variables<V>): Promise<R> => {
+  const mutateAsync = async (...args: Variables<V, R>): Promise<R> => {
     const variables = args[0] as V;
+    const llamada = args[1];
     const esta = ++vuelta;
     batch(() => {
       estado.set("pending");
@@ -528,6 +545,8 @@ export function mutation<V = void, R = unknown, C = unknown>(opciones: MutationO
           datos.set(resultado);
           estado.set("success");
         });
+        await llamada?.onSuccess?.(resultado, variables);
+        await llamada?.onSettled?.(resultado, undefined, variables);
       }
       return resultado;
     } catch (error) {
@@ -539,13 +558,17 @@ export function mutation<V = void, R = unknown, C = unknown>(opciones: MutationO
       }
       await opciones.onError?.(error, variables, contexto);
       await opciones.onSettled?.(undefined, error, variables, contexto);
+      if (esta === vuelta) {
+        await llamada?.onError?.(error, variables);
+        await llamada?.onSettled?.(undefined, error, variables);
+      }
       throw error;
     }
   };
 
   return {
-    mutate: (...variables) => {
-      mutateAsync(...variables).catch(() => {});
+    mutate: (...args) => {
+      mutateAsync(...args).catch(() => {});
     },
     mutateAsync,
     state: () => estado(),

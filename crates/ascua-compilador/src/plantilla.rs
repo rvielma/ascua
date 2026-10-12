@@ -495,7 +495,6 @@ impl Parser<'_> {
                 if ramas > 1 {
                     return Err(self.error("un <Show> tiene un solo <Else>"));
                 }
-                self.sin_regiones_sueltas(&componente.hijos)?;
             }
             FOR => {
                 for obligatorio in ["each", "key", "render"] {
@@ -512,26 +511,7 @@ impl Parser<'_> {
                     ));
                 }
             }
-            ELSE => self.sin_regiones_sueltas(&componente.hijos)?,
             _ => {}
-        }
-        Ok(())
-    }
-
-    /// Una rama de `<Show>` se construye y se inserta entera, así que sus
-    /// nodos tienen que existir. `<Show>` y `<For>` no son nodos: son un
-    /// marcador dentro de un padre. Anidarlos sin un elemento de por medio
-    /// obligaría al compilador a inventarse un contenedor que nadie escribió.
-    fn sin_regiones_sueltas(&self, hijos: &[Nodo]) -> Resultado<()> {
-        for hijo in hijos {
-            if let Nodo::Componente(componente) = hijo {
-                if matches!(componente.nombre.as_str(), SHOW | FOR) {
-                    return Err(self.error(&format!(
-                        "un <{}> dentro de una rama necesita un elemento que lo contenga",
-                        componente.nombre
-                    )));
-                }
-            }
         }
         Ok(())
     }
@@ -1111,16 +1091,19 @@ mod tests {
     }
 
     #[test]
-    fn una_region_dentro_de_una_rama_necesita_contenedor() {
+    fn una_region_dentro_de_una_rama_no_necesita_contenedor() {
         let entrada = format!(
-            "<div><Show when={ABRE}0{CIERRA}><Show when={ABRE}1{CIERRA}><p>a</p></Show></Show></div>"
+            "<div><Show when={ABRE}0{CIERRA}><Show when={ABRE}1{CIERRA}><p>a</p></Show>\
+             <Else><For each={ABRE}2{CIERRA} key={ABRE}3{CIERRA} render={ABRE}4{CIERRA}/></Else></Show></div>"
         );
-        let error = parsear(&entrada, &["() => x()".into(), "() => y()".into()])
-            .expect_err("debería fallar");
-        assert!(
-            error.mensaje.contains("elemento que lo contenga"),
-            "{error}"
-        );
+        let valores = [
+            "() => x()",
+            "() => y()",
+            "() => l()",
+            "(i) => i",
+            "(i) => view``",
+        ];
+        parsear(&entrada, &valores.map(Into::into)).expect("una región suelta en una rama vale");
     }
 
     #[test]
