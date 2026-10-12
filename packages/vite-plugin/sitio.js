@@ -47,6 +47,12 @@ const COMUN = fileURLToPath(new URL("./sitio-comun.js", import.meta.url));
  * Las rutas que hay en `dir`, las fijas antes que las variables —y las que
  * atrapan el resto, al final— para que `/pedidos/nuevo` gane a `/pedidos/:id`.
  *
+ * Una carpeta entre paréntesis —`(marketing)/`— agrupa sin aparecer en la
+ * URL: sus rutas comparten su `_layout` y su `_middleware`. Un segmento entre
+ * corchetes dobles —`[[version]]`— es opcional: la ruta sale dos veces, con
+ * él y sin él, y la de menos encaja igual que una ruta sin ese segmento. Dos
+ * archivos que dan la misma URL son un error.
+ *
  * Cada ruta lleva sus `marcos`: los `_layout.ts` de su carpeta y de las de
  * encima, del de fuera al de dentro. Y sus `middlewares`, igual, con los
  * `_middleware.ts`.
@@ -83,20 +89,31 @@ export function descubrir(dir) {
         continue;
       }
 
-      const trozos = [...(relativo ? relativo.split(sep) : []), base].filter((s) => s !== "index");
-      const segmentos = trozos.map((s, i) => {
-        if (s.startsWith("[...") && s.endsWith("]")) {
+      const esGrupo = (t) => t.startsWith("(") && t.endsWith(")");
+      const trozos = [...(relativo ? relativo.split(sep) : []), base].filter((t) => t !== "index" && !esGrupo(t));
+      const segmentos = trozos.map((t, i) => {
+        if (t.startsWith("[...") && t.endsWith("]")) {
           if (i !== trozos.length - 1) {
             throw new Error(`${relative(process.cwd(), completo)}: [...rest] solo puede ir al final`);
           }
-          return `*${s.slice(4, -1)}`;
+          return `*${t.slice(4, -1)}`;
         }
-        return s.startsWith("[") && s.endsWith("]") ? `:${s.slice(1, -1)}` : s;
+        if (t.startsWith("[[") && t.endsWith("]]")) return `?${t.slice(2, -2)}`;
+        return t.startsWith("[") && t.endsWith("]") ? `:${t.slice(1, -1)}` : t;
       });
       // `busqueda.js.ts`: sin el `.ts` sigue teniendo extensión, así que no es
       // una página sino ese archivo.
       const archivo = /\.[a-z0-9]+$/i.test(base);
-      rutas.push({ modulo: completo, segmentos, es404: false, archivo, carpeta: relativo });
+      // Una variante por cada combinación de opcionales: con y sin cada uno.
+      const opcionales = segmentos.filter((t) => t.startsWith("?")).map((t) => t.slice(1));
+      for (let mascara = 0; mascara < 2 ** opcionales.length; mascara++) {
+        const con = opcionales.filter((_, i) => mascara & (2 ** i));
+        const variante = segmentos
+          .filter((t) => !t.startsWith("?") || con.includes(t.slice(1)))
+          .map((t) => (t.startsWith("?") ? `:${t.slice(1)}` : t));
+        const sin = opcionales.filter((o) => !con.includes(o));
+        rutas.push({ modulo: completo, segmentos: variante, es404: false, archivo, carpeta: relativo, con, sin });
+      }
     }
   };
   if (existsSync(dir)) recorrer(dir);
@@ -112,6 +129,22 @@ export function descubrir(dir) {
       const middleware = middlewaresPorCarpeta.get(carpeta);
       if (middleware) ruta.middlewares.push(middleware);
     }
+  }
+
+  // Dos archivos que dan la misma URL: con grupos o con opcionales es fácil,
+  // y quedarse con uno en silencio sería peor.
+  const forma = (r) => r.segmentos.map((t) => (t.startsWith(":") ? ":" : t.startsWith("*") ? "*" : t)).join("/");
+  const vistas = new Map();
+  for (const ruta of rutas) {
+    if (ruta.es404) continue;
+    const clave = forma(ruta);
+    const otra = vistas.get(clave);
+    if (otra && otra !== ruta.modulo) {
+      throw new Error(
+        `${relative(process.cwd(), ruta.modulo)} y ${relative(process.cwd(), otra)} dan la misma URL: /${ruta.segmentos.join("/")}`,
+      );
+    }
+    vistas.set(clave, ruta.modulo);
   }
 
   const peso = (r) =>
@@ -364,7 +397,12 @@ async function paginasDe(modulo, ruta, raiz) {
   }
   const lista = await modulo.paths();
   if (!Array.isArray(lista)) throw new Error(`${nombre}: paths() tiene que devolver una lista`);
-  return lista;
+  // Con un opcional, cada variante se queda con lo suyo: la que lo lleva, con
+  // las entradas que lo traen; la que no, con las que no.
+  const presente = (valor) => valor !== undefined && valor !== null && valor !== "";
+  return lista.filter(
+    (p) => (ruta.sin ?? []).every((o) => !presente(p?.[o])) && (ruta.con ?? []).every((o) => presente(p?.[o])),
+  );
 }
 
 /** Las piezas de Ascua del servidor de Vite: las mismas con las que se registraron los estilos. */

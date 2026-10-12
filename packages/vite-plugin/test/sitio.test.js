@@ -4,7 +4,8 @@
  * se le piden páginas.
  */
 
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { build, createServer } from "vite";
@@ -30,6 +31,9 @@ describe("descubrir y encajar", () => {
       "/docs/*ruta",
       "/lenguajes.json",
       "/lenguajes/:nombre",
+      "/precios",
+      "/versiones",
+      "/versiones/:v",
       "404",
     ]);
     expect(rutas.find((r) => r.segmentos[0] === "lenguajes.json").archivo).toBe(true);
@@ -45,6 +49,36 @@ describe("descubrir y encajar", () => {
     expect(resto.segmentos).toEqual(["docs", "*ruta"]);
     expect(encajar(resto, "/docs/a/b/c")).toEqual({ ruta: "a/b/c" });
     expect(encajar(resto, "/docs")).toBeNull();
+  });
+
+  it("una carpeta entre paréntesis agrupa sin salir en la URL, y su layout cuenta", () => {
+    const precios = rutas.find((r) => r.segmentos[0] === "precios");
+    expect(encajar(precios, "/precios")).toEqual({});
+    expect(precios.marcos.map((m) => m.split("/routes/")[1])).toEqual(["_layout.ts", "(marketing)/_layout.ts"]);
+  });
+
+  it("[[v]] es opcional: encaja con el segmento y sin él", () => {
+    const versiones = rutas.filter((r) => r.segmentos[0] === "versiones");
+    const encajados = versiones.map((r) => encajar(r, "/versiones")).filter(Boolean);
+    expect(encajados).toEqual([{}]);
+    const conV = versiones.map((r) => encajar(r, "/versiones/3")).filter(Boolean);
+    expect(conV).toEqual([{ v: "3" }]);
+  });
+
+  it("dos archivos que dan la misma URL son un error", () => {
+    const dir = mkdtempSync(join(tmpdir(), "ascua-rutas-"));
+    mkdirSync(join(dir, "(a)"));
+    mkdirSync(join(dir, "(b)"));
+    writeFileSync(join(dir, "(a)/about.ts"), "");
+    writeFileSync(join(dir, "(b)/about.ts"), "");
+    expect(() => descubrir(dir)).toThrow(/dan la misma URL: \/about/);
+    rmSync(join(dir, "(b)/about.ts"));
+    // Un opcional también choca con la ruta sin él.
+    mkdirSync(join(dir, "docs"));
+    writeFileSync(join(dir, "docs/[[v]].ts"), "");
+    writeFileSync(join(dir, "docs/index.ts"), "");
+    expect(() => descubrir(dir)).toThrow(/dan la misma URL: \/docs/);
+    rmSync(dir, { recursive: true, force: true });
   });
 
   it("cada ruta lleva los marcos de su carpeta y de las de encima", () => {
@@ -88,6 +122,14 @@ describe("vite build", () => {
       // `frame-ancestors` en un <meta> no vale, y el navegador lo anota en la consola.
       expect(html, archivo).not.toContain("frame-ancestors");
     }
+  });
+
+  it("los grupos y los opcionales generan sus páginas", () => {
+    expect(leer("precios/index.html")).toMatch(/<div[^>]* class="marketing"><div[^>]* class="contenido"><h1[^>]*>Precios<\/h1>/);
+    expect(existsSync(join(DIST, "(marketing)"))).toBe(false);
+    expect(leer("versiones/index.html")).toContain("<title>Versión última</title>");
+    expect(leer("versiones/1/index.html")).toContain("<title>Versión 1</title>");
+    expect(leer("versiones/2/index.html")).toContain("<title>Versión 2</title>");
   });
 
   it("cada página lleva los estilos de lo que usa, dentro", () => {
@@ -183,6 +225,13 @@ describe("vite en desarrollo", () => {
     const html = await (await fetch(`${origen}/lenguajes/rust`)).text();
     expect(html).toContain("<title>Lenguaje rust</title>");
     expect(html).not.toContain("<script type=\"module\" src=\"/@id/");
+  });
+
+  it("en desarrollo, los grupos no salen en la URL y el opcional acepta cualquier valor", async () => {
+    expect(await (await fetch(`${origen}/precios`)).text()).toContain('class="marketing"');
+    expect((await fetch(`${origen}/(marketing)/precios`)).status).toBe(404);
+    expect(await (await fetch(`${origen}/versiones`)).text()).toContain("<title>Versión última</title>");
+    expect(await (await fetch(`${origen}/versiones/7`)).text()).toContain("<title>Versión 7</title>");
   });
 
   it("en desarrollo, load() corre en cada petición y las rutas-archivo llevan su tipo", async () => {
