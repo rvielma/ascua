@@ -75,6 +75,13 @@ publicar() {
       echo "    $nombre@$version ya estaba publicado (el registro tardaba en mostrarlo): se salta"
       return
     fi
+    # Una publicación anterior de la misma versión quedó en espera (staged):
+    # no se puede volver a subir, hay que aprobarla o esperar a que salga.
+    if grep -q "previously staged version" <<<"$salida"; then
+      echo "    $nombre@$version está en espera de una publicación anterior (staged)." >&2
+      echo "    Apruébala en https://www.npmjs.com/package/$nombre o espera a que salga; se sigue con el resto." >&2
+      return
+    fi
     if grep -q "EOTP" <<<"$salida"; then
       read -r -p "    código de doble factor (vacío para salir): " otp
       if [[ -z "$otp" ]]; then
