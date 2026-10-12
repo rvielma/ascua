@@ -14,7 +14,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { hash } from "ascua-security";
 
 import { conPoliticaEnMeta, descubrir } from "../sitio.js";
-import { encajar } from "../sitio-comun.js";
+import { componer, encajar } from "../sitio-comun.js";
 
 const PROYECTO = new URL("./fixtures/sitio/", import.meta.url).pathname;
 const DIST = join(PROYECTO, "dist");
@@ -277,6 +277,19 @@ describe("la CSP en un <meta>", () => {
   it("con WebAssembly deja compilarlo; sin charset va al principio del <head>", async () => {
     const html = await conPoliticaEnMeta("<html><head><title>x</title></head></html>", { wasm: true });
     expect(html).toMatch(/^<html><head>\s*<meta http-equiv="Content-Security-Policy" content="[^"]*'wasm-unsafe-eval'/);
+  });
+});
+
+describe("lang por ruta", () => {
+  it("reemplaza el lang del esqueleto, o lo pone si no lo tiene", () => {
+    const pagina = { html: "<p>hi</p>", lang: "en" };
+    expect(componer(`<html lang="es"><body><!--ascua--></body></html>`, pagina)).toMatch(/^<html lang="en">/);
+    expect(componer(`<html><body><!--ascua--></body></html>`, pagina)).toMatch(/^<html lang="en">/);
+    expect(componer(`<html class="x" lang='es' dir="ltr"><body><!--ascua--></body></html>`, pagina)).toMatch(
+      /^<html lang="en" class="x" dir="ltr">/,
+    );
+    // Sin `lang`, el del esqueleto se queda.
+    expect(componer(`<html lang="es"><body><!--ascua--></body></html>`, { html: "" })).toMatch(/^<html lang="es">/);
   });
 });
 

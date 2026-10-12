@@ -587,11 +587,13 @@ impl Parser<'_> {
                     if matches!(&nodo, Nodo::Elemento(e) if e.etiqueta.is_empty()) {
                         continue;
                     }
-                    // El texto que solo son espacios entre etiquetas no aporta
-                    // nada y sí bytes: se descarta, como hace cualquier
-                    // minificador de HTML.
+                    // Los espacios que solo son la sangría entre etiquetas —con
+                    // un salto de línea— no aportan nada y sí bytes: se
+                    // descartan. Los de una misma línea sí cuentan: en
+                    // `${nombre} <a>` o `<b>a</b> <i>b</i>` separan palabras.
+                    // Es la regla de JSX.
                     if let Nodo::Texto(t) = &nodo {
-                        if t.trim().is_empty() {
+                        if t.trim().is_empty() && t.contains('\n') {
                             continue;
                         }
                     }
@@ -894,6 +896,16 @@ mod tests {
             panic!("debería ser un elemento");
         };
         assert_eq!(elemento.hijos.len(), 2);
+    }
+
+    #[test]
+    fn conserva_el_espacio_de_una_misma_linea() {
+        let nodo = parsear_simple("<p><b>a</b> <i>b</i></p>", &[]);
+        let Nodo::Elemento(elemento) = nodo else {
+            panic!("debería ser un elemento");
+        };
+        assert_eq!(elemento.hijos.len(), 3);
+        assert_eq!(elemento.hijos[1], Nodo::Texto(" ".into()));
     }
 
     #[test]

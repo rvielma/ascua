@@ -371,8 +371,16 @@ const escapar = (texto) =>
   String(texto).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Mete una página en el esqueleto. */
-export function componer(esqueleto, { html, css, title: titulo, description: descripcion, head: extra, script, islas = [], precargas = [], hojas = [] }) {
+export function componer(esqueleto, { html, css, title: titulo, description: descripcion, head: extra, lang: idioma, script, islas = [], precargas = [], hojas = [] }) {
   let salida = esqueleto;
+  // `export const lang` en la ruta: el idioma de esa página, sobre el del
+  // esqueleto. Un sitio en dos idiomas comparte esqueleto.
+  if (idioma) {
+    salida = salida.replace(/<html\b([^>]*)>/i, (_, atributos) => {
+      const sin = atributos.replace(/\s+lang\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/i, "");
+      return `<html lang="${escapar(idioma)}"${sin}>`;
+    });
+  }
   // Con funciones y no con texto: `replace` interpreta `$&` en el reemplazo.
   if (titulo !== undefined && titulo !== null) {
     salida = /<title>[\s\S]*?<\/title>/.test(salida)
@@ -461,6 +469,7 @@ export async function renderizar({ ruta, modulo, marcos = [], parametros, camino
     title: valorDe(modulo.title, props),
     description: valorDe(modulo.description, props),
     head: valorDe(modulo.head, props),
+    lang: valorDe(modulo.lang, props),
     nombresIslas: islasEn(html),
   };
 }

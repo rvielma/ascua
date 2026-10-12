@@ -50,7 +50,7 @@
     "access": "public"
   },
   "dependencies": {
-    "ascua-compilador": "0.5.1",
+    "ascua-compilador": "0.5.2",
     "ascua-security": "0.1.0"
   },
   "peerDependencies": {
