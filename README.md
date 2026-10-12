@@ -184,7 +184,7 @@ Y lo que resuelven juntos:
 | Errores | `onError` por vista; los del compilador, con archivo y línea |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**586 tests** (189 en Rust, 397 en TypeScript), sin warnings de `clippy`, todo
+**591 tests** (189 en Rust, 402 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
@@ -312,7 +312,7 @@ de Ascua desde `packages/`. Por partes:
 cargo test                   # 189 tests del compilador y la vía Rust experimental
 cargo clippy --all-targets   # sin warnings
 
-cd packages/runtime && stil run test    # 130 tests del runtime
+cd packages/runtime && stil run test    # 135 tests del runtime
 cd packages/router && stil run test     # 20 tests del router
 cd packages/query && stil run test      # 28 tests de ascua-query
 cd packages/testing && stil run test    # 17 tests del paquete de testing

@@ -386,6 +386,31 @@ export function dynamicText(calcular: () => unknown): Text {
 }
 
 /**
+ * Atributos y propiedades que el navegador puede ejecutar como código si
+ * llevan una URL `javascript:`: un enlace, un formulario, un iframe.
+ */
+const ATRIBUTOS_URL = new Set(["href", "xlink:href", "src", "action", "formaction", "data"]);
+
+// Como lo lee el navegador: ignora espacios y controles delante, y tabs y
+// saltos de línea en medio (`java\tscript:` también es `javascript:`).
+const JAVASCRIPT = /^[\u0000-\u001F ]*j[\r\n\t]*a[\r\n\t]*v[\r\n\t]*a[\r\n\t]*s[\r\n\t]*c[\r\n\t]*r[\r\n\t]*i[\r\n\t]*p[\r\n\t]*t[\r\n\t]*:/i;
+
+/** Lo que queda en lugar de una URL bloqueada: no navega ni ejecuta nada útil. */
+const BLOQUEADA = "javascript:throw new Error('Ascua bloqueó una URL javascript:')";
+
+/**
+ * Una URL `javascript:` que llega por un hueco —`href=${url}`— casi siempre
+ * viene de datos de fuera, y ejecutarla es una XSS. Se bloquea, como hace
+ * React 19. Las que se escriben literales en la plantilla no pasan por aquí:
+ * esas las decidió quien escribió el código.
+ */
+function urlSegura(nombre: string, valor: string): string {
+  if (!ATRIBUTOS_URL.has(nombre.toLowerCase()) || !JAVASCRIPT.test(valor)) return valor;
+  console.error(`Ascua bloqueó una URL javascript: en \`${nombre}\`. Si viene de datos externos, valídala; si es tuya, escríbela literal en la plantilla.`);
+  return BLOQUEADA;
+}
+
+/**
  * Atributo atado a una expresión.
  *
  * `false`, `null` y `undefined` **quitan** el atributo: así se expresan los
@@ -397,7 +422,7 @@ export function attribute(nodo: Element, nombre: string, calcular: () => Attribu
     if (valor === false || valor === null || valor === undefined) {
       nodo.removeAttribute(nombre);
     } else {
-      nodo.setAttribute(nombre, valor === true ? "" : String(valor));
+      nodo.setAttribute(nombre, valor === true ? "" : urlSegura(nombre, String(valor)));
     }
   });
 }
@@ -412,7 +437,9 @@ export function attribute(nodo: Element, nombre: string, calcular: () => Attribu
  */
 export function property(nodo: Element, nombre: string, calcular: () => unknown): void {
   effect(() => {
-    (nodo as unknown as Record<string, unknown>)[nombre] = calcular();
+    const valor = calcular();
+    (nodo as unknown as Record<string, unknown>)[nombre] =
+      typeof valor === "string" ? urlSegura(nombre, valor) : valor;
   });
 }
 
@@ -432,7 +459,7 @@ export function cssClass(nodo: Element, nombre: string, calcular: () => unknown)
 /** Atributo que no cambia nunca. */
 export function staticAttribute(nodo: Element, nombre: string, valor: AttributeValue): void {
   if (valor === false || valor === null || valor === undefined) return;
-  nodo.setAttribute(nombre, valor === true ? "" : String(valor));
+  nodo.setAttribute(nombre, valor === true ? "" : urlSegura(nombre, String(valor)));
 }
 
 /**
