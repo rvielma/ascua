@@ -69,6 +69,12 @@ publicar() {
       fi
       return
     fi
+    # `npm view` mira un registro que tarda minutos en ponerse al día: lo
+    # recién publicado puede no salir ahí y aun así existir. No es un error.
+    if grep -q "cannot publish over the previously published versions" <<<"$salida"; then
+      echo "    $nombre@$version ya estaba publicado (el registro tardaba en mostrarlo): se salta"
+      return
+    fi
     if grep -q "EOTP" <<<"$salida"; then
       read -r -p "    código de doble factor (vacío para salir): " otp
       if [[ -z "$otp" ]]; then
