@@ -280,6 +280,11 @@ navegador. Las islas tienen su recarga de siempre.
   Bun, Deno y `workerd` —el runtime de Workers, que tras la compra de Deno por
   Cloudflare (octubre de 2026) es adonde va ese equipo—. El sitio construido
   entra con `define`, no en un `site.json` al lado: en Workers no hay disco.
+- **Middleware antes, no alrededor.** Un `_middleware.ts` corre antes de la
+  ruta y no recibe la respuesta: corta (`redirect`, `notFound`), deja
+  `locals` y añade cabeceras con `setHeaders`. Cubre la sesión y las
+  cabeceras, que es para lo que se usa casi siempre, sin exponer el objeto
+  interno de la respuesta ni obligar a llamar a `next()`.
 - **`notFound()` es una marca, no una clase.** El servidor lleva su propia
   copia del módulo, y `instanceof` fallaría entre las dos.
 - **Formularios de HTML y no RPC.** Una acción es un `POST` que el

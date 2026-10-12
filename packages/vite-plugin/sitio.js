@@ -48,12 +48,15 @@ const COMUN = fileURLToPath(new URL("./sitio-comun.js", import.meta.url));
  * atrapan el resto, al final— para que `/pedidos/nuevo` gane a `/pedidos/:id`.
  *
  * Cada ruta lleva sus `marcos`: los `_layout.ts` de su carpeta y de las de
- * encima, del de fuera al de dentro.
+ * encima, del de fuera al de dentro. Y sus `middlewares`, igual, con los
+ * `_middleware.ts`.
  */
 export function descubrir(dir) {
   const rutas = [];
   /** Carpeta relativa → su `_layout`. */
   const marcosPorCarpeta = new Map();
+  /** Carpeta relativa → su `_middleware`. */
+  const middlewaresPorCarpeta = new Map();
 
   const recorrer = (carpeta) => {
     for (const nombre of readdirSync(carpeta).sort()) {
@@ -68,6 +71,10 @@ export function descubrir(dir) {
       const relativo = relative(dir, carpeta);
       if (base === "_layout") {
         marcosPorCarpeta.set(relativo, completo);
+        continue;
+      }
+      if (base === "_middleware") {
+        middlewaresPorCarpeta.set(relativo, completo);
         continue;
       }
       if (base.startsWith("_")) continue;
@@ -97,9 +104,13 @@ export function descubrir(dir) {
   for (const ruta of rutas) {
     const partes = ruta.carpeta ? ruta.carpeta.split(sep) : [];
     ruta.marcos = [];
+    ruta.middlewares = [];
     for (let i = 0; i <= partes.length; i++) {
-      const marco = marcosPorCarpeta.get(partes.slice(0, i).join(sep));
+      const carpeta = partes.slice(0, i).join(sep);
+      const marco = marcosPorCarpeta.get(carpeta);
       if (marco) ruta.marcos.push(marco);
+      const middleware = middlewaresPorCarpeta.get(carpeta);
+      if (middleware) ruta.middlewares.push(middleware);
     }
   }
 
@@ -112,6 +123,11 @@ export function descubrir(dir) {
 /** Los componentes de los marcos de una ruta, cargados con `cargar`. */
 async function marcosDe(ruta, cargar) {
   return Promise.all(ruta.marcos.map(async (archivo) => (await cargar(archivo)).default));
+}
+
+/** Las funciones de los `_middleware.ts` de una ruta, cargadas con `cargar`. */
+async function middlewaresDe(ruta, cargar) {
+  return Promise.all(ruta.middlewares.map(async (archivo) => (await cargar(archivo)).default));
 }
 
 /** Los módulos de la carpeta de las islas, sin tipos ni tests. */
@@ -169,16 +185,19 @@ Promise.all(claves.map((clave) => modulos[clave]?.())).then((cargados) => {
 function codigoManejador(dirRutas, dirIslas, root) {
   const { rutas } = descubrir(dirRutas);
   const marcos = [...new Set(rutas.flatMap((r) => r.marcos))];
+  const middlewares = [...new Set(rutas.flatMap((r) => r.middlewares))];
   const islas = archivosDeIslas(dirIslas);
   const importes = [
     ...rutas.map((r, i) => `import * as m${i} from ${JSON.stringify(r.modulo)};`),
     ...marcos.map((m, i) => `import k${i} from ${JSON.stringify(m)};`),
+    ...middlewares.map((m, i) => `import w${i} from ${JSON.stringify(m)};`),
     ...islas.map((a, i) => `import * as i${i} from ${JSON.stringify(a)};`),
   ];
   const tablaIslas = islas.map((a, i) => `  [${JSON.stringify(claveDe(root, a))}, i${i}],`);
   const tabla = rutas.map((r, i) => {
     const suyos = r.marcos.map((m) => `k${marcos.indexOf(m)}`).join(", ");
-    return `  { segmentos: ${JSON.stringify(r.segmentos)}, es404: ${r.es404}, archivo: ${r.archivo}, modulo: m${i}, marcos: [${suyos}] },`;
+    const previos = r.middlewares.map((m) => `w${middlewares.indexOf(m)}`).join(", ");
+    return `  { segmentos: ${JSON.stringify(r.segmentos)}, es404: ${r.es404}, archivo: ${r.archivo}, modulo: m${i}, marcos: [${suyos}], middlewares: [${previos}] },`;
   });
   return `import { collectStyles, renderToString } from "ascua/server";
 import { append } from "ascua";
@@ -231,7 +250,7 @@ export async function handle(entrada, env) {
       peticion,
       camino,
       rutas: RUTAS,
-      cargar: async (ruta) => ({ modulo: ruta.modulo, marcos: ruta.marcos }),
+      cargar: async (ruta) => ({ modulo: ruta.modulo, marcos: ruta.marcos, middlewares: ruta.middlewares }),
       ascua,
       componer: (pagina) => componer(SITIO.esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, ISLAS, SITIO) }),
       seguridad: SITIO.seguridad,
@@ -470,7 +489,11 @@ export function sitio(opciones) {
       peticion,
       camino,
       rutas: descubrir(dirRutas()).rutas,
-      cargar: async (ruta) => ({ modulo: await cargar(ruta.modulo), marcos: await marcosDe(ruta, cargar) }),
+      cargar: async (ruta) => ({
+        modulo: await cargar(ruta.modulo),
+        marcos: await marcosDe(ruta, cargar),
+        middlewares: await middlewaresDe(ruta, cargar),
+      }),
       ascua,
       componer: async (pagina) => {
         const esqueleto = await servidor.transformIndexHtml(url, leerEsqueleto());
@@ -653,13 +676,21 @@ export function sitio(opciones) {
         if (rutas.length === 0) logger.warn(`ascua: no hay rutas en ${ajustes.routes}/`);
         const ascua = await ascuaDe(vite);
         const mapa = await mapaDeIslas(dirIslas(), root, (archivo) => vite.ssrLoadModule(archivo));
-        // Antes de pintar nada: un formulario sin servidor se perdería en silencio.
+        // Antes de pintar nada: un formulario sin servidor se perdería en
+        // silencio, y un middleware —una sesión, una redirección— no tiene
+        // petición sobre la que correr.
         for (const ruta of rutas) {
           if ((await vite.ssrLoadModule(ruta.modulo)).actions) {
             throw new Error(
               `${relative(root, ruta.modulo)}: las acciones necesitan un servidor que las reciba; usa site: { mode: "server" }`,
             );
           }
+        }
+        const conMiddleware = rutas.find((r) => r.middlewares.length > 0);
+        if (conMiddleware) {
+          throw new Error(
+            `${relative(root, conMiddleware.middlewares[0])}: un middleware necesita un servidor que reciba las peticiones; usa site: { mode: "server" }`,
+          );
         }
 
         for (const ruta of rutas) {

@@ -2,7 +2,7 @@
  * Lo que una ruta de `src/routes/` puede importar del sitio.
  */
 
-import type { Infer, StandardSchema } from "ascua";
+import type { Children, Infer, StandardSchema } from "ascua";
 import type { Cookies } from "ascua-security";
 
 /**
@@ -11,12 +11,60 @@ import type { Cookies } from "ascua-security";
  */
 export function notFound(): Error;
 
+/**
+ * Lo que los `_middleware.ts` dejan para `load()`, las acciones y los
+ * layouts. Se amplía con los campos de cada sitio:
+ *
+ * ```ts
+ * declare module "vite-plugin-ascua/site" {
+ *   interface Locals {
+ *     user?: { id: string; name: string };
+ *   }
+ * }
+ * ```
+ */
+export interface Locals extends Record<string, unknown> {}
+
 /** El segundo argumento de `load()`. En el build de un sitio estático llega vacío. */
 export interface LoadContext {
   url: URL;
   request: Request;
   /** Las cookies de la petición; lo que se escriba va en la respuesta. */
   cookies: Cookies;
+  /** Lo que dejaron los middlewares. */
+  locals: Locals;
+}
+
+/** Lo que recibe un `_middleware.ts`. */
+export interface MiddlewareContext<P = Record<string, string>> {
+  url: URL;
+  request: Request;
+  /** Los parámetros de la ruta que se pidió. */
+  params: P;
+  cookies: Cookies;
+  /** Para `load()`, las acciones y los layouts de las rutas de su carpeta. */
+  locals: Locals;
+  /** Añade cabeceras a la respuesta, sea cual sea: la página, una redirección, un error. */
+  setHeaders(headers: Record<string, string>): void;
+}
+
+/**
+ * El `export default` de un `_middleware.ts`: corre antes que las acciones y
+ * que `load()` en todas las rutas de su carpeta y de las de dentro, del de
+ * fuera al de dentro. Para cortar, lanza —o devuelve— `redirect()`, o lanza
+ * `notFound()`.
+ */
+export type Middleware<P = Record<string, string>> = (context: MiddlewareContext<P>) => unknown;
+
+/** Lo que recibe un `_layout.ts`. */
+export interface LayoutProps {
+  /** La ruta pedida, sin la `base`. */
+  path: string;
+  params: Record<string, string>;
+  /** Lo que dejaron los middlewares; vacío en un sitio estático. */
+  locals: Locals;
+  /** Mete la página —o el layout de dentro— en `parent`. */
+  children: Children;
 }
 
 /** Lo que recibe una acción. */
@@ -26,6 +74,8 @@ export interface ActionContext<P = Record<string, string>> {
   url: URL;
   request: Request;
   cookies: Cookies;
+  /** Lo que dejaron los middlewares. */
+  locals: Locals;
   /** Lo que mandó el formulario. */
   formData: FormData;
 }

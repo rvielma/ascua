@@ -447,7 +447,12 @@ export async function renderizar({ ruta, modulo, marcos = [], parametros, camino
   const envolver = (i) =>
     i === marcos.length
       ? modulo.default(props)
-      : marcos[i]({ path: camino, params: parametros, children: (padre) => ascua.append(padre, envolver(i + 1)) });
+      : marcos[i]({
+          path: camino,
+          params: parametros,
+          locals: contexto.locals ?? {},
+          children: (padre) => ascua.append(padre, envolver(i + 1)),
+        });
   const html = ascua.renderToString(() => envolver(0));
   return {
     tipo: TIPOS[".html"],
@@ -492,7 +497,11 @@ function porHttps(peticion, url) {
  * va en `status`. Solo un rechazo (otro origen, una acción que no existe)
  * lleva su código de error.
  *
- * `cargar(ruta)` da `{ modulo, marcos }`; `componer(pagina)`, el HTML entero.
+ * Antes de todo eso corren los `_middleware.ts` de la ruta, del de fuera al
+ * de dentro: pueden redirigir, dar la 404, dejar datos en `locals` para
+ * `load()`, las acciones y los layouts, y añadir cabeceras con `setHeaders`.
+ *
+ * `cargar(ruta)` da `{ modulo, marcos, middlewares }`; `componer(pagina)`, el HTML entero.
  * `seguridad` es la de `site.security` —`false` la apaga— y, en
  * `desarrollo`, la CSP solo avisa.
  */
@@ -500,15 +509,20 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
   const encontrada = buscar(rutas, camino);
   if (!encontrada) return null;
   let { ruta, parametros, estado } = encontrada;
-  let { modulo, marcos } = await cargar(ruta);
+  let { modulo, marcos, middlewares = [] } = await cargar(ruta);
   let form;
 
   const url = new URL(peticion.url);
   const metodo = peticion.method.toUpperCase();
   const cookies = createCookies(peticion.headers.get("cookie"), { secret: secreto, secure: !LOCALES.has(url.hostname) });
-  const contexto = { url, request: peticion, cookies };
+  /** Lo que los middlewares dejan para `load()`, las acciones y los layouts. */
+  const locals = {};
+  const contexto = { url, request: peticion, cookies, locals };
+  /** Las cabeceras de `setHeaders`: van en cualquier respuesta, y mandan sobre las del kit. */
+  const extra = {};
 
   const conCookies = (respuesta) => {
+    Object.assign(respuesta.headers, extra);
     const lineas = cookies.headers();
     if (lineas.length) respuesta.headers["set-cookie"] = lineas;
     return respuesta;
@@ -540,6 +554,32 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
     return true;
   };
 
+  // Los middlewares, antes de la acción y de `load()`.
+  const enMiddleware = {
+    url,
+    request: peticion,
+    params: { ...parametros },
+    cookies,
+    locals,
+    setHeaders(cabeceras) {
+      for (const [nombre, valor] of Object.entries(cabeceras)) extra[nombre.toLowerCase()] = valor;
+    },
+  };
+  try {
+    for (const middleware of middlewares) {
+      if (typeof middleware !== "function") continue;
+      const devuelto = await middleware(enMiddleware);
+      const destino = redireccionDe(devuelto);
+      if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
+    }
+  } catch (error) {
+    const destino = redireccionDe(error);
+    if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
+    if (!esNoExiste(error)) throw error;
+    if (comoDatos) return json(404, { type: "error", status: 404, message: "No existe" });
+    if (!(await aLa404())) return null;
+  }
+
   const conAcciones = estado === 200 && !ruta.archivo && modulo.actions && typeof modulo.actions === "object";
   if (metodo === "POST" && estado === 200) {
     if (!conAcciones) return rechazar(405, "Esta página no recibe formularios", { allow: "GET, HEAD" });
@@ -559,7 +599,7 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
 
     let resultado;
     try {
-      resultado = await accion({ params: { ...parametros }, url, request: peticion, cookies, formData });
+      resultado = await accion({ params: { ...parametros }, url, request: peticion, cookies, locals, formData });
     } catch (error) {
       const destino = redireccionDe(error);
       if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);

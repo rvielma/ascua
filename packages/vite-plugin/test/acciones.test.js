@@ -241,6 +241,38 @@ function comunes(nombre, origenDe, { desarrollo }) {
       expect(pintada).toContain('class="error-cantidad">Como mínimo 1</p>');
     });
 
+    it("el middleware de la raíz corre en todas las rutas: cabeceras y redirecciones", async () => {
+      const inicio = await fetch(`${origenDe()}/`);
+      expect(inicio.headers.get("x-site")).toBe("acciones");
+      const nada = await fetch(`${origenDe()}/nada`);
+      expect(nada.status).toBe(404);
+      expect(nada.headers.get("x-site")).toBe("acciones");
+
+      const viejo = await fetch(`${origenDe()}/viejo`, { redirect: "manual" });
+      expect(viejo.status).toBe(301);
+      expect(viejo.headers.get("location")).toBe("/gracias?pedido=viejo");
+      expect(viejo.headers.get("x-site")).toBe("acciones");
+    });
+
+    it("el de una carpeta corta antes de load() y de las acciones, y deja locals", async () => {
+      const fuera = await fetch(`${origenDe()}/admin`, { redirect: "manual" });
+      expect(fuera.status).toBe(303);
+      expect(fuera.headers.get("location")).toBe("/sesion");
+      const postFuera = await enviar(origenDe(), "/admin", {}, { "x-ascua-action": "1" });
+      expect(await postFuera.json()).toEqual({ type: "redirect", status: 303, location: "/sesion" });
+
+      const entrar = await enviar(origenDe(), "/sesion", { nombre: "ana" });
+      const cookie = entrar.headers.get("set-cookie").split(";")[0];
+      const dentro = await (await fetch(`${origenDe()}/admin`, { headers: { cookie } })).text();
+      // `load()` ve lo de los dos middlewares, y el layout también.
+      expect(dentro).toContain("<h1>Admin de ana</h1>");
+      expect(dentro).toContain('<p class="visto">/admin</p>');
+      expect(dentro).toMatch(/<header[^>]*class="quien-layout"[^>]*>ana<\/header>/);
+
+      const accion = await enviar(origenDe(), "/admin", {}, { cookie, "x-ascua-action": "1" });
+      expect(await accion.json()).toEqual({ type: "success", status: 200, data: { hecho: "ana" } });
+    });
+
     it("las rutas-archivo y la 404 siguen como antes", async () => {
       const json = await fetch(`${origenDe()}/datos.json`);
       expect(await json.json()).toEqual({ ok: true });
@@ -366,6 +398,14 @@ describe("acciones", () => {
     const respuesta = await fetch(`${origen}/robots.txt`);
     expect(respuesta.status).toBe(200);
     expect(respuesta.headers.get("x-content-type-options")).toBe("nosniff");
+  });
+
+  it("un sitio estático con middleware no se construye", async () => {
+    const proyecto = new URL("./fixtures/middleware-estatico/", import.meta.url).pathname;
+    await expect(build({ root: proyecto, logLevel: "silent" })).rejects.toThrow(
+      /_middleware\.ts: un middleware necesita un servidor/,
+    );
+    rmSync(join(proyecto, "dist"), { recursive: true, force: true });
   });
 
   it("un sitio estático con acciones no se construye", async () => {

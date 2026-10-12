@@ -57,7 +57,8 @@ queda `dist/server/worker.mjs`, el mismo sitio sin nada de Node: un
 Con servidor, una ruta recibe formularios exportando `actions`: un
 `<form method="post">` de HTML, sin JavaScript, con `redirect`, `fail` y
 `validate` de `vite-plugin-ascua/site` y esquemas `field` para lo que llega
-como texto. Desde una isla, `enhance()` de `vite-plugin-ascua/form` envía
+como texto. Un `_middleware.ts` por carpeta corre antes de sus rutas: exige
+una sesión, deja datos en `locals` o añade cabeceras. Desde una isla, `enhance()` de `vite-plugin-ascua/form` envía
 ese mismo formulario con `fetch` y muestra el resultado sin recargar. Y cada
 página sale con la seguridad de
 [`ascua-security`](../security): Content-Security-Policy con el hash de cada
