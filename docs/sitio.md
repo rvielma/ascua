@@ -274,12 +274,18 @@ navegador. Las islas tienen su recarga de siempre.
 - **El servidor con todo dentro** (`ssr.noExternal`). Un `index.mjs` que
   arranca sin `node_modules` es lo más fácil de desplegar en Hull o en un
   contenedor mínimo.
+- **El manejador, aparte y sin Node** (`worker.mjs`). Todo lo que renderiza
+  vive en un `fetch(request, env)` que no importa nada; `index.mjs` solo le
+  pone delante `node:http` y los archivos. Así el mismo build corre en Node,
+  Bun, Deno y `workerd` —el runtime de Workers, que tras la compra de Deno por
+  Cloudflare (octubre de 2026) es adonde va ese equipo—. El sitio construido
+  entra con `define`, no en un `site.json` al lado: en Workers no hay disco.
 - **`notFound()` es una marca, no una clase.** El servidor lleva su propia
   copia del módulo, y `instanceof` fallaría entre las dos.
 - **Formularios de HTML y no RPC.** Una acción es un `POST` que el
   navegador sabe enviar sin JavaScript; no hay un cliente que generar ni un
-  protocolo propio. Mejorarlo con una isla —enviar sin recargar— es trabajo
-  aparte, encima de esto.
+  protocolo propio. Mejorarlo con una isla —enviar sin recargar— va encima:
+  `enhance()` pide el mismo resultado en JSON con una cabecera.
 - **Origen y no tokens contra CSRF.** Todos los navegadores mandan `Origin`
   en un POST, y `SameSite=Lax` ya impide que las cookies viajen en el de otro
   sitio. Un token por formulario añadiría estado sin cubrir nada más.

@@ -661,6 +661,37 @@ export async function peticionWeb(entrante, limite = LIMITE_CUERPO) {
   return new Request(url, { method: metodo, headers, body });
 }
 
+/**
+ * Lo mismo que `peticionWeb` para un `Request` que ya llega hecho —el de
+ * `fetch` en Workers, Deno o Bun—: lee el cuerpo hasta `limite` bytes, con o
+ * sin `content-length`, y lanza el error del 413 si pasa de ahí.
+ */
+export async function conLimite(peticion, limite = LIMITE_CUERPO) {
+  if (!peticion.body) return peticion;
+  const demasiado = () => Object.assign(new Error("cuerpo demasiado grande"), { ascuaDemasiado: true });
+  if (Number(peticion.headers.get("content-length")) > limite) throw demasiado();
+  const lector = peticion.body.getReader();
+  const trozos = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await lector.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > limite) {
+      await lector.cancel();
+      throw demasiado();
+    }
+    trozos.push(value);
+  }
+  const cuerpo = new Uint8Array(total);
+  let posicion = 0;
+  for (const trozo of trozos) {
+    cuerpo.set(trozo, posicion);
+    posicion += trozo.byteLength;
+  }
+  return new Request(peticion.url, { method: peticion.method, headers: peticion.headers, body: cuerpo });
+}
+
 /** Escribe lo de `responder` en una respuesta de `node:http`. */
 export function escribir(salida, { status, headers, body }, metodo = "GET") {
   salida.statusCode = status;

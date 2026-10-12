@@ -5,7 +5,9 @@
  * Se prueba el servidor construido y el de desarrollo, que comparten código.
  */
 
-import { rmSync } from "node:fs";
+import { execFileSync, spawn } from "node:child_process";
+import { existsSync, rmSync, writeFileSync } from "node:fs";
+import { createServer as servidorTcp } from "node:net";
 import { join } from "node:path";
 
 import { build, createServer } from "vite";
@@ -28,6 +30,79 @@ function enviar(origen, ruta, campos, cabeceras = {}) {
     body: new URLSearchParams(campos),
   });
 }
+
+/** El binario de un runtime: el de la variable de entorno, o el del PATH. */
+function binario(nombre, variable) {
+  const propio = process.env[variable];
+  if (propio) return existsSync(propio) ? propio : null;
+  try {
+    return execFileSync("which", [nombre], { encoding: "utf8" }).trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/** Un puerto libre. */
+function puertoLibre() {
+  return new Promise((listo) => {
+    const s = servidorTcp().listen(0, () => {
+      const { port } = s.address();
+      s.close(() => listo(port));
+    });
+  });
+}
+
+/** Espera a que responda `origen`. */
+async function esperar(origen, proceso) {
+  for (let i = 0; i < 100; i++) {
+    if (proceso.exitCode !== null) throw new Error(`el proceso terminó con ${proceso.exitCode}`);
+    try {
+      await fetch(origen);
+      return;
+    } catch {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  throw new Error(`${origen} no respondió`);
+}
+
+/** La configuración de `workerd`: el manejador, y dist/client como ASSETS. */
+const configWorkerd = (puerto) => `using Workerd = import "/workerd/workerd.capnp";
+
+const config :Workerd.Config = (
+  services = [
+    (name = "main", worker = .sitio),
+    (name = "assets", disk = (path = ${JSON.stringify(join(DIST, "client"))}, writable = false)),
+  ],
+  sockets = [ (name = "http", address = "127.0.0.1:${puerto}", http = (), service = "main") ],
+);
+
+const sitio :Workerd.Worker = (
+  modules = [ (name = "worker.mjs", esModule = embed "server/worker.mjs") ],
+  compatibilityDate = "2026-09-01",
+  bindings = [
+    (name = "ASSETS", service = "assets"),
+    (name = "ASCUA_SECRET", text = ${JSON.stringify(SECRETO)}),
+  ],
+);
+`;
+
+/**
+ * Los runtimes además de Node. Cada uno se prueba si está: en el PATH o, para
+ * los que no se suelen instalar, en `DENO_BIN` y `WORKERD_BIN`.
+ */
+const RUNTIMES = [
+  { nombre: "Bun", bin: binario("bun", "BUN_BIN"), argumentos: () => ["server/index.mjs"] },
+  { nombre: "Deno", bin: binario("deno", "DENO_BIN"), argumentos: () => ["run", "-A", "server/index.mjs"] },
+  {
+    nombre: "workerd",
+    bin: binario("workerd", "WORKERD_BIN"),
+    argumentos: (puerto) => {
+      writeFileSync(join(DIST, "ascua.capnp"), configWorkerd(puerto));
+      return ["serve", "ascua.capnp"];
+    },
+  },
+];
 
 /** Lo mismo para cada servidor: el construido y el de desarrollo. */
 function comunes(nombre, origenDe, { desarrollo }) {
@@ -209,6 +284,63 @@ describe("acciones", () => {
 
   comunes("servidor construido", () => origen, { desarrollo: false });
   comunes("desarrollo", () => origenDev, { desarrollo: true });
+
+  for (const runtime of RUNTIMES) {
+    describe.skipIf(!runtime.bin)(`en ${runtime.nombre}`, () => {
+      let proceso;
+      let origenRuntime;
+      beforeAll(async () => {
+        const puerto = await puertoLibre();
+        proceso = spawn(runtime.bin, runtime.argumentos(puerto), {
+          cwd: DIST,
+          env: { ...process.env, PORT: String(puerto), ASCUA_SECRET: SECRETO },
+          stdio: "ignore",
+        });
+        origenRuntime = `http://localhost:${puerto}`;
+        await esperar(origenRuntime, proceso);
+      });
+      afterAll(() => proceso?.kill());
+
+      comunes("el mismo sitio", () => origenRuntime, { desarrollo: false });
+
+      it("un cuerpo de más de 1 MiB es un 413, y lo de dist/client se sirve", async () => {
+        const grande = await enviar(origenRuntime, "/", { nombre: "x".repeat(1024 * 1024 + 1) });
+        expect(grande.status).toBe(413);
+        expect((await fetch(`${origenRuntime}/robots.txt`)).status).toBe(200);
+      });
+    });
+  }
+
+  it("worker.mjs es portable: no importa nada, y su fetch da un Response", async () => {
+    const codigo = (await import("node:fs")).readFileSync(join(DIST, "server/worker.mjs"), "utf8");
+    expect(codigo).not.toMatch(/^\s*import\b/m);
+
+    const worker = await import(join(DIST, "server/worker.mjs"));
+    const env = { ASCUA_SECRET: SECRETO };
+    const pagina = await worker.default.fetch(new Request("http://sitio.cl/"), env);
+    expect(pagina).toBeInstanceOf(Response);
+    expect(pagina.headers.get("content-security-policy")).toContain("default-src 'self'");
+
+    const formulario = { method: "POST", headers: { origin: "http://sitio.cl", "content-type": "application/x-www-form-urlencoded" } };
+    const entrar = await worker.fetch(new Request("http://sitio.cl/sesion", { ...formulario, body: "nombre=ana" }), env);
+    expect(entrar.status).toBe(303);
+    expect(entrar.headers.get("set-cookie")).toMatch(/^sesion=ana\./);
+
+    // Sin `content-length`, el límite se cuenta leyendo.
+    const flujo = new ReadableStream({
+      start(control) {
+        control.enqueue(new TextEncoder().encode(`nombre=${"x".repeat(1024 * 1024 + 1)}`));
+        control.close();
+      },
+    });
+    const grande = await worker.fetch(new Request("http://sitio.cl/", { ...formulario, body: flujo, duplex: "half" }), env);
+    expect(grande.status).toBe(413);
+
+    // Con `env.ASSETS`, lo que existe en dist/client lo sirve él.
+    const ASSETS = { fetch: async (r) => new Response(new URL(r.url).pathname === "/robots.txt" ? "ok" : "no", { status: new URL(r.url).pathname === "/robots.txt" ? 200 : 404 }) };
+    expect(await (await worker.fetch(new Request("http://sitio.cl/robots.txt"), { ...env, ASSETS })).text()).toBe("ok");
+    expect((await worker.fetch(new Request("http://sitio.cl/gracias"), { ...env, ASSETS })).status).toBe(200);
+  });
 
   it("handle acepta un Request, y detrás de un proxy con HTTPS manda HSTS", async () => {
     const respuesta = await modulo.handle(

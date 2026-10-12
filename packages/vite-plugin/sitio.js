@@ -160,8 +160,13 @@ Promise.all(claves.map((clave) => modulos[clave]?.())).then((cargados) => {
 `;
 }
 
-/** El servidor de la fase 3: todas las rutas dentro, y el `http` de Node. */
-function codigoServidor(dirRutas, dirIslas, root) {
+/**
+ * El manejador portable: todas las rutas dentro y nada de Node. Va a
+ * `dist/server/worker.mjs` y corre en cualquier runtime con `fetch`:
+ * `workerd` y Cloudflare Workers, Deno, Bun, Node. El sitio construido llega
+ * con `define` en `__ASCUA_SITE__`.
+ */
+function codigoManejador(dirRutas, dirIslas, root) {
   const { rutas } = descubrir(dirRutas);
   const marcos = [...new Set(rutas.flatMap((r) => r.marcos))];
   const islas = archivosDeIslas(dirIslas);
@@ -175,21 +180,17 @@ function codigoServidor(dirRutas, dirIslas, root) {
     const suyos = r.marcos.map((m) => `k${marcos.indexOf(m)}`).join(", ");
     return `  { segmentos: ${JSON.stringify(r.segmentos)}, es404: ${r.es404}, archivo: ${r.archivo}, modulo: m${i}, marcos: [${suyos}] },`;
   });
-  return `import { createServer } from "node:http";
-import { createReadStream, readFileSync, statSync } from "node:fs";
-import { dirname, join, normalize, sep } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { collectStyles, renderToString } from "ascua/server";
+  return `import { collectStyles, renderToString } from "ascua/server";
 import { append } from "ascua";
-import { componer, conIslas, esDemasiado, escribir, nombresDe, peticionWeb, responder, tipoDe } from ${JSON.stringify(COMUN)};
+import { componer, conIslas, conLimite, esDemasiado as excede, nombresDe, responder } from ${JSON.stringify(COMUN)};
+export { esDemasiado, escribir, peticionWeb, tipoDe } from ${JSON.stringify(COMUN)};
 ${importes.join("\n")}
 
 const RUTAS = [
 ${tabla.join("\n")}
 ];
-const aqui = dirname(fileURLToPath(import.meta.url));
-const SITIO = JSON.parse(readFileSync(join(aqui, "site.json"), "utf8"));
-const ESTATICOS = join(aqui, "..", "client");
+/** Lo que dejó el build del cliente: base, esqueleto, script de islas, seguridad. */
+export const SITIO = __ASCUA_SITE__;
 const ascua = { renderToString, collectStyles, append };
 
 /** Del nombre de cada isla al módulo que la define. */
@@ -200,14 +201,19 @@ ${tablaIslas.join("\n")}
   for (const nombre of nombresDe(modulo)) ISLAS[nombre] ??= clave;
 }
 
-const sinBase = (camino) =>
+export const sinBase = (camino) =>
   SITIO.base !== "/" && camino.startsWith(SITIO.base) ? "/" + camino.slice(SITIO.base.length) : camino;
 
-/** El secreto de las cookies firmadas: de fuera, nunca dentro del build. */
-function secreto() {
-  const valor = process.env.ASCUA_SECRET;
-  if (!valor) throw new Error("ascua: las cookies firmadas necesitan la variable de entorno ASCUA_SECRET, de 32 caracteres o más");
-  return valor;
+/**
+ * El secreto de las cookies firmadas: de fuera, nunca dentro del build. En
+ * Node, Bun y Deno, la variable de entorno; en Workers, la del \`env\`.
+ */
+function secretoDe(env) {
+  return () => {
+    const valor = env?.ASCUA_SECRET ?? globalThis.process?.env?.ASCUA_SECRET;
+    if (!valor) throw new Error("ascua: las cookies firmadas necesitan ASCUA_SECRET, de 32 caracteres o más");
+    return valor;
+  };
 }
 
 const NO_EXISTE = { status: 404, headers: { "content-type": "text/plain; charset=utf-8" }, body: "No existe" };
@@ -215,8 +221,9 @@ const NO_EXISTE = { status: 404, headers: { "content-type": "text/plain; charset
 /**
  * De una petición a lo que se responde: \`status\`, \`headers\`, \`body\` y,
  * por comodidad, \`type\`. Acepta un \`Request\` o, para un GET, la URL.
+ * \`env\` es el de Workers, si lo hay.
  */
-export async function handle(entrada) {
+export async function handle(entrada, env) {
   const peticion = typeof entrada === "string" ? new Request(new URL(entrada, "http://localhost")) : entrada;
   const camino = sinBase(new URL(peticion.url).pathname);
   const respuesta =
@@ -228,10 +235,52 @@ export async function handle(entrada) {
       ascua,
       componer: (pagina) => componer(SITIO.esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, ISLAS, SITIO) }),
       seguridad: SITIO.seguridad,
-      secreto,
+      secreto: secretoDe(env),
     })) ?? NO_EXISTE;
   return { ...respuesta, type: respuesta.headers["content-type"] };
 }
+
+/**
+ * La interfaz de \`fetch\` de Workers, Deno y Bun: un \`Request\` entra, un
+ * \`Response\` sale. Lo de \`dist/client\` lo sirve \`env.ASSETS\` si existe
+ * —los static assets de Cloudflare, o un servicio de disco en \`workerd\`—.
+ */
+export async function fetch(request, env) {
+  const lectura = request.method === "GET" || request.method === "HEAD";
+  if (lectura && env?.ASSETS && !new URL(request.url).pathname.endsWith("/")) {
+    const archivo = await env.ASSETS.fetch(request);
+    if (archivo.status !== 404) return archivo;
+  }
+  let peticion;
+  try {
+    peticion = lectura ? request : await conLimite(request, SITIO.seguridad?.bodyLimit);
+  } catch (error) {
+    if (!excede(error)) throw error;
+    return new Response("Demasiado grande", { status: 413, headers: { "content-type": "text/plain; charset=utf-8" } });
+  }
+  const { status, headers, body } = await handle(peticion, env);
+  const salida = new Headers();
+  for (const [nombre, valor] of Object.entries(headers)) {
+    for (const uno of Array.isArray(valor) ? valor : [valor]) salida.append(nombre, uno);
+  }
+  return new Response(request.method === "HEAD" ? null : body, { status, headers: salida });
+}
+
+export default { fetch };
+`;
+}
+
+/** El servidor de Node —y de Bun y Deno, que hablan \`node:http\`—, sobre el manejador. */
+const CODIGO_SERVIDOR = `import { createServer } from "node:http";
+import { createReadStream, statSync } from "node:fs";
+import { dirname, join, normalize, sep } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { esDemasiado, escribir, handle, peticionWeb, sinBase, SITIO, tipoDe } from "./worker.mjs";
+
+export { handle };
+
+const aqui = dirname(fileURLToPath(import.meta.url));
+const ESTATICOS = join(aqui, "..", "client");
 
 /** Lo de dist/client: el script de las islas, las hojas, lo de public/. */
 function estatico(peticion, respuesta) {
@@ -281,7 +330,6 @@ export function serve(puerto = Number(process.env.PORT ?? 3000)) {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) serve();
 `;
-}
 
 /** ¿Hay algún módulo en la carpeta de las islas? */
 function hayIslas(dir) {
@@ -490,7 +538,7 @@ export function sitio(opciones) {
 
     load(id) {
       if (id === `\0${CLIENTE}`) return codigoCliente(ajustes.islands.replace(/^\/+|\/+$/g, ""));
-      if (id === `\0${SERVIDOR}`) return codigoServidor(dirRutas(), dirIslas(), raiz());
+      if (id === `\0${SERVIDOR}`) return codigoManejador(dirRutas(), dirIslas(), raiz());
       if (id === `\0${VACIO}`) return "export {};";
       return null;
     },
@@ -583,10 +631,15 @@ export function sitio(opciones) {
             ssr: true,
             outDir: dirServidor,
             emptyOutDir: true,
-            rollupOptions: { input: { index: SERVIDOR }, output: { entryFileNames: "index.mjs" } },
+            // Una entrada y sin imports dinámicos: sale un solo archivo, que es
+            // lo que `workerd` carga sin más configuración.
+            rollupOptions: { input: { worker: SERVIDOR }, output: { entryFileNames: "worker.mjs" } },
           },
+          // `define` y no un archivo al lado: el manejador no lee del disco,
+          // porque en Workers no hay disco.
+          define: { __ASCUA_SITE__: JSON.stringify(construido) },
         });
-        writeFileSync(join(dirServidor, "site.json"), JSON.stringify(construido));
+        writeFileSync(join(dirServidor, "index.mjs"), CODIGO_SERVIDOR);
         logger.info(`ascua: servidor en ${relative(root, dirServidor)}/index.mjs`);
         return;
       }

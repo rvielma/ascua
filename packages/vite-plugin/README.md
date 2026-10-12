@@ -48,9 +48,11 @@ Content-Security-Policy en un `<meta>`, con el hash de sus scripts en línea.
 Con `ascua({ site: { mode: "server" } })`, el build deja el cliente en
 `dist/client/` y además `dist/server/index.mjs`, un servidor Node con todo
 dentro que renderiza en cada petición: `node dist/server/index.mjs` lo
-arranca, y el módulo exporta `serve(puerto)` y `handle(peticion)`, que devuelve
-`{ status, type, headers, body }` para montarlo en otro servidor —acepta la
-URL o un `Request`—.
+arranca —también con `bun` o `deno run -A`—, y el módulo exporta
+`serve(puerto)` y `handle(peticion)`, que devuelve `{ status, type, headers,
+body }` para montarlo en otro servidor —acepta la URL o un `Request`—. Al lado
+queda `dist/server/worker.mjs`, el mismo sitio sin nada de Node: un
+`fetch(request, env)` para Cloudflare Workers o un `workerd` propio.
 
 Con servidor, una ruta recibe formularios exportando `actions`: un
 `<form method="post">` de HTML, sin JavaScript, con `redirect`, `fail` y
