@@ -59,7 +59,8 @@ Con servidor, una ruta recibe formularios exportando `actions`: un
 `validate` de `vite-plugin-ascua/site` y esquemas `field` para lo que llega
 como texto. Un `_middleware.ts` por carpeta corre antes de sus rutas: exige
 una sesión, deja datos en `locals`, añade cabeceras o, con `await next()`,
-envuelve la respuesta. Desde una isla, `enhance()` de `vite-plugin-ascua/form` envía
+envuelve la respuesta. Con `partials: true`, los enlaces internos navegan sin
+recargar: solo cambian las regiones `data-partial`. Desde una isla, `enhance()` de `vite-plugin-ascua/form` envía
 ese mismo formulario con `fetch` y muestra el resultado sin recargar. Y cada
 página sale con la seguridad de
 [`ascua-security`](../security): Content-Security-Policy con el hash de cada

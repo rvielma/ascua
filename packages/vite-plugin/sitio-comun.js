@@ -53,9 +53,10 @@ export function modulosDe(nombres, mapa) {
  * `construido` es lo que dejó el build del cliente —o, en desarrollo, solo el
  * script—: `islas` va de la clave de cada módulo a sus chunks y sus hojas.
  */
-export function conIslas(nombres, mapa, { script, precargas = [], hojas = [], islas = {} }) {
+export function conIslas(nombres, mapa, { script, precargas = [], hojas = [], islas = {}, partials = false }) {
   const modulos = modulosDe(nombres ?? [], mapa);
-  if (!script || modulos.length === 0) return { script: null };
+  // Con partials el script va en todas las páginas: es el que navega.
+  if (!script || (modulos.length === 0 && !partials)) return { script: null };
   const chunks = new Set(precargas);
   const estilos = new Set(hojas);
   for (const modulo of modulos) {

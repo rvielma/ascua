@@ -193,8 +193,9 @@ async function mapaDeIslas(dir, root, cargar) {
  * cuáles usa, y solo esos viajan. Sin la lista —una página que no pasó por el
  * kit—, se cargan todos.
  */
-function codigoCliente(dir) {
+function codigoCliente(dir, partials) {
   const patrones = [`/${dir}/**/*.{ts,js,mts,mjs}`, `!/${dir}/**/*.d.ts`, `!/${dir}/**/*.test.*`];
+  if (partials) return codigoPartials(patrones);
   return `import { hydrate } from "ascua";
 const modulos = import.meta.glob(${JSON.stringify(patrones)});
 const lista = document.getElementById(${JSON.stringify(LISTA)});
@@ -208,6 +209,47 @@ Promise.all(claves.map((clave) => modulos[clave]?.())).then((cargados) => {
   }
   hydrate(islas);
 });
+`;
+}
+
+/**
+ * El cliente con partials: el mismo cargador de islas, por región. Las islas
+ * de una página nueva se cargan de la lista que trae esa página.
+ */
+function codigoPartials(patrones) {
+  return `import { hydrate } from "ascua";
+import { partials } from "vite-plugin-ascua/partials";
+const modulos = import.meta.glob(${JSON.stringify(patrones)});
+async function islasDe(doc) {
+  const lista = doc.getElementById(${JSON.stringify(LISTA)});
+  const claves = lista ? JSON.parse(lista.textContent) : doc === document ? Object.keys(modulos) : [];
+  const cargados = await Promise.all(claves.map((clave) => modulos[clave]?.()));
+  const islas = [];
+  for (const modulo of cargados) {
+    for (const valor of Object.values(modulo ?? {})) {
+      if (valor && typeof valor.name === "string" && typeof valor.prepare === "function") islas.push(valor);
+    }
+  }
+  return islas;
+}
+// Hidrata las islas de raiz —sin las que caen dentro de fuera— y devuelve
+// cómo liberarlas, aunque su módulo todavía no haya llegado.
+function hidratar(raiz, doc, fuera = []) {
+  let liberar = () => {};
+  let suelta = false;
+  islasDe(doc).then((islas) => {
+    if (suelta || islas.length === 0) return;
+    const donde = fuera.length === 0 ? raiz : {
+      querySelectorAll: (selector) => [...raiz.querySelectorAll(selector)].filter((nodo) => !fuera.some((f) => f.contains(nodo))),
+    };
+    liberar = hydrate(islas, donde).unmount;
+  });
+  return () => {
+    suelta = true;
+    liberar();
+  };
+}
+partials({ hydrate: hidratar });
 `;
 }
 
@@ -452,7 +494,7 @@ const secretoDev = () =>
   process.env.ASCUA_SECRET ?? (secretoDeDesarrollo ??= `${crypto.randomUUID()}${crypto.randomUUID()}`);
 
 /**
- * @param {true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server", lang?: "es" | "en", security?: false | object }} opciones
+ * @param {true | { routes?: string, islands?: string, shell?: string, mode?: "static" | "server", lang?: "es" | "en", security?: false | object, partials?: boolean }} opciones
  */
 export function sitio(opciones) {
   const ajustes = {
@@ -460,6 +502,7 @@ export function sitio(opciones) {
     islands: "src/islands",
     shell: "index.html",
     mode: "static",
+    partials: false,
     // El de lo que ve quien usa el sitio: validación, 403, 404…
     lang: "es",
     ...(opciones === true ? {} : opciones),
@@ -546,7 +589,7 @@ export function sitio(opciones) {
         const esqueleto = await servidor.transformIndexHtml(url, leerEsqueleto());
         const mapa = await mapaDeIslas(dirIslas(), raiz(), cargar);
         const script = `${config.base}@id/${CLIENTE}`;
-        return componer(esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, mapa, { script }) });
+        return componer(esqueleto, { ...pagina, ...conIslas(pagina.nombresIslas, mapa, { script, partials: ajustes.partials }) });
       },
       seguridad: reglas,
       desarrollo: true,
@@ -571,7 +614,7 @@ export function sitio(opciones) {
       const root = resolve(usuario.root ?? process.cwd());
       // Sin islas no hay nada que hidratar: ni script, ni un trozo de runtime
       // que Vite parta para compartirlo con otras entradas.
-      const entradas = hayIslas(resolve(root, ajustes.islands)) ? { "ascua-client": CLIENTE } : {};
+      const entradas = hayIslas(resolve(root, ajustes.islands)) || ajustes.partials ? { "ascua-client": CLIENTE } : {};
       const esqueleto = archivoEsqueleto(root);
       // Si el esqueleto es otro archivo, `index.html` sigue siendo lo que era:
       // una página más de Vite, como la portada de un sitio con documentación.
@@ -607,7 +650,7 @@ export function sitio(opciones) {
     },
 
     load(id) {
-      if (id === `\0${CLIENTE}`) return codigoCliente(ajustes.islands.replace(/^\/+|\/+$/g, ""));
+      if (id === `\0${CLIENTE}`) return codigoCliente(ajustes.islands.replace(/^\/+|\/+$/g, ""), ajustes.partials);
       if (id === `\0${SERVIDOR}`) return codigoManejador(dirRutas(), dirIslas(), raiz());
       if (id === `\0${VACIO}`) return "export {};";
       return null;
@@ -688,6 +731,7 @@ export function sitio(opciones) {
         islas: islasConstruidas,
         seguridad: seguridad(wasmConstruido),
         lang: ajustes.lang,
+        partials: ajustes.partials,
       };
       const dentro = conLaConfig({ root, mode: config.mode, logLevel: "error" });
 

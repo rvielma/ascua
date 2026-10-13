@@ -35,6 +35,12 @@ export interface SiteOptions {
   lang?: "es" | "en";
   /** CSP, cabeceras, cookies y origen. `false` lo apaga todo. */
   security?: false | SiteSecurity;
+  /**
+   * Navegar entre páginas sin recargar: los enlaces internos reemplazan solo
+   * las regiones `data-partial` (o el `<body>`). Pone un script pequeño en
+   * todas las páginas, también en las que no tienen islas.
+   */
+  partials?: boolean;
 }
 
 export interface AscuaOptions {

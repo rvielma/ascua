@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-ascua",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Plugin de Vite que compila las plantillas de Ascua con el compilador en WebAssembly.",
   "keywords": [
     "vite",
@@ -25,6 +25,10 @@
     "./form": {
       "types": "./form.d.ts",
       "default": "./form.js"
+    },
+    "./partials": {
+      "types": "./partials.d.ts",
+      "default": "./partials.js"
     }
   },
   "files": [
@@ -37,7 +41,9 @@
     "form.js",
     "form.d.ts",
     "LICENSE-MIT",
-    "LICENSE-APACHE"
+    "LICENSE-APACHE",
+    "partials.js",
+    "partials.d.ts"
   ],
   "scripts": {
     "test": "vitest run"
