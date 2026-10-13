@@ -10,6 +10,7 @@ use syn::parse::{Parse, ParseStream};
 use syn::{Expr, Ident, LitStr, Token};
 
 use crate::ast::{Attribute, AttributeValue, Component, Element, For, Node, Show, View};
+use crate::mensajes::{self, msg};
 
 impl Parse for View {
     fn parse(input: ParseStream) -> syn::Result<Self> {
@@ -17,15 +18,18 @@ impl Parse for View {
         input.parse::<Token![,]>()?;
         let root = input.parse::<Node>()?;
         if !input.is_empty() {
-            return Err(input.error(
+            return Err(input.error(msg!(
                 "view! admite un único elemento raíz; envuelve el contenido en un elemento",
-            ));
+                "view! takes a single root element; wrap the content in an element",
+            )));
         }
         match &root {
-            Node::Show(_) | Node::For(_) => Err(input.error(
+            Node::Show(_) | Node::For(_) => Err(input.error(msg!(
                 "<Show> y <For> necesitan un elemento padre donde insertarse; \
                  envuélvelos en un elemento",
-            )),
+                "<Show> and <For> need a parent element to insert into; \
+                 wrap them in an element",
+            ))),
             _ => Ok(View { dom, root }),
         }
     }
@@ -54,7 +58,10 @@ impl Parse for Node {
                 other => Node::Static(other),
             });
         }
-        Err(input.error("se esperaba un elemento <tag>, un texto \"literal\" o una expresión { }"))
+        Err(input.error(msg!(
+            "se esperaba un elemento <tag>, un texto \"literal\" o una expresión {{ }}",
+            "expected an element <tag>, a \"literal\" text or an expression {{ }}",
+        )))
     }
 }
 
@@ -121,8 +128,9 @@ impl Parse for Show {
                     fallback = Some(Box::new(content.parse::<Node>()?));
                 }
                 otro => {
-                    return Err(input.error(format!(
-                        "<Show> solo acepta `when` y `fallback`, no `{otro}`"
+                    return Err(input.error(msg!(
+                        "<Show> solo acepta `when` y `fallback`, no `{otro}`",
+                        "<Show> only takes `when` and `fallback`, not `{otro}`",
                     )))
                 }
             }
@@ -130,15 +138,19 @@ impl Parse for Show {
         input.parse::<Token![>]>()?;
 
         let when = when.ok_or_else(|| {
-            input.error("<Show> necesita `when={...}`, una closure que devuelva bool")
+            input.error(msg!(
+                "<Show> necesita `when={{...}}`, una closure que devuelva bool",
+                "<Show> needs `when={{...}}`, a closure that returns bool",
+            ))
         })?;
 
         let mut children = parse_children(input, &tag)?;
         parse_closing_tag(input, &tag)?;
 
         if children.len() != 1 {
-            return Err(input.error(format!(
+            return Err(input.error(msg!(
                 "<Show> necesita exactamente un hijo (tiene {}); envuélvelos en un elemento",
+                "<Show> needs exactly one child (it has {}); wrap them in an element",
                 children.len()
             )));
         }
@@ -169,8 +181,9 @@ impl Parse for For {
                 "key" => key = Some(value),
                 "render" => render = Some(value),
                 otro => {
-                    return Err(input.error(format!(
-                        "<For> solo acepta `each`, `key` y `render`, no `{otro}`"
+                    return Err(input.error(msg!(
+                        "<For> solo acepta `each`, `key` y `render`, no `{otro}`",
+                        "<For> only takes `each`, `key` and `render`, not `{otro}`",
                     )))
                 }
             }
@@ -182,7 +195,10 @@ impl Parse for For {
         let falta = |que: &str| {
             syn::Error::new(
                 proc_macro2::Span::call_site(),
-                format!("<For> necesita `{que}={{...}}`"),
+                msg!(
+                    "<For> necesita `{que}={{...}}`",
+                    "<For> needs `{que}={{...}}`"
+                ),
             )
         };
 
@@ -295,20 +311,23 @@ impl Parse for Attribute {
                 }),
                 "bind" => Err(syn::Error::new(
                     input.span(),
-                    format!(
+                    msg!(
                         "`bind:{event}` no existe; se puede atar {}",
+                        "`bind:{event}` does not exist; you can bind {}",
                         ENLAZABLES
                             .iter()
                             .map(|e| format!("`{e}`"))
                             .collect::<Vec<_>>()
-                            .join(" y ")
+                            .join(if mensajes::ingles() { " and " } else { " y " })
                     ),
                 )),
                 _ => Err(syn::Error::new(
                     input.span(),
-                    format!(
+                    msg!(
                         "prefijo de atributo desconocido: `{name}:`; \
-                         los soportados son `on:`, `prop:`, `bind:`, `class:` y `style:`"
+                         los soportados son `on:`, `prop:`, `bind:`, `class:` y `style:`",
+                        "unknown attribute prefix: `{name}:`; \
+                         the supported ones are `on:`, `prop:`, `bind:`, `class:` and `style:`"
                     ),
                 )),
             };
@@ -317,10 +336,12 @@ impl Parse for Attribute {
         input.parse::<Token![=]>()?;
 
         if name == "ref" && input.peek(LitStr) {
-            return Err(input.error(
+            return Err(input.error(msg!(
                 "`ref` recibe una referencia, no un texto: \
-                 `let campo = ElementRef::new();` y `ref={campo}`",
-            ));
+                 `let campo = ElementRef::new();` y `ref={{campo}}`",
+                "`ref` takes a reference, not a text: \
+                 `let field = ElementRef::new();` and `ref={{field}}`",
+            )));
         }
         if input.peek(LitStr) {
             return Ok(Attribute {
@@ -353,10 +374,12 @@ fn parse_style(input: ParseStream) -> syn::Result<LitStr> {
     input.parse::<Token![>]>()?;
 
     let css: LitStr = input.parse().map_err(|_| {
-        input.error(
+        input.error(msg!(
             "el contenido de <style> debe ser un literal de cadena: \
              <style>r#\"...css...\"#</style>",
-        )
+            "the content of <style> must be a string literal: \
+             <style>r#\"...css...\"#</style>",
+        ))
     })?;
 
     parse_closing_tag(input, "style")?;
@@ -370,7 +393,10 @@ fn parse_children(input: ParseStream, tag: &str) -> syn::Result<Vec<Node>> {
             return Ok(children);
         }
         if input.is_empty() {
-            return Err(input.error(format!("falta la etiqueta de cierre </{tag}>")));
+            return Err(input.error(msg!(
+                "falta la etiqueta de cierre </{tag}>",
+                "missing closing tag </{tag}>"
+            )));
         }
         children.push(input.parse::<Node>()?);
     }
@@ -384,7 +410,10 @@ fn parse_closing_tag(input: ParseStream, tag: &str) -> syn::Result<()> {
     if closing != tag {
         return Err(syn::Error::new(
             input.span(),
-            format!("</{closing}> no cierra <{tag}>"),
+            msg!(
+                "</{closing}> no cierra <{tag}>",
+                "</{closing}> does not close <{tag}>"
+            ),
         ));
     }
     Ok(())
@@ -395,7 +424,10 @@ fn parse_braced_expr(input: ParseStream) -> syn::Result<Expr> {
     braced!(content in input);
     let expr: Expr = content.parse()?;
     if !content.is_empty() {
-        return Err(content.error("se esperaba una sola expresión dentro de { }"));
+        return Err(content.error(msg!(
+            "se esperaba una sola expresión dentro de {{ }}",
+            "expected a single expression inside {{ }}"
+        )));
     }
     Ok(expr)
 }

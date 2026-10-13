@@ -21,6 +21,7 @@ use quote::quote;
 
 use crate::ast::{node_ident, Attribute, AttributeValue, Component, For, Node, Show, View};
 use crate::css;
+use crate::mensajes::msg;
 
 /// Estado del recorrido: el contador de variables, si el template trae
 /// `<style>`, el atributo de scope que hay que poner en cada elemento, y si se
@@ -90,9 +91,11 @@ pub fn generate(view: &View) -> TokenStream {
         let atributo = format!("data-ascua-{scope}");
         let css = css::scope_css(&css_bruto, &atributo);
         if let Err(error) = css::escribir(&scope, &css) {
-            let mensaje = format!(
+            let mensaje = msg!(
                 "Ascua no pudo extraer el CSS de este template: {error}. \
-                 Define ASCUA_CSS_DIR para elegir otro directorio de salida."
+                 Define ASCUA_CSS_DIR para elegir otro directorio de salida.",
+                "Ascua could not extract the CSS of this template: {error}. \
+                 Set ASCUA_CSS_DIR to choose another output directory."
             );
             return quote! { ::std::compile_error!(#mensaje) };
         }
@@ -232,12 +235,16 @@ impl Generator {
             // El parser ya rechaza estas formas sin padre; esto solo mantiene
             // el match exhaustivo.
             Node::Show(_) | Node::For(_) | Node::Style(_) => {
+                let mensaje = msg!(
+                    "<Show>, <For> y <style> necesitan un elemento donde insertarse. \
+                     Si es hijo directo de un componente o la raíz del view!, \
+                     envuélvelo en un elemento: <div><Show ...>...</Show></div>",
+                    "<Show>, <For> and <style> need an element to insert into. \
+                     If it is a direct child of a component or the root of the view!, \
+                     wrap it in an element: <div><Show ...>...</Show></div>"
+                );
                 statements.push(quote! {
-                    let #id = ::std::compile_error!(
-                        "<Show>, <For> y <style> necesitan un elemento donde insertarse. \
-                         Si es hijo directo de un componente o la raíz del view!, \
-                         envuélvelo en un elemento: <div><Show ...>...</Show></div>"
-                    );
+                    let #id = ::std::compile_error!(#mensaje);
                 });
             }
         }

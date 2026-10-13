@@ -3,6 +3,7 @@
 //! El scoping en sí vive en `ascua-css`, compartido con el compilador de
 //! plantillas de TypeScript.
 
+use crate::mensajes::msg;
 use std::path::PathBuf;
 
 pub use ascua_css::{scope_css, scope_id};
@@ -23,7 +24,12 @@ pub fn directorio_salida() -> Option<PathBuf> {
 /// código sigue siendo válido, solo faltarán los estilos, y el mensaje de la
 /// macro lo dirá.
 pub fn escribir(scope: &str, css: &str) -> Result<PathBuf, String> {
-    let directorio = directorio_salida().ok_or("no se pudo determinar el directorio de salida")?;
+    let directorio = directorio_salida().ok_or_else(|| {
+        msg!(
+            "no se pudo determinar el directorio de salida",
+            "could not determine the output directory"
+        )
+    })?;
     std::fs::create_dir_all(&directorio).map_err(|error| error.to_string())?;
     let ruta = directorio.join(format!("{scope}.css"));
     std::fs::write(&ruta, css).map_err(|error| error.to_string())?;

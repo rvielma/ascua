@@ -353,6 +353,16 @@ conviene tener presentes:
 3. Los nodos creados **a mano** (`dom.element(...)` fuera de un `view!`) no
    llevan el atributo, así que el CSS scopeado no les aplica.
 
+## Errores de compilación
+
+Los errores de la macro siguen a `LANG`, como los errores de build del kit:
+en español sin indicación o con `es*`, en inglés con cualquier otro idioma.
+
+```text
+error: </span> does not close <p>      # LANG=en_US.UTF-8
+error: </span> no cierra <p>           # LANG=es_CL.UTF-8
+```
+
 ## Límites, y por qué
 
 - **Cada vista tiene un único elemento raíz.** `view!` y `<Show>` no admiten

@@ -28,6 +28,7 @@
 //! `build` solo existe cuando todos valen `true`, así que olvidar un prop
 //! obligatorio es un error de compilación, no un fallo en ejecución.
 
+use crate::mensajes::msg;
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
 use syn::{Expr, FnArg, GenericParam, Generics, ItemFn, Pat, Token, Type};
@@ -66,7 +67,10 @@ pub fn expand(function: &ItemFn) -> syn::Result<TokenStream> {
     let dom_arg = argumentos.next().ok_or_else(|| {
         syn::Error::new_spanned(
             &function.sig,
-            "un componente recibe el Dom como primer parámetro: `dom: &Dom<B>`",
+            msg!(
+                "un componente recibe el Dom como primer parámetro: `dom: &Dom<B>`",
+                "a component takes the Dom as its first parameter: `dom: &Dom<B>`"
+            ),
         )
     })?;
 
@@ -141,13 +145,19 @@ fn parsear_campos<'a>(argumentos: impl Iterator<Item = &'a FnArg>) -> syn::Resul
         let FnArg::Typed(typed) = argumento else {
             return Err(syn::Error::new_spanned(
                 argumento,
-                "un componente no puede recibir `self`",
+                msg!(
+                    "un componente no puede recibir `self`",
+                    "a component cannot take `self`"
+                ),
             ));
         };
         let Pat::Ident(ident) = typed.pat.as_ref() else {
             return Err(syn::Error::new_spanned(
                 &typed.pat,
-                "cada prop debe ser un nombre simple, no un patrón",
+                msg!(
+                    "cada prop debe ser un nombre simple, no un patrón",
+                    "each prop must be a plain name, not a pattern"
+                ),
             ));
         };
 
@@ -156,13 +166,18 @@ fn parsear_campos<'a>(argumentos: impl Iterator<Item = &'a FnArg>) -> syn::Resul
             if !atributo.path().is_ident("prop") {
                 return Err(syn::Error::new_spanned(
                     atributo,
-                    "el único atributo admitido en un prop es `#[prop(...)]`",
+                    msg!(
+                        "el único atributo admitido en un prop es `#[prop(...)]`",
+                        "the only attribute allowed on a prop is `#[prop(...)]`"
+                    ),
                 ));
             }
             atributo.parse_nested_meta(|meta| {
                 if !meta.path.is_ident("default") {
-                    return Err(meta
-                        .error("`#[prop(...)]` solo admite `default` o `default = <expresión>`"));
+                    return Err(meta.error(msg!(
+                        "`#[prop(...)]` solo admite `default` o `default = <expresión>`",
+                        "`#[prop(...)]` only takes `default` or `default = <expression>`"
+                    )));
                 }
                 default = Some(if meta.input.peek(Token![=]) {
                     Some(meta.value()?.parse::<Expr>()?)

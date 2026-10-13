@@ -6,6 +6,8 @@
 //! El código generado usa rutas `::ascua::*`, así que se usa a través del crate
 //! `ascua`, no directamente.
 
+mod mensajes;
+
 mod ast;
 mod codegen;
 mod component;
