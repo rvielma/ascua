@@ -1,6 +1,6 @@
 # ascua
 
-Reactividad fine-grained y operaciones directas de DOM, en **3,62 kB gzip** y sin
+Reactividad fine-grained y operaciones directas de DOM, en **4,01 kB gzip** y sin
 dependencias. Es el runtime de [Ascua](https://ascua.gitweave.run), y también
 una librería de signals que se puede usar sola.
 
@@ -28,6 +28,19 @@ batch(() => {                          // un solo recálculo, no dos
 Escribir en un signal no ejecuta nada: marca. Los efectos afectados se encolan y
 corren cuando la marca termina de propagarse, así que un grafo en diamante no
 deja leer valores intermedios y una rama cuyo valor no cambió no recalcula.
+
+`timeout` e `interval` son `setTimeout` y `setInterval` que se cancelan al
+desmontar el componente. Y `ascua/persisted`, aparte para no pesar en quien no
+lo usa, es un signal guardado en `localStorage` que sigue en memoria si el
+almacén falla:
+
+```ts
+import { interval } from "ascua";
+import { persisted } from "ascua/persisted";
+
+const tema = persisted<"light" | "dark">("app:tema", "light");
+interval(1000, () => segundos.update((s) => s + 1));
+```
 
 ## DOM
 
@@ -81,7 +94,7 @@ si el servidor mandó otra cosa, la isla se queda estática y la consola dice qu
 campo falló. `island` es la pieza de debajo, sin esquema, para quien quiera
 otro formato.
 
-`hydrate` e `island` suben el runtime a 4,59 kB, y `defineIsland` unos 0,75 kB
+`hydrate` e `island` suben el runtime a 4,96 kB, y `defineIsland` unos 0,96 kB
 más; lo que no se importa, el tree-shaking se lo lleva. Está explicado en la
 [documentación](https://ascua.gitweave.run/docs/ssr/).
 

@@ -59,7 +59,11 @@ Con servidor, una ruta recibe formularios exportando `actions`: un
 `validate` de `vite-plugin-ascua/site` y esquemas `field` para lo que llega
 como texto. Un `_middleware.ts` por carpeta corre antes de sus rutas: exige
 una sesión, deja datos en `locals`, añade cabeceras o, con `await next()`,
-envuelve la respuesta. Con `partials: true`, los enlaces internos navegan sin
+envuelve la respuesta. Una ruta de API exporta un método por función
+—`export const PUT: RequestHandler = async ({ request }) => Response.json(…)`—,
+con `GET`, `POST`, `PUT`, `PATCH` o `DELETE`; lo que no exporta es un 405. Un
+error que nadie captura pinta `src/routes/500.ts`, con el error en
+`props.error`. Con `partials: true`, los enlaces internos navegan sin
 recargar: solo cambian las regiones `data-partial`. Desde una isla, `enhance()` de `vite-plugin-ascua/form` envía
 ese mismo formulario con `fetch` y muestra el resultado sin recargar. Y cada
 página sale con la seguridad de

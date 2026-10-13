@@ -8,12 +8,12 @@
 [![licencia](https://img.shields.io/badge/licencia-MIT%20o%20Apache--2.0-6f6860?labelColor=12100d)](#licencia)
 
 Todo lo que hace falta para una aplicación web, sin Virtual DOM: un runtime
-reactivo de 3,62 kB, un compilador de plantillas en **WebAssembly**, router,
+reactivo de 4,01 kB, un compilador de plantillas en **WebAssembly**, router,
 datos asíncronos, formularios, SSR con islas, tests y los tipos de dentro de
 las plantillas, en `tsc` y en el editor.
 
-Escribes **HTML dentro de TypeScript** y el compilador —un `.wasm` de 103 KB— lo
-traduce a operaciones directas de DOM. Una aplicación entera pesa 3,77 kB.
+Escribes **HTML dentro de TypeScript** y el compilador —un `.wasm` de 109 KB— lo
+traduce a operaciones directas de DOM. Una aplicación entera pesa 4,22 kB.
 
 **[ascua.gitweave.run](https://ascua.gitweave.run)** ·
 **[documentación](https://ascua.gitweave.run/docs/)** · el compilador corre en tu
@@ -155,8 +155,8 @@ CSS, gzip, la aplicación entera.
 
 | Paquete | Para qué | Peso |
 |---|---|---|
-| [`ascua`](packages/runtime) | Signals, DOM, `resource`, `bind:`, SSR e islas. Cero dependencias | 3,62 kB gzip |
-| [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 103 KB, en build |
+| [`ascua`](packages/runtime) | Signals, DOM, `resource`, `bind:`, temporizadores, SSR e islas; `ascua/persisted` aparte. Cero dependencias | 4,01 kB gzip |
+| [`ascua-compilador`](packages/compilador) | Plantillas a operaciones de DOM, como `.wasm` para Node, Bun, Deno y el navegador | 109 KB, en build |
 | [`vite-plugin-ascua`](packages/vite-plugin) | Compila las plantillas en Vite; con `site: true`, una página HTML por archivo de `src/routes/` | en build |
 | [`ascua-router`](packages/router) | La ruta como signal: parámetros, query, enlaces | 1,03 kB gzip |
 | [`ascua-query`](packages/query) | Datos remotos con caché por clave: sondeo, invalidación, mutaciones optimistas | 2,15 kB gzip |
@@ -174,26 +174,28 @@ Y lo que resuelven juntos:
 | Control de flujo | `<Show>` con `<Else>` y con el valor ya estrechado; `<For>` con clave |
 | Formularios | `bind:value`, `bind:checked`, `bind:valueAsNumber`; `prop:` para lo demás |
 | Datos asíncronos | `resource`: estado, error, recarga y cancelación |
+| Guardado y tiempo | `persisted`: un signal en `localStorage` que no falla aunque falle el almacén; `timeout` e `interval` que se cancelan con el componente |
 | Estilos | `<style>` con scope, extraído al compilar: nada en tiempo de ejecución |
 | SVG y MathML | En su espacio de nombres, también al hidratar |
 | SSR | `renderToString`, islas e hidratación que adopta los nodos del servidor |
-| Sitios | `stil run build` deja un HTML por ruta, con datos de `load()`; solo las páginas con islas llevan JavaScript. O un servidor Node con `mode: "server"` |
+| Sitios | `stil run build` deja un HTML por ruta, con datos de `load()`; solo las páginas con islas llevan JavaScript. O un servidor —Node, Bun, Deno, Workers— con `mode: "server"`, middleware con `next()` y navegación por partials |
+| Rutas de API | `export const PUT` (y `GET`, `POST`, `PATCH`, `DELETE`): cada método devuelve un `Response`; 405 con `allow` para el resto |
 | Formularios | `actions` en la ruta: `<form method="post">` sin JavaScript, `validate`, `fail` y `redirect` |
-| Seguridad | CSP sin `unsafe-inline` en los scripts, cookies `HttpOnly` y firmadas, formularios solo del mismo origen; sin configurar |
+| Seguridad | CSP sin `unsafe-inline` en los scripts, cookies `HttpOnly` y firmadas, formularios y APIs solo del mismo origen, URLs `javascript:` y `srcdoc` sin `sandbox` bloqueados; sin configurar |
 | Islas con props validados | `defineIsland`: el esquema se comprueba al compilar y al hidratar |
-| Errores | `onError` por vista; los del compilador, con archivo y línea |
+| Errores | `onError` por vista; `500.ts` para lo que nadie captura; los del compilador, con archivo y línea, en el idioma de `LANG` |
 | Source maps | El error señala tu `.ts`, no el código generado |
 
-**615 tests** (189 en Rust, 426 en TypeScript), sin warnings de `clippy`, todo
+**660 tests** (202 en Rust, 458 en TypeScript), sin warnings de `clippy`, todo
 verificado en navegador real.
 
 | | gzip |
 |---|---|
-| Una aplicación entera (runtime + contador + lista con clave) | **3,77 kB** |
-| Un panel con acceso, rutas, tabla filtrable y componentes | 7,24 kB + 1,43 kB de CSS |
-| Solo el runtime | 3,62 kB |
-| El runtime con `hydrate` e `island` | 4,59 kB |
-| La validación de props de `defineIsland` | +0,75 kB |
+| Una aplicación entera (runtime + contador + lista con clave) | **4,22 kB** |
+| Un panel con acceso, rutas, tabla filtrable y componentes | 7,74 kB + 1,43 kB de CSS |
+| Solo el runtime | 4,01 kB |
+| El runtime con `hydrate` e `island` | 4,96 kB |
+| La validación de props de `defineIsland` | +0,96 kB |
 | El router | 1,03 kB |
 | La caché de datos remotos (`ascua-query`) | 2,15 kB |
 | React + ReactDOM, sin aplicación | ~45 kB |
@@ -270,14 +272,14 @@ cambiar. Ver [`docs/plantillas-ts.md`](docs/plantillas-ts.md).
 
 ### 3. WebAssembly donde suma
 
-El compilador es un `.wasm` de 103 KB: un solo artefacto para Node, Bun, Deno y
+El compilador es un `.wasm` de 109 KB: un solo artefacto para Node, Bun, Deno y
 el navegador. Sin binarios por plataforma —SWC publica una decena, esbuild
 veinte— y sin `postinstall` que descargue nada. Va igual de rápido que un
 binario nativo porque se ahorra un proceso por archivo, y el mismo artefacto da
 un playground que compila en tu pestaña.
 
 En el navegador, en cambio, no aporta: el DOM vive en JavaScript y cruzar la
-frontera cuesta más que la operación. Por eso el runtime son 3,62 kB de
+frontera cuesta más que la operación. Por eso el runtime son 4,01 kB de
 JavaScript.
 
 ## Desarrollo
