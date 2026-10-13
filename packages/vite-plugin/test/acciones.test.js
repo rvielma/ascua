@@ -273,6 +273,45 @@ function comunes(nombre, origenDe, { desarrollo }) {
       expect(await accion.json()).toEqual({ type: "success", status: 200, data: { hecho: "ana" } });
     });
 
+    it("un middleware con next() envuelve: cambia la respuesta y suma cookies", async () => {
+      const r = await fetch(`${origenDe()}/envuelto`);
+      expect(r.status).toBe(200);
+      expect(r.headers.get("x-envuelto")).toBe("si");
+      // El de fuera, que no envuelve, sigue poniendo lo suyo.
+      expect(r.headers.get("x-site")).toBe("acciones");
+      const cookies = r.headers.getSetCookie().map((c) => c.split(";")[0]);
+      expect(cookies).toContain("visita=1");
+      expect(cookies).toContain("despues=1");
+      // `load()` ve los `locals` del de fuera.
+      expect(await r.text()).toContain("<h1>Envuelto /envuelto</h1>");
+    });
+
+    it("next() también envuelve la 404 de notFound(), y un error de la ruta se puede capturar", async () => {
+      const nada = await fetch(`${origenDe()}/envuelto/perdido`);
+      expect(nada.status).toBe(404);
+      expect(nada.headers.get("x-envuelto")).toBe("si");
+      expect(await nada.text()).toContain("<h1>No existe</h1>");
+
+      const falla = await fetch(`${origenDe()}/envuelto/falla`);
+      expect(falla.status).toBe(500);
+      expect(falla.headers.get("x-envuelto")).toBe("error");
+      expect(await falla.text()).toBe("la ruta falló");
+    });
+
+    it("una Response devuelta sin next() corta, con las cabeceras de fuera", async () => {
+      const corto = await fetch(`${origenDe()}/envuelto?corto`);
+      expect(corto.status).toBe(418);
+      expect(await corto.text()).toBe("corto");
+      expect(corto.headers.get("x-site")).toBe("acciones");
+    });
+
+    it("las acciones también pasan por next()", async () => {
+      const r = await enviar(origenDe(), "/envuelto", {}, { "x-ascua-action": "1" });
+      // La ruta no tiene acciones: el rechazo pasa por el middleware.
+      expect(r.status).toBe(405);
+      expect(r.headers.get("x-envuelto")).toBe("si");
+    });
+
     it("las rutas-archivo y la 404 siguen como antes", async () => {
       const json = await fetch(`${origenDe()}/datos.json`);
       expect(await json.json()).toEqual({ ok: true });

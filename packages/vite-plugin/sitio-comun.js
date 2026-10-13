@@ -568,32 +568,75 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
     return true;
   };
 
-  // Los middlewares, antes de la acción y de `load()`.
-  const enMiddleware = {
-    url,
-    request: peticion,
-    params: { ...parametros },
-    cookies,
-    locals,
-    setHeaders(cabeceras) {
-      for (const [nombre, valor] of Object.entries(cabeceras)) extra[nombre.toLowerCase()] = valor;
-    },
-  };
-  try {
-    for (const middleware of middlewares) {
-      if (typeof middleware !== "function") continue;
-      const devuelto = await middleware(enMiddleware);
-      const destino = redireccionDe(devuelto);
-      if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
-    }
-  } catch (error) {
+  // Los middlewares, del de fuera al de dentro. Cada uno puede cortar
+  // —redirigir, la 404, una `Response` propia— o envolver lo de dentro con
+  // `next()`: recibe la respuesta como `Response` y devuelve esa u otra. Si
+  // no llama a `next()` ni devuelve nada, se sigue como si no estuviera.
+  /** Lo que respondió la cadena cuando no había nada que responder (sin ruta ni 404 propia). */
+  const sinRespuesta = new Response(paraUsuario().noExiste, { status: 404, headers: { "content-type": TIPOS[".txt"] } });
+  const cortar = async (error) => {
     const destino = redireccionDe(error);
     if (destino) return comoDatos ? json(200, { type: "redirect", ...destino }) : redirigir(destino);
     if (!esNoExiste(error)) throw error;
     if (comoDatos) return json(404, { type: "error", status: 404, message: paraUsuario().noExiste });
     if (!(await aLa404())) return null;
-  }
+    return resto();
+  };
+  /**
+   * Una respuesta que pasó por las manos de un middleware: lo que este cambió
+   * manda. Las cabeceras de `setHeaders` solo se añaden si faltan, y las
+   * cookies se suman —las de `cookies.set()` después de `next()` también—.
+   */
+  const completar = (respuesta) => {
+    for (const [nombre, valor] of Object.entries(extra)) {
+      if (!(nombre in respuesta.headers)) respuesta.headers[nombre] = valor;
+    }
+    const previas = [respuesta.headers["set-cookie"] ?? []].flat();
+    const todas = [...previas, ...cookies.headers().filter((linea) => !previas.includes(linea))];
+    if (todas.length) respuesta.headers["set-cookie"] = todas;
+    return respuesta;
+  };
+  const cadena = async (i) => {
+    const middleware = middlewares[i];
+    if (i >= middlewares.length) return resto();
+    if (typeof middleware !== "function") return cadena(i + 1);
+    let dentro;
+    let llamado = false;
+    const enMiddleware = {
+      url,
+      request: peticion,
+      params: { ...parametros },
+      cookies,
+      locals,
+      setHeaders(cabeceras) {
+        for (const [nombre, valor] of Object.entries(cabeceras)) extra[nombre.toLowerCase()] = valor;
+      },
+      async next() {
+        if (!llamado) {
+          llamado = true;
+          const interna = await cadena(i + 1);
+          dentro = interna === null ? sinRespuesta : comoResponse(interna);
+        }
+        return dentro;
+      },
+    };
+    let devuelto;
+    try {
+      devuelto = await middleware(enMiddleware);
+    } catch (error) {
+      return cortar(error);
+    }
+    if (redireccionDe(devuelto)) return cortar(devuelto);
+    if (devuelto instanceof Response) {
+      if (devuelto === sinRespuesta) return null;
+      return completar(await deResponse(devuelto));
+    }
+    if (llamado) return dentro === sinRespuesta ? null : completar(await deResponse(dentro));
+    return cadena(i + 1);
+  };
+  return cadena(0);
 
+  async function resto() {
   const conAcciones = estado === 200 && !ruta.archivo && modulo.actions && typeof modulo.actions === "object";
   if (metodo === "POST" && estado === 200) {
     if (!conAcciones) return rechazar(405, paraUsuario().sinFormularios, { allow: "GET, HEAD" });
@@ -672,6 +715,35 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
   // Lo que depende de quién pregunta no se guarda en cachés compartidas.
   if (metodo === "POST" || cookies.headers().length > 0) headers["cache-control"] = "private, no-store";
   return conCookies({ status: estado, headers, body: html });
+  }
+}
+
+/** Lo que responde el kit, como `Response`: lo que recibe `next()`. */
+function comoResponse({ status, headers, body }) {
+  const salida = new Headers();
+  for (const [nombre, valor] of Object.entries(headers)) {
+    for (const uno of Array.isArray(valor) ? valor : [valor]) salida.append(nombre, uno);
+  }
+  const sinCuerpo = status === 204 || status === 304 || (status >= 100 && status < 200);
+  return new Response(sinCuerpo ? null : body, { status, headers: salida });
+}
+
+/**
+ * Una `Response` de un middleware, de vuelta al formato del kit. El cuerpo
+ * de lo que es texto queda como texto; lo demás, en bytes.
+ */
+async function deResponse(respuesta) {
+  const headers = {};
+  for (const [nombre, valor] of respuesta.headers) {
+    if (nombre === "set-cookie") continue;
+    headers[nombre] = valor;
+  }
+  const cookies = respuesta.headers.getSetCookie();
+  if (cookies.length) headers["set-cookie"] = cookies;
+  const tipo = headers["content-type"] ?? "";
+  const esTexto = /^text\/|json|xml|javascript/.test(tipo);
+  const body = respuesta.body === null ? "" : esTexto ? await respuesta.text() : new Uint8Array(await respuesta.arrayBuffer());
+  return { status: respuesta.status, headers, body };
 }
 
 /** Un cuerpo más grande de lo aceptado. */

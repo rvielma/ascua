@@ -46,13 +46,18 @@ export interface MiddlewareContext<P = Record<string, string>> {
   locals: Locals;
   /** Añade cabeceras a la respuesta, sea cual sea: la página, una redirección, un error. */
   setHeaders(headers: Record<string, string>): void;
+  /**
+   * Corre lo de dentro —los middlewares interiores, la acción, `load()`, la
+   * página— y da su respuesta. Se puede cambiar y devolver, o devolver otra.
+   */
+  next(): Promise<Response>;
 }
 
 /**
  * El `export default` de un `_middleware.ts`: corre antes que las acciones y
  * que `load()` en todas las rutas de su carpeta y de las de dentro, del de
- * fuera al de dentro. Para cortar, lanza —o devuelve— `redirect()`, o lanza
- * `notFound()`.
+ * fuera al de dentro. Para cortar, lanza —o devuelve— `redirect()`, lanza
+ * `notFound()` o devuelve una `Response`. Para envolver, `await next()`.
  */
 export type Middleware<P = Record<string, string>> = (context: MiddlewareContext<P>) => unknown;
 
