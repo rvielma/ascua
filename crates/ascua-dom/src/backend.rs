@@ -70,6 +70,14 @@ pub trait Backend: 'static {
     type TimerToken: 'static;
 
     fn create_element(&self, tag: &str) -> Self::Node;
+
+    /// Un elemento en el espacio de nombres de SVG. En el navegador no es lo
+    /// mismo que [`Backend::create_element`]: un `<circle>` creado como HTML
+    /// no se dibuja. Por defecto no hay diferencia, que es lo que vale para
+    /// el HTML del servidor.
+    fn create_element_svg(&self, tag: &str) -> Self::Node {
+        self.create_element(tag)
+    }
     fn create_text(&self, data: &str) -> Self::Node;
 
     /// Nodo invisible que marca una posición en el árbol. Las listas

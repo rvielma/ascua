@@ -81,6 +81,16 @@ impl Backend for WebBackend {
         }
     }
 
+    fn create_element_svg(&self, tag: &str) -> Node {
+        match self
+            .document
+            .create_element_ns(Some("http://www.w3.org/2000/svg"), tag)
+        {
+            Ok(element) => element.into(),
+            Err(_) => self.create_text(""),
+        }
+    }
+
     fn create_text(&self, data: &str) -> Node {
         self.document.create_text_node(data).into()
     }

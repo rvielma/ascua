@@ -70,6 +70,12 @@ impl<B: Backend> Dom<B> {
         self.backend.create_element(tag)
     }
 
+    /// Un elemento de SVG (`<svg>`, `<circle>`…). El `view!` lo usa solo dentro
+    /// de un `<svg>` o para las etiquetas que solo existen en SVG.
+    pub fn element_svg(&self, tag: &str) -> B::Node {
+        self.backend.create_element_svg(tag)
+    }
+
     pub fn text(&self, data: &str) -> B::Node {
         self.backend.create_text(data)
     }

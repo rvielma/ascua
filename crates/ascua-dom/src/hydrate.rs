@@ -43,7 +43,8 @@ use crate::ssr::{IslandBuilder, ISLAND_ATTR, ISLAND_PROPS_ATTR};
 /// servidor que lo cubra.
 #[derive(Clone)]
 enum Pendiente {
-    Element(String),
+    /// La etiqueta y si es de SVG.
+    Element(String, bool),
     Text(String),
     Marker,
 }
@@ -160,7 +161,8 @@ impl<B: Backend> HydratingBackend<B> {
         };
 
         let real = match &pendiente {
-            Pendiente::Element(tag) => self.inner.create_element(tag),
+            Pendiente::Element(tag, false) => self.inner.create_element(tag),
+            Pendiente::Element(tag, true) => self.inner.create_element_svg(tag),
             Pendiente::Text(data) => self.inner.create_text(data),
             Pendiente::Marker => self.inner.create_marker(),
         };
@@ -216,7 +218,7 @@ impl<B: Backend> HydratingBackend<B> {
     fn encaja(&self, candidato: &B::Node, pendiente: &Pendiente) -> bool {
         match (self.inner.node_kind(candidato), pendiente) {
             (NodeKind::Text, Pendiente::Text(_)) | (NodeKind::Marker, Pendiente::Marker) => true,
-            (NodeKind::Element, Pendiente::Element(tag)) => {
+            (NodeKind::Element, Pendiente::Element(tag, _)) => {
                 self.inner.tag_name(candidato).as_deref() == Some(tag.to_ascii_lowercase().as_str())
             }
             _ => false,
@@ -231,15 +233,9 @@ impl<B: Backend> HydratingBackend<B> {
             None => handle.0.borrow_mut().diferidas.push(operacion),
         }
     }
-}
 
-impl<B: Backend> Backend for HydratingBackend<B> {
-    type Node = HydratedNode<B>;
-    type Event = B::Event;
-    type ListenerToken = B::ListenerToken;
-    type TimerToken = B::TimerToken;
-
-    fn create_element(&self, tag: &str) -> Self::Node {
+    /// Adopta el elemento número N del servidor si es la misma etiqueta.
+    fn adoptar_elemento(&self, tag: &str, svg: bool) -> HydratedNode<B> {
         // El elemento número N del cliente es el elemento número N del
         // servidor: los dos ejecutan el mismo código de construcción.
         let numero = self.siguiente_numero();
@@ -253,7 +249,22 @@ impl<B: Backend> Backend for HydratingBackend<B> {
             self.inner.remove_attribute(real, HYDRATION_ATTR);
         }
 
-        self.envolver(Pendiente::Element(tag.to_string()), real)
+        self.envolver(Pendiente::Element(tag.to_string(), svg), real)
+    }
+}
+
+impl<B: Backend> Backend for HydratingBackend<B> {
+    type Node = HydratedNode<B>;
+    type Event = B::Event;
+    type ListenerToken = B::ListenerToken;
+    type TimerToken = B::TimerToken;
+
+    fn create_element(&self, tag: &str) -> Self::Node {
+        self.adoptar_elemento(tag, false)
+    }
+
+    fn create_element_svg(&self, tag: &str) -> Self::Node {
+        self.adoptar_elemento(tag, true)
     }
 
     fn create_text(&self, data: &str) -> Self::Node {
@@ -367,7 +378,7 @@ impl<B: Backend> Backend for HydratingBackend<B> {
         match node.0.borrow().real.clone() {
             Some(real) => self.inner.node_kind(&real),
             None => match node.0.borrow().pendiente {
-                Pendiente::Element(_) => NodeKind::Element,
+                Pendiente::Element(..) => NodeKind::Element,
                 Pendiente::Text(_) => NodeKind::Text,
                 Pendiente::Marker => NodeKind::Marker,
             },
@@ -388,7 +399,7 @@ impl<B: Backend> Backend for HydratingBackend<B> {
         match node.0.borrow().real.clone() {
             Some(real) => self.inner.tag_name(&real),
             None => match &node.0.borrow().pendiente {
-                Pendiente::Element(tag) => Some(tag.to_ascii_lowercase()),
+                Pendiente::Element(tag, _) => Some(tag.to_ascii_lowercase()),
                 _ => None,
             },
         }

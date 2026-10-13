@@ -1,8 +1,9 @@
 # La macro `view!`
 
-> Esto documenta la **vía Rust, que es experimental**: no se publica ni recibe
-> funciones nuevas. Ascua se usa desde TypeScript, con el compilador en
-> WebAssembly: [`plantillas-ts.md`](plantillas-ts.md).
+> Esto documenta la **vía Rust, que es experimental**: no se publica en
+> crates.io (se usa por ruta o por git) y crece solo con lo que piden las apps
+> que la usan, no con un plan propio. Ascua se usa desde TypeScript, con el
+> compilador en WebAssembly: [`plantillas-ts.md`](plantillas-ts.md).
 
 `view!` es el compilador de templates de Ascua: traduce marcado a las llamadas
 de DOM que lo construyen, más un efecto por cada punto dinámico. No genera
@@ -288,6 +289,30 @@ estado del DOM que el framework no controla: el foco, la posición del scroll, u
 
 Para que el contenido de un item cambie, el item debe leer signals por su
 cuenta dentro de `render`.
+
+## SVG
+
+Un `<svg>` se escribe como cualquier otro elemento, con sus atributos tal cual
+(`viewBox`, `stroke-width`):
+
+```rust
+view! { dom,
+    <svg viewBox="0 0 24 24" width="24" height="24">
+        <circle cx="12" cy="12" r={move || radio.get().to_string()}/>
+    </svg>
+}
+```
+
+Dentro de un `<svg>`, la macro crea cada elemento en el espacio de nombres de
+SVG (`createElementNS`): en el navegador, un `<circle>` creado como HTML existe
+pero no se dibuja. Dentro de `<foreignObject>` vuelve a HTML.
+
+Las etiquetas que solo existen en SVG (`circle`, `path`, `g`, `rect`,
+`linearGradient`…) van a SVG aunque el `view!` no vea el `<svg>` que las
+rodea, como en un componente o en el `render` de un `<For>`. Las que también
+son de HTML (`a`, `title`, `script`) siguen a su padre: sueltas, son HTML.
+`<style>` es siempre el bloque de estilos del template, también dentro de un
+`<svg>`.
 
 ## Estilos: `<style>` y scoping
 

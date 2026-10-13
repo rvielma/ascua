@@ -88,6 +88,8 @@ pub struct MemoryBackend {
     hydration: std::cell::Cell<Option<u32>>,
     /// Si este backend numera para hidratación.
     hydration_enabled: bool,
+    /// Elementos creados en el espacio de nombres de SVG.
+    svg: RefCell<std::collections::HashSet<NodeRef>>,
 }
 
 impl MemoryBackend {
@@ -133,6 +135,13 @@ impl MemoryBackend {
         if let Some(Some(node)) = nodes.get_mut(child.0) {
             node.parent = None;
         }
+    }
+
+    /// Si el elemento se creó en el espacio de nombres de SVG
+    /// ([`Backend::create_element_svg`]).
+    #[must_use]
+    pub fn is_svg(&self, node: &NodeRef) -> bool {
+        self.svg.borrow().contains(node)
     }
 
     /// Serializa el subárbol como HTML. Los marcadores salen como comentarios
@@ -291,6 +300,12 @@ impl Backend for MemoryBackend {
     type Event = MemoryEvent;
     type ListenerToken = usize;
     type TimerToken = usize;
+
+    fn create_element_svg(&self, tag: &str) -> NodeRef {
+        let node = self.create_element(tag);
+        self.svg.borrow_mut().insert(node);
+        node
+    }
 
     fn create_element(&self, tag: &str) -> NodeRef {
         let node = self.insert_node(MemNode {

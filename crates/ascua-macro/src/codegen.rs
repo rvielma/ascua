@@ -22,12 +22,63 @@ use quote::quote;
 use crate::ast::{node_ident, Attribute, AttributeValue, Component, For, Node, Show, View};
 use crate::css;
 
-/// Estado del recorrido: el contador de variables y, si el template trae
-/// `<style>`, el atributo de scope que hay que poner en cada elemento.
+/// Estado del recorrido: el contador de variables, si el template trae
+/// `<style>`, el atributo de scope que hay que poner en cada elemento, y si se
+/// está dentro de un `<svg>`.
 struct Generator {
     counter: usize,
     scope_attr: Option<String>,
+    svg: bool,
 }
+
+/// Etiquetas que solo existen en SVG. Van al espacio de nombres de SVG aunque
+/// no estén dentro de un `<svg>` del mismo template: un componente o un `<For>`
+/// que devuelve un `<circle>` suelto. Las que también son de HTML (`a`,
+/// `title`, `script`) siguen al `<svg>` que las rodea.
+const SOLO_SVG: &[&str] = &[
+    "animate",
+    "animateMotion",
+    "animateTransform",
+    "circle",
+    "clipPath",
+    "defs",
+    "desc",
+    "ellipse",
+    "feBlend",
+    "feColorMatrix",
+    "feComposite",
+    "feFlood",
+    "feGaussianBlur",
+    "feMerge",
+    "feMergeNode",
+    "feOffset",
+    "filter",
+    "foreignObject",
+    "g",
+    "image",
+    "line",
+    "linearGradient",
+    "marker",
+    "mask",
+    "metadata",
+    "mpath",
+    "path",
+    "pattern",
+    "polygon",
+    "polyline",
+    "radialGradient",
+    "rect",
+    "set",
+    "stop",
+    "svg",
+    "switch",
+    "symbol",
+    "text",
+    "textPath",
+    "tspan",
+    "use",
+    "view",
+];
 
 pub fn generate(view: &View) -> TokenStream {
     let mut css_bruto = String::new();
@@ -51,6 +102,7 @@ pub fn generate(view: &View) -> TokenStream {
     let mut generator = Generator {
         counter: 0,
         scope_attr,
+        svg: false,
     };
     let mut statements = Vec::new();
     let root = generator.node(&view.root, &mut statements);
@@ -127,7 +179,12 @@ impl Generator {
             }
             Node::Element(element) => {
                 let tag = &element.tag;
-                statements.push(quote! { let #id = __ascua_dom.element(#tag); });
+                let svg = self.svg || SOLO_SVG.contains(&tag.as_str());
+                if svg {
+                    statements.push(quote! { let #id = __ascua_dom.element_svg(#tag); });
+                } else {
+                    statements.push(quote! { let #id = __ascua_dom.element(#tag); });
+                }
 
                 if let Some(atributo) = &self.scope_attr {
                     statements.push(quote! { __ascua_dom.set_attr(&#id, #atributo, ""); });
@@ -156,9 +213,12 @@ impl Generator {
                 for attribute in literales.into_iter().chain(attributes).chain(sueltos) {
                     statements.push(generate_attribute(&id, attribute));
                 }
+                // Dentro de `<foreignObject>` se vuelve a HTML.
+                let afuera = std::mem::replace(&mut self.svg, svg && tag != "foreignObject");
                 for child in &element.children {
                     self.child(&id, child, statements);
                 }
+                self.svg = afuera;
                 // Las propiedades van después de los hijos: el `value` de un
                 // `<select>` solo se puede poner cuando ya tiene sus opciones.
                 for attribute in props {
