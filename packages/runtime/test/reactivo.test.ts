@@ -324,7 +324,7 @@ describe("cascadas", () => {
         const a = signal(0);
         effect(() => a.set(a() + 1));
       });
-    }).toThrow(/ciclo reactivo/);
+    }).toThrow(/reactive cycle/);
   });
 });
 

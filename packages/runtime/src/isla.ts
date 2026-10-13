@@ -76,14 +76,14 @@ function esquema<T>(validate: (valor: unknown) => ResultadoEsquema<T>): Standard
 function fallo(esperado: string, valor: unknown): { issues: Problema[] } {
   const tipo = valor === null ? "null" : Array.isArray(valor) ? "array" : typeof valor;
   const muestra = tipo === "string" || tipo === "number" || tipo === "boolean" ? ` ${JSON.stringify(valor)}` : "";
-  return { issues: [{ message: `se esperaba ${esperado}, llegó ${tipo}${muestra}` }] };
+  return { issues: [{ message: `expected ${esperado}, got ${tipo}${muestra}` }] };
 }
 
 /** Valida con cualquier esquema, en síncrono: la hidratación no puede esperar. */
 function validar<T>(esquema: StandardSchema<T>, valor: unknown): ResultadoEsquema<T> {
   const resultado = esquema["~standard"].validate(valor);
   return "then" in resultado
-    ? { issues: [{ message: "el esquema es asíncrono, y al hidratar solo sirven los síncronos" }] }
+    ? { issues: [{ message: "the schema is async, and hydration only accepts sync schemas" }] }
     : resultado;
 }
 
@@ -150,39 +150,39 @@ export const p = {
 
   /** Un `Date`. Viaja como texto ISO; llega como `Date`. */
   date: esquema<Date>((valor) => {
-    if (typeof valor !== "string" && typeof valor !== "number") return fallo("una fecha", valor);
+    if (typeof valor !== "string" && typeof valor !== "number") return fallo("a date", valor);
     const fecha = new Date(valor);
-    return Number.isNaN(fecha.getTime()) ? fallo("una fecha válida", valor) : { value: fecha };
+    return Number.isNaN(fecha.getTime()) ? fallo("a valid date", valor) : { value: fecha };
   }),
 
   /** Una `URL` absoluta. */
   url: esquema<URL>((valor) => {
-    if (typeof valor !== "string") return fallo("una URL", valor);
+    if (typeof valor !== "string") return fallo("a URL", valor);
     try {
       return { value: new URL(valor) };
     } catch {
-      return fallo("una URL válida", valor);
+      return fallo("a valid URL", valor);
     }
   }),
 
   /** Un `bigint`. Viaja como texto, que JSON no tiene enteros grandes. */
   bigint: esquema<bigint>((valor) => {
-    if (typeof valor !== "string" && typeof valor !== "number") return fallo("un bigint", valor);
+    if (typeof valor !== "string" && typeof valor !== "number") return fallo("a bigint", valor);
     try {
       return { value: BigInt(valor) };
     } catch {
-      return fallo("un bigint", valor);
+      return fallo("a bigint", valor);
     }
   }),
 
   /** Un `Map`. Viaja como lista de pares `[clave, valor]`. */
   map<K, V>(clave: StandardSchema<K>, valor: StandardSchema<V>): StandardSchema<Map<K, V>> {
     return esquema((entrada) => {
-      if (!Array.isArray(entrada)) return fallo("un Map (lista de pares)", entrada);
+      if (!Array.isArray(entrada)) return fallo("a Map (list of pairs)", entrada);
       const salida = new Map<K, V>();
       for (let i = 0; i < entrada.length; i++) {
         const par = entrada[i];
-        if (!Array.isArray(par) || par.length !== 2) return bajo(i, fallo("un par [clave, valor]", par).issues);
+        if (!Array.isArray(par) || par.length !== 2) return bajo(i, fallo("a [key, value] pair", par).issues);
         const k = validar(clave, par[0]);
         if (k.issues) return bajo(i, k.issues);
         const v = validar(valor, par[1]);
@@ -196,7 +196,7 @@ export const p = {
   /** Un `Set`. Viaja como lista. */
   set<T>(elemento: StandardSchema<T>): StandardSchema<Set<T>> {
     return esquema((entrada) => {
-      if (!Array.isArray(entrada)) return fallo("un Set (lista)", entrada);
+      if (!Array.isArray(entrada)) return fallo("a Set (list)", entrada);
       const salida = new Set<T>();
       for (let i = 0; i < entrada.length; i++) {
         const resultado = validar(elemento, entrada[i]);
@@ -277,11 +277,11 @@ export function defineIsland<S extends StandardSchema | Shape>(
     try {
       resultado = validar(validador, JSON.parse(texto));
     } catch {
-      resultado = { issues: [{ message: "los props no son JSON válido" }] };
+      resultado = { issues: [{ message: "the props are not valid JSON" }] };
     }
     if (resultado.issues) {
       const [problema] = resultado.issues;
-      console.error(`[ascua] isla "${nombre}": ${describir(problema!)}. Se deja estática.`);
+      console.error(`[ascua] island "${nombre}": ${describir(problema!)}. Left static.`);
       return undefined;
     }
     const props = resultado.value;
@@ -290,7 +290,7 @@ export function defineIsland<S extends StandardSchema | Shape>(
   return isla;
 }
 
-/** `lenguajes[2].año: se esperaba number, …` */
+/** `lenguajes[2].año: expected number, …` */
 function describir(problema: Problema): string {
   let ruta = "";
   for (const tramo of problema.path ?? []) {

@@ -103,7 +103,7 @@ describe("firmas", () => {
   });
 
   it("un secreto corto es un error, no una firma débil", async () => {
-    await expect(sign("x", "corto")).rejects.toThrow(/32 caracteres/);
+    await expect(sign("x", "corto")).rejects.toThrow(/32 characters/);
   });
 });
 
@@ -118,7 +118,7 @@ describe("cookies", () => {
     expect(serializeCookie("tema", "oscuro", { httpOnly: false, secure: false, sameSite: "strict", maxAge: 60 })).toBe(
       "tema=oscuro; Path=/; Max-Age=60; SameSite=Strict",
     );
-    expect(() => serializeCookie("con espacio", "x")).toThrow(/nombre de cookie/);
+    expect(() => serializeCookie("con espacio", "x")).toThrow(/cookie name/);
   });
 
   it("createCookies lee lo que llegó y junta lo que hay que mandar", () => {
@@ -151,7 +151,7 @@ describe("cookies", () => {
   });
 
   it("sin secreto, las firmadas fallan con un mensaje claro", async () => {
-    await expect(createCookies("").setSigned("x", "1")).rejects.toThrow(/necesitan un secreto/);
+    await expect(createCookies("").setSigned("x", "1")).rejects.toThrow(/need a secret/);
   });
 });
 

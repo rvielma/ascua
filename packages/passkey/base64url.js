@@ -18,7 +18,7 @@ export function encode(datos) {
 /** @param {string} texto */
 export function decode(texto) {
   if (typeof texto !== "string" || !/^[A-Za-z0-9_-]*={0,2}$/.test(texto)) {
-    throw new TypeError("base64url inválido");
+    throw new TypeError("invalid base64url");
   }
   const base64 = texto.replace(/=+$/, "").replace(/-/g, "+").replace(/_/g, "/");
   const binario = atob(base64 + "=".repeat((4 - (base64.length % 4)) % 4));

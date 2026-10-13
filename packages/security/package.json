@@ -1,6 +1,6 @@
 {
   "name": "ascua-security",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Seguridad de la capa web sin dependencias: CSP con hashes, cabeceras, cookies firmadas y defensa contra CSRF.",
   "keywords": [
     "security",

@@ -79,7 +79,7 @@ describe("defineIsland", () => {
     // Sin hidratar, el click no hace nada: no hay "51".
     isla.querySelector("button")!.click();
     expect(isla.outerHTML).toBe(antes);
-    expect(errores).toEqual(['[ascua] isla "contador": inicial: se esperaba number, llegó string "5". Se deja estática.']);
+    expect(errores).toEqual(['[ascua] island "contador": inicial: expected number, got string "5". Left static.']);
   });
 
   it("se queda estática si el servidor es de otra versión", () => {
@@ -91,7 +91,7 @@ describe("defineIsland", () => {
 
     hydrate([IslaContador]);
     expect(isla.outerHTML).toBe(antes);
-    expect(errores[0]).toContain("inicial: se esperaba number, llegó undefined");
+    expect(errores[0]).toContain("inicial: expected number, got undefined");
   });
 
   it("se queda estática si los props no son JSON", () => {
@@ -100,7 +100,7 @@ describe("defineIsland", () => {
     conProps(isla, "{inicial:5");
 
     hydrate([IslaContador]);
-    expect(errores[0]).toContain("los props no son JSON válido");
+    expect(errores[0]).toContain("the props are not valid JSON");
   });
 
   it("no toca las demás islas de la página", () => {
@@ -203,11 +203,11 @@ describe("props ricas", () => {
     const isla = servir(() => IslaAgenda(datos));
     conProps(isla, serializeProps({ ...datos, plazas: [["sala", "cuatro"]] }));
     hydrate([IslaAgenda]);
-    expect(errores[0]).toContain("plazas[0]: se esperaba number");
+    expect(errores[0]).toContain("plazas[0]: expected number");
 
     conProps(isla, serializeProps({ ...datos, desde: "ayer" }));
     hydrate([IslaAgenda]);
-    expect(errores[1]).toContain("desde: se esperaba una fecha válida");
+    expect(errores[1]).toContain("desde: expected a valid date");
   });
 });
 
@@ -225,7 +225,7 @@ describe("p", () => {
     conProps(isla, '{"lenguajes":[{"nombre":"C","año":1972},{"nombre":"Lisp","año":"1958"}]}');
 
     hydrate([Lista]);
-    expect(errores[0]).toContain('lenguajes[1].año: se esperaba number, llegó string "1958"');
+    expect(errores[0]).toContain('lenguajes[1].año: expected number, got string "1958"');
   });
 
   it("descarta los campos que no están en la forma", () => {
@@ -241,8 +241,8 @@ describe("p", () => {
 
   it("distingue array, null y object en el mensaje", () => {
     const problema = (valor: unknown) => (validar(p.object({}), valor) as { issues: { message: string }[] }).issues[0]!.message;
-    expect(problema([])).toBe("se esperaba object, llegó array");
-    expect(problema(null)).toBe("se esperaba object, llegó null");
+    expect(problema([])).toBe("expected object, got array");
+    expect(problema(null)).toBe("expected object, got null");
   });
 });
 
@@ -283,7 +283,7 @@ describe("Standard Schema", () => {
     servir(() => Isla({ inicial: 1 }));
 
     hydrate([Isla]);
-    expect(errores[0]).toContain("el esquema es asíncrono");
+    expect(errores[0]).toContain("the schema is async");
   });
 });
 

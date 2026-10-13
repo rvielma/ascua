@@ -142,7 +142,7 @@ const claves = new Map();
 
 function claveDe(secreto) {
   if (typeof secreto !== "string" || secreto.length < 32) {
-    throw new Error("ascua-security: el secreto tiene que ser un texto de al menos 32 caracteres");
+    throw new Error("ascua-security: the secret must be a string of at least 32 characters");
   }
   let clave = claves.get(secreto);
   if (!clave) {
@@ -212,7 +212,7 @@ export function parseCookies(cabecera) {
  * `Secure` y `Path=/`.
  */
 export function serializeCookie(nombre, valor, opciones = {}) {
-  if (!NOMBRE.test(nombre)) throw new Error(`ascua-security: «${nombre}» no vale como nombre de cookie`);
+  if (!NOMBRE.test(nombre)) throw new Error(`ascua-security: "${nombre}" is not a valid cookie name`);
   const { path = "/", domain, maxAge, expires, httpOnly = true, secure = true, sameSite = "Lax", partitioned } = opciones;
   const partes = [`${nombre}=${encodeURIComponent(valor)}`];
   if (path) partes.push(`Path=${path}`);
@@ -245,7 +245,7 @@ export function createCookies(cabecera, { secret, secure = true } = {}) {
   const salientes = new Map();
   const secreto = () => {
     const valor = typeof secret === "function" ? secret() : secret;
-    if (!valor) throw new Error("ascua-security: las cookies firmadas necesitan un secreto");
+    if (!valor) throw new Error("ascua-security: signed cookies need a secret");
     return valor;
   };
 

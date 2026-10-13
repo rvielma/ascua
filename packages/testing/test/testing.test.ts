@@ -50,7 +50,7 @@ describe("render", () => {
 
   it("dice qué hay montado cuando no encuentra algo", () => {
     const { get } = render(Contador);
-    expect(() => get(".no-existe")).toThrow(/no hay ningún ".no-existe"/);
+    expect(() => get(".no-existe")).toThrow(/no ".no-existe"/);
   });
 
   it("unmount libera los efectos", () => {
@@ -179,7 +179,7 @@ describe("drag", () => {
 
   it("sin puntos falla", () => {
     const { container } = render(() => Lienzo([]));
-    expect(() => drag(container, [])).toThrow(/al menos un punto/);
+    expect(() => drag(container, [])).toThrow(/at least one point/);
   });
 });
 
@@ -229,12 +229,12 @@ describe("waitFor", () => {
 
   it("falla al acabarse el plazo, con lo que había", async () => {
     render(() => Tardio(500));
-    await expect(waitFor(".hecho", { timeout: 30 })).rejects.toThrow(/"\.hecho" no apareció en 30 ms:[\s\S]*cargando/);
+    await expect(waitFor(".hecho", { timeout: 30 })).rejects.toThrow(/"\.hecho" did not appear within 30 ms:[\s\S]*cargando/);
   });
 
   it("con within no ve lo de fuera", async () => {
     render(() => Tardio(10));
     const { waitFor: soloAqui } = render(() => element("section"));
-    await expect(soloAqui(".hecho", { timeout: 60 })).rejects.toThrow(/no apareció/);
+    await expect(soloAqui(".hecho", { timeout: 60 })).rejects.toThrow(/did not appear/);
   });
 });

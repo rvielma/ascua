@@ -396,7 +396,7 @@ const ATRIBUTOS_URL = new Set(["href", "xlink:href", "src", "action", "formactio
 const JAVASCRIPT = /^[\u0000-\u001F ]*j[\r\n\t]*a[\r\n\t]*v[\r\n\t]*a[\r\n\t]*s[\r\n\t]*c[\r\n\t]*r[\r\n\t]*i[\r\n\t]*p[\r\n\t]*t[\r\n\t]*:/i;
 
 /** Lo que queda en lugar de una URL bloqueada: no navega ni ejecuta nada útil. */
-const BLOQUEADA = "javascript:throw new Error('Ascua bloqueó una URL javascript:')";
+const BLOQUEADA = "javascript:throw new Error('Ascua blocked a javascript: URL')";
 
 /**
  * Una URL `javascript:` que llega por un hueco —`href=${url}`— casi siempre
@@ -406,7 +406,7 @@ const BLOQUEADA = "javascript:throw new Error('Ascua bloqueó una URL javascript
  */
 function urlSegura(nombre: string, valor: string): string {
   if (!ATRIBUTOS_URL.has(nombre.toLowerCase()) || !JAVASCRIPT.test(valor)) return valor;
-  console.error(`Ascua bloqueó una URL javascript: en \`${nombre}\`. Si viene de datos externos, valídala; si es tuya, escríbela literal en la plantilla.`);
+  console.error(`Ascua blocked a javascript: URL in \`${nombre}\`. If it comes from outside data, validate it; if it is yours, write it literally in the template.`);
   return BLOQUEADA;
 }
 
@@ -422,7 +422,7 @@ function srcdocSeguro(nodo: Element, valor: string): string {
   if (sandbox !== null && !(permisos.includes("allow-scripts") && permisos.includes("allow-same-origin"))) {
     return valor;
   }
-  console.error("Ascua bloqueó un `srcdoc` sin `sandbox`. Escribe `sandbox` literal en el <iframe> (sin `allow-scripts` y `allow-same-origin` juntos).");
+  console.error("Ascua blocked a `srcdoc` without `sandbox`. Write `sandbox` literally on the <iframe> (without both `allow-scripts` and `allow-same-origin`).");
   return "";
 }
 

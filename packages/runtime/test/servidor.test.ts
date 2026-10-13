@@ -160,7 +160,7 @@ describe("renderToString", () => {
         div.querySelector("div > p");
         return div;
       }),
-    ).toThrow(/selectores simples/);
+    ).toThrow(/simple selectors/);
   });
 
   it("no deja efectos vivos", () => {

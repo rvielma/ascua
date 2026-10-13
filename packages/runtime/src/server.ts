@@ -178,10 +178,10 @@ abstract class NodoServidor {
   }
 
   insertBefore<T extends NodoServidor>(hijo: T, antes: NodoServidor | null): T {
-    if (this.nodeType !== ELEMENTO) throw new Error("Solo un elemento puede tener hijos");
+    if (this.nodeType !== ELEMENTO) throw new Error("Only an element can have children");
     hijo.remove();
     const indice = antes ? this.childNodes.indexOf(antes) : -1;
-    if (antes && indice < 0) throw new Error("El nodo de referencia no es hijo de este padre");
+    if (antes && indice < 0) throw new Error("The reference node is not a child of this parent");
     this.childNodes.splice(indice < 0 ? this.childNodes.length : indice, 0, hijo);
     hijo.parentNode = this as unknown as ElementoServidor;
     return hijo;
@@ -194,7 +194,7 @@ abstract class NodoServidor {
   }
 
   removeChild<T extends NodoServidor>(hijo: T): T {
-    if (hijo.parentNode !== (this as unknown)) throw new Error("No es hijo de este nodo");
+    if (hijo.parentNode !== (this as unknown)) throw new Error("Not a child of this node");
     hijo.remove();
     return hijo;
   }
@@ -433,7 +433,7 @@ function compilarSelector(selector: string): (el: ElementoServidor) => boolean {
   );
   if (!selector || !partes) {
     throw new Error(
-      `El DOM de servidor de Ascua solo entiende selectores simples (div, .clase, #id, [attr]); no «${selector}»`,
+      `Ascua's server DOM only understands simple selectors (div, .class, #id, [attr]), not "${selector}"`,
     );
   }
   const etiqueta = partes[1] && partes[1] !== "*" ? partes[1].toLowerCase() : null;

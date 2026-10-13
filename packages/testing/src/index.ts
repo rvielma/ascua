@@ -49,7 +49,7 @@ export function render(construir: () => Node): RenderResult {
     const encontrado = contenedor.querySelector<T>(selector);
     if (!encontrado) {
       throw new Error(
-        `no hay ningún "${selector}" en lo montado:\n${contenedor.innerHTML.trim()}`,
+        `no "${selector}" in what was mounted:\n${contenedor.innerHTML.trim()}`,
       );
     }
     return encontrado;
@@ -141,7 +141,7 @@ export interface DragOptions {
 export function drag(nodo: Element, puntos: readonly Point[], options: DragOptions = {}): void {
   const primero = puntos[0];
   const ultimo = puntos[puntos.length - 1];
-  if (!primero || !ultimo) throw new Error("drag necesita al menos un punto");
+  if (!primero || !ultimo) throw new Error("drag needs at least one point");
 
   const { pointerId = 1, pointerType = "mouse", cancel = false } = options;
   const lanzar = (tipo: string, { x, y }: Point, buttons: number) =>
@@ -213,7 +213,7 @@ export function waitFor<T extends Element = HTMLElement>(
       terminar();
       const visto = within instanceof Element ? within.innerHTML : (within as Document).body?.innerHTML;
       rechazar(
-        new Error(`"${selector}" no apareció en ${timeout} ms:\n${(visto ?? "").trim()}`),
+        new Error(`"${selector}" did not appear within ${timeout} ms:\n${(visto ?? "").trim()}`),
       );
     }, timeout);
     const terminar = () => {

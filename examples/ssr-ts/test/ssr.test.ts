@@ -81,7 +81,7 @@ describe("hydrate", () => {
     const { adopted } = hydrate(ISLAS);
     expect(adopted).toBe(0);
     expect(document.body.innerHTML).toBe(antes);
-    expect(error).toHaveBeenCalledWith(expect.stringContaining('lenguajes[0].año: se esperaba number, llegó string "1957"'));
+    expect(error).toHaveBeenCalledWith(expect.stringContaining('lenguajes[0].año: expected number, got string "1957"'));
     error.mockRestore();
   });
 });

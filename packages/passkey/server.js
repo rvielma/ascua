@@ -355,15 +355,15 @@ function cbor(bytes, inicio = 0) {
     if (info === 27) {
       const valor = vista.getBigUint64(i);
       i += 8;
-      if (valor > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError("entero CBOR demasiado grande");
+      if (valor > BigInt(Number.MAX_SAFE_INTEGER)) throw new RangeError("CBOR integer too large");
       return Number(valor);
     }
-    throw new RangeError("longitud CBOR indefinida o reservada");
+    throw new RangeError("indefinite or reserved CBOR length");
   };
 
   const valor = (profundidad) => {
-    if (profundidad > 16) throw new RangeError("CBOR demasiado anidado");
-    if (i >= bytes.length) throw new RangeError("CBOR cortado");
+    if (profundidad > 16) throw new RangeError("CBOR nested too deep");
+    if (i >= bytes.length) throw new RangeError("truncated CBOR");
     const cabecera = bytes[i++];
     const tipo = cabecera >> 5;
     const info = cabecera & 0x1f;
@@ -375,7 +375,7 @@ function cbor(bytes, inicio = 0) {
       case 2:
       case 3: {
         const n = largo(info);
-        if (i + n > bytes.length) throw new RangeError("CBOR cortado");
+        if (i + n > bytes.length) throw new RangeError("truncated CBOR");
         const trozo = bytes.slice(i, i + n);
         i += n;
         return tipo === 2 ? trozo : leerUtf8.decode(trozo);
@@ -403,9 +403,9 @@ function cbor(bytes, inicio = 0) {
         if (info === 25) return (i += 2), vista.getFloat16 ? vista.getFloat16(i - 2) : Number.NaN;
         if (info === 26) return (i += 4), vista.getFloat32(i - 4);
         if (info === 27) return (i += 8), vista.getFloat64(i - 8);
-        throw new RangeError("simple CBOR no admitido");
+        throw new RangeError("unsupported CBOR simple value");
       default:
-        throw new RangeError("etiquetas CBOR no admitidas");
+        throw new RangeError("CBOR tags not supported");
     }
   };
 

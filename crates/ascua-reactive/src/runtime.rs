@@ -447,8 +447,8 @@ fn flush_effects(rt: &Runtime) {
         passes += 1;
         assert!(
             passes <= MAX_FLUSH_PASSES,
-            "ciclo reactivo: la cola de efectos no se vacía tras {MAX_FLUSH_PASSES} vueltas \
-             (¿un efecto escribe un signal del que él mismo depende?)"
+            "reactive cycle: the effect queue did not drain after {MAX_FLUSH_PASSES} passes \
+             (does an effect write a signal it depends on?)"
         );
         for id in batch {
             if rt.nodes.borrow().contains(id) {

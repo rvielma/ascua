@@ -105,8 +105,8 @@ function marcar(nodo: Nodo, estado: Estado): void {
   // reentrancia se lo tragaría en silencio y el bug quedaría escondido.
   if (nodo === observador) {
     throw new Error(
-      "ciclo reactivo: este cómputo escribe un signal del que él mismo depende. " +
-        "Si la escritura es intencionada, envuélvela en untrack().",
+      "reactive cycle: this computation writes a signal it depends on. " +
+        "If the write is intended, wrap it in untrack().",
     );
   }
   if (nodo.estado >= estado) return;
@@ -299,8 +299,8 @@ function vaciarCola(): void {
     while (pendientes.length > 0) {
       if (++vueltas > MAX_VUELTAS) {
         throw new Error(
-          "ciclo reactivo: la cola de efectos no se vacía. " +
-            "¿Un efecto escribe un signal del que él mismo depende?",
+          "reactive cycle: the effect queue does not drain. " +
+            "Does an effect write a signal it depends on?",
         );
       }
       const lote = pendientes;

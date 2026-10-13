@@ -14,7 +14,7 @@ use crate::backend::Backend;
 const ATRIBUTOS_URL: [&str; 6] = ["href", "xlink:href", "src", "action", "formaction", "data"];
 
 /// Lo que queda en lugar de una URL bloqueada: no navega ni ejecuta nada útil.
-const BLOQUEADA: &str = "javascript:throw new Error('Ascua bloqueó una URL javascript:')";
+const BLOQUEADA: &str = "javascript:throw new Error('Ascua blocked a javascript: URL')";
 
 /// Como lo lee el navegador: ignora espacios y controles delante, y tabs y
 /// saltos de línea en medio (`java\tscript:` también es `javascript:`).
@@ -56,15 +56,15 @@ pub(crate) fn valor_seguro<'a, B: Backend>(
             return Cow::Borrowed(value);
         }
         backend.warn(
-            "Ascua bloqueó un `srcdoc` sin `sandbox`. Escribe `sandbox` literal en el <iframe> \
-             (sin `allow-scripts` y `allow-same-origin` juntos).",
+            "Ascua blocked a `srcdoc` without `sandbox`. Write `sandbox` literally on the \
+             <iframe> (without both `allow-scripts` and `allow-same-origin`).",
         );
         return Cow::Borrowed("");
     }
     if ATRIBUTOS_URL.iter().any(|a| a.eq_ignore_ascii_case(name)) && es_javascript(value) {
         backend.warn(&format!(
-            "Ascua bloqueó una URL javascript: en `{name}`. Si viene de datos externos, \
-             valídala; si es tuya, escríbela literal en la plantilla."
+            "Ascua blocked a javascript: URL in `{name}`. If it comes from outside data, \
+             validate it; if it is yours, write it literally in the template."
         ));
         return Cow::Borrowed(BLOQUEADA);
     }

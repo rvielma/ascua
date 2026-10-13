@@ -1,6 +1,6 @@
 {
   "name": "ascua-passkey",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Passkeys (WebAuthn) sin dependencias: la ceremonia del navegador y la verificación en el servidor con Web Crypto.",
   "keywords": [
     "passkey",
