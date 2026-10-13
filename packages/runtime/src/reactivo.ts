@@ -673,7 +673,8 @@ export interface Timer {
 
 /**
  * Ejecuta `fn` una vez dentro de `ms` milisegundos (`setTimeout`), salvo que
- * el scope se libere antes o se llame a `cancel()`.
+ * el scope se libere antes o se llame a `cancel()`. En un manejador de
+ * eventos no hay scope: ahí se cancela con `onCleanup`.
  *
  * Un aviso que se oculta a los tres segundos no escribe en el signal de un
  * componente que ya no está:

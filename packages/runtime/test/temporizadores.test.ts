@@ -4,7 +4,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { effect, interval, onError, root, signal, timeout } from "../src/reactivo.js";
+import { effect, interval, onError, root, signal, timeout, withScope } from "../src/reactivo.js";
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
@@ -77,5 +77,16 @@ describe("interval", () => {
     });
     vi.advanceTimersByTime(25);
     expect(errores).toHaveLength(2);
+  });
+});
+
+describe("fuera de scope", () => {
+  it("sin scope no se cancela solo: por eso, en un manejador, onCleanup", () => {
+    let corrio = false;
+    const [, liberar] = root(() => {});
+    withScope(null, () => timeout(100, () => (corrio = true)));
+    liberar();
+    vi.advanceTimersByTime(200);
+    expect(corrio).toBe(true);
   });
 });
