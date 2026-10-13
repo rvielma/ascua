@@ -5,3 +5,7 @@ web/**
 
 # Solo para quien publica: npm, el WASM a mano, macOS.
 docs/mantenimiento.md
+docs/vite-issue-stil-lock.md
+
+# Plan y borradores internos.
+docs/plan.md
