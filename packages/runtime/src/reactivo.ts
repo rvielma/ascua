@@ -665,6 +665,69 @@ export function batch<T>(fn: () => T): T {
   }
 }
 
+/** Un temporizador de {@link timeout} o {@link interval}. */
+export interface Timer {
+  /** Lo cancela. Si ya se disparó o ya se canceló, no hace nada. */
+  cancel(): void;
+}
+
+/**
+ * Ejecuta `fn` una vez dentro de `ms` milisegundos (`setTimeout`), salvo que
+ * el scope se libere antes o se llame a `cancel()`.
+ *
+ * Un aviso que se oculta a los tres segundos no escribe en el signal de un
+ * componente que ya no está:
+ *
+ * ```ts
+ * timeout(3000, () => aviso.set(null));
+ * ```
+ */
+export function timeout(ms: number, fn: () => void): Timer {
+  return temporizador(ms, false, fn);
+}
+
+/**
+ * Ejecuta `fn` cada `ms` milisegundos (`setInterval`) hasta que el scope se
+ * libere o se llame a `cancel()`.
+ */
+export function interval(ms: number, fn: () => void): Timer {
+  return temporizador(ms, true, fn);
+}
+
+/**
+ * El callback corre en el scope donde se creó el temporizador, como un
+ * efecto: lo que cree allí es suyo, un error va a su `onError`, y lo que
+ * escriba sale en un solo lote.
+ */
+function temporizador(ms: number, repetir: boolean, fn: () => void): Timer {
+  const scope = dueño;
+  let vivo = true;
+  const correr = () => {
+    if (!repetir) vivo = false;
+    const dueñoPrevio = dueño;
+    const observadorPrevio = observador;
+    dueño = scope;
+    observador = null;
+    try {
+      batch(fn);
+    } catch (error) {
+      if (!scope || !manejar(scope, error)) throw error;
+    } finally {
+      dueño = dueñoPrevio;
+      observador = observadorPrevio;
+    }
+  };
+  const id = repetir ? setInterval(correr, ms) : setTimeout(correr, ms);
+  const cancel = () => {
+    if (!vivo) return;
+    vivo = false;
+    clearTimeout(id);
+    clearInterval(id);
+  };
+  onCleanup(cancel);
+  return { cancel };
+}
+
 /**
  * Referencia opaca a un scope, para crear cosas dentro de él más tarde.
  *

@@ -14,6 +14,7 @@ export {
   batch,
   currentScope,
   effect,
+  interval,
   memo,
   onCleanup,
   onError,
@@ -21,6 +22,7 @@ export {
   root,
   selector,
   signal,
+  timeout,
   untrack,
   withScope,
   type Memo,
@@ -29,6 +31,7 @@ export {
   type ResourceState,
   type Scope,
   type Signal,
+  type Timer,
 } from "./reactivo.js";
 
 export {
