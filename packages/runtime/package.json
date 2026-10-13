@@ -24,6 +24,10 @@
     "./server": {
       "types": "./dist/server.d.ts",
       "import": "./dist/server.js"
+    },
+    "./persisted": {
+      "types": "./dist/persisted.d.ts",
+      "import": "./dist/persisted.js"
     }
   },
   "files": [
