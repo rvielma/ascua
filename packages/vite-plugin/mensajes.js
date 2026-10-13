@@ -29,6 +29,7 @@ const ES = {
   noExiste: "No existe",
   sinFormularios: "Esta página no recibe formularios",
   otroOrigen: "Formulario enviado desde otro origen",
+  otroOrigenPeticion: "Petición enviada desde otro origen",
   sinAccion: (nombre) => `No hay ninguna acción «${nombre}»`,
   ilegible: "El formulario no se pudo leer",
   metodo: "Método no permitido",
@@ -53,6 +54,9 @@ const ES = {
   faltaParametro: (nombre, ruta) => `falta el parámetro «${nombre}» para ${ruta}`,
   faltaDefault: (ruta) => `${ruta}: falta export default`,
   faltaComponente: (camino) => `${camino}: falta el componente de la página (export default)`,
+  metodosSinServidor: (archivo) =>
+    `${archivo}: GET, POST, PUT… necesitan un servidor que reciba las peticiones; usa site: { mode: "server" }`,
+  sinResponse: (metodo, camino) => `${camino}: ${metodo} tiene que devolver un Response (por ejemplo, Response.json(datos))`,
 };
 
 const EN = {
@@ -69,6 +73,7 @@ const EN = {
   noExiste: "Not found",
   sinFormularios: "This page does not accept forms",
   otroOrigen: "Form sent from another origin",
+  otroOrigenPeticion: "Request sent from another origin",
   sinAccion: (nombre) => `There is no action "${nombre}"`,
   ilegible: "The form could not be read",
   metodo: "Method not allowed",
@@ -92,6 +97,9 @@ const EN = {
   faltaParametro: (nombre, ruta) => `missing param "${nombre}" for ${ruta}`,
   faltaDefault: (ruta) => `${ruta}: missing export default`,
   faltaComponente: (camino) => `${camino}: missing the page component (export default)`,
+  metodosSinServidor: (archivo) =>
+    `${archivo}: GET, POST, PUT… need a server to receive requests; use site: { mode: "server" }`,
+  sinResponse: (metodo, camino) => `${camino}: ${metodo} must return a Response (for example, Response.json(data))`,
 };
 
 const MENSAJES = { es: ES, en: EN };

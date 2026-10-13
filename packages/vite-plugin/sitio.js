@@ -31,6 +31,7 @@ import {
   ESQUELETO,
   esVariable,
   LISTA,
+  METODOS,
   nombresDe,
   peticionWeb,
   renderizar,
@@ -90,6 +91,10 @@ export function descubrir(dir) {
         rutas.push({ modulo: completo, segmentos: [], es404: true, archivo: false, carpeta: "" });
         continue;
       }
+      if (base === "500" && relativo === "") {
+        rutas.push({ modulo: completo, segmentos: [], es404: false, es500: true, archivo: false, carpeta: "" });
+        continue;
+      }
 
       const esGrupo = (t) => t.startsWith("(") && t.endsWith(")");
       const trozos = [...(relativo ? relativo.split(sep) : []), base].filter((t) => t !== "index" && !esGrupo(t));
@@ -138,7 +143,7 @@ export function descubrir(dir) {
   const forma = (r) => r.segmentos.map((t) => (t.startsWith(":") ? ":" : t.startsWith("*") ? "*" : t)).join("/");
   const vistas = new Map();
   for (const ruta of rutas) {
-    if (ruta.es404) continue;
+    if (ruta.es404 || ruta.es500) continue;
     const clave = forma(ruta);
     const otra = vistas.get(clave);
     if (otra && otra !== ruta.modulo) {
@@ -274,7 +279,7 @@ function codigoManejador(dirRutas, dirIslas, root) {
   const tabla = rutas.map((r, i) => {
     const suyos = r.marcos.map((m) => `k${marcos.indexOf(m)}`).join(", ");
     const previos = r.middlewares.map((m) => `w${middlewares.indexOf(m)}`).join(", ");
-    return `  { segmentos: ${JSON.stringify(r.segmentos)}, es404: ${r.es404}, archivo: ${r.archivo}, modulo: m${i}, marcos: [${suyos}], middlewares: [${previos}] },`;
+    return `  { segmentos: ${JSON.stringify(r.segmentos)}, es404: ${r.es404}, es500: ${r.es500 === true}, archivo: ${r.archivo}, modulo: m${i}, marcos: [${suyos}], middlewares: [${previos}] },`;
   });
   return `import { collectStyles, renderToString } from "ascua/server";
 import { append } from "ascua";
@@ -772,8 +777,12 @@ export function sitio(opciones) {
         // silencio, y un middleware —una sesión, una redirección— no tiene
         // petición sobre la que correr.
         for (const ruta of rutas) {
-          if ((await vite.ssrLoadModule(ruta.modulo)).actions) {
+          const modulo = await vite.ssrLoadModule(ruta.modulo);
+          if (modulo.actions) {
             throw new Error(paraDesarrollo().accionesSinServidor(relative(root, ruta.modulo)));
+          }
+          if (METODOS.some((metodo) => typeof modulo[metodo] === "function")) {
+            throw new Error(paraDesarrollo().metodosSinServidor(relative(root, ruta.modulo)));
           }
         }
         const conMiddleware = rutas.find((r) => r.middlewares.length > 0);
@@ -794,7 +803,11 @@ export function sitio(opciones) {
               archivo = join(salida, ...partes);
               contenido = pagina.cuerpo;
             } else {
-              archivo = ruta.es404 ? join(salida, "404.html") : join(salida, ...partes, "index.html");
+              archivo = ruta.es404
+                ? join(salida, "404.html")
+                : ruta.es500
+                  ? join(salida, "500.html")
+                  : join(salida, ...partes, "index.html");
               contenido = componer(construido.esqueleto, {
                 ...pagina,
                 ...conIslas(pagina.nombresIslas, mapa, construido),

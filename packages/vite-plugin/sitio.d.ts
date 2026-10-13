@@ -91,6 +91,31 @@ export interface ActionContext<P = Record<string, string>> {
  */
 export type Actions<P = Record<string, string>> = Record<string, (context: ActionContext<P>) => unknown>;
 
+/** Lo que recibe un método propio de la ruta: `GET`, `PUT`, `DELETE`… */
+export interface RequestContext<P = Record<string, string>> {
+  /** Los parámetros de la ruta: `{ id }` en `api/[id].ts`. */
+  params: P;
+  url: URL;
+  request: Request;
+  cookies: Cookies;
+  /** Lo que dejaron los middlewares. */
+  locals: Locals;
+}
+
+/**
+ * Un método propio de la ruta, como en Fresh: `export const PUT:
+ * RequestHandler = async ({ request }) => Response.json(…)`. Responde antes
+ * que la página o las acciones; los métodos que no lee la ruta dan un 405.
+ * Puede lanzar `redirect()` o `notFound()`. Necesita servidor.
+ */
+export type RequestHandler<P = Record<string, string>> = (context: RequestContext<P>) => Response | Promise<Response>;
+
+/** Lo que recibe `500.ts`, la página de un error que nadie capturó. */
+export interface ErrorPageProps {
+  /** Lo que se lanzó. Decide la página qué enseñar: en producción, mejor poco. */
+  error: unknown;
+}
+
 /**
  * Manda al navegador a otra página. Por defecto un 303: la pide con GET y
  * recargar no reenvía el formulario. Una acción lo devuelve o lo lanza;

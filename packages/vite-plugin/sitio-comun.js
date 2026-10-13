@@ -317,12 +317,13 @@ export const tipoDe = (nombre) => TIPOS[/\.[a-z0-9]+$/i.exec(nombre)?.[0]?.toLow
  * @property {string[]} segmentos  `["pedidos", ":id"]`; vacío para `/`. `*rest`
  *   atrapa lo que queda de la URL: `[...rest].ts`.
  * @property {boolean} es404
+ * @property {boolean} [es500]   `500.ts`: la página de un error que nadie capturó.
  * @property {boolean} archivo    `busqueda.js.ts`: no es una página, es ese archivo.
  */
 
 /** ¿Encaja `camino` con la ruta? Devuelve los parámetros, o `null`. */
 export function encajar(ruta, camino) {
-  if (ruta.es404) return null;
+  if (ruta.es404 || ruta.es500) return null;
   let partes;
   try {
     partes = camino.split("/").filter(Boolean).map(decodeURIComponent);
@@ -359,6 +360,7 @@ export const esVariable = (ruta) => ruta.segmentos.some((s) => s.startsWith(":")
 /** `/pedidos/:id` con `{ id: "7" }` → `/pedidos/7`. */
 export function caminoDe(ruta, parametros) {
   if (ruta.es404) return "/404";
+  if (ruta.es500) return "/500";
   const partes = ruta.segmentos.map((s) => {
     if (!s.startsWith(":") && !s.startsWith("*")) return s;
     const valor = parametros[s.slice(1)];
@@ -425,8 +427,8 @@ export function componer(esqueleto, { html, css, title: titulo, description: des
  * Lo que recibe la página, su título y su descripción: parámetros, datos y,
  * tras una acción, lo que devolvió.
  */
-async function propsDe(modulo, parametros, contexto, form) {
-  const props = { ...parametros };
+async function propsDe(modulo, parametros, contexto, form, extra) {
+  const props = { ...parametros, ...extra };
   if (typeof modulo.load === "function") props.data = await modulo.load({ ...parametros }, contexto);
   if (form !== undefined) props.form = form;
   return props;
@@ -446,8 +448,8 @@ const valorDe = (campo, props) => (typeof campo === "function" ? campo(props) : 
  *
  * @returns {Promise<{ tipo: string, cuerpo: string | Uint8Array, nombresIslas?: Set<string>, html?: string, css?: string, title?: string, description?: string }>}
  */
-export async function renderizar({ ruta, modulo, marcos = [], parametros, camino, ascua, contexto = {}, form }) {
-  const props = await propsDe(modulo, parametros, contexto, form);
+export async function renderizar({ ruta, modulo, marcos = [], parametros, camino, ascua, contexto = {}, form, extra }) {
+  const props = await propsDe(modulo, parametros, contexto, form, extra);
 
   if (ruta.archivo) {
     if (typeof modulo.default !== "function") throw new Error(paraDesarrollo().faltaDefault(`/${ruta.segmentos.join("/")}`));
@@ -483,6 +485,15 @@ export async function renderizar({ ruta, modulo, marcos = [], parametros, camino
 // ---------------------------------------------------------------------------
 // Atender una petición: lo mismo en desarrollo y en el servidor.
 
+/**
+ * Los métodos que una ruta puede atender con una función propia, como en
+ * Fresh: `export async function PUT(ctx) { return Response.json(…) }`.
+ */
+export const METODOS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"];
+
+/** Los que leen: no cambian nada, así que no se mira de dónde vienen. */
+const SEGUROS = new Set(["GET", "HEAD", "OPTIONS"]);
+
 /** Lo que se acepta de cuerpo en un POST si no se dice otra cosa: 1 MiB. */
 export const LIMITE_CUERPO = 1024 * 1024;
 
@@ -512,6 +523,14 @@ function porHttps(peticion, url) {
  * va en `status`. Solo un rechazo (otro origen, una acción que no existe)
  * lleva su código de error.
  *
+ * Si la ruta exporta una función con el nombre del método —`GET`, `PUT`,
+ * `DELETE`…—, responde ella con su `Response`, antes que la página o las
+ * acciones. Las que no leen solo corren si vienen del mismo origen.
+ *
+ * Un error que nadie captura pinta `500.ts`, si la hay, con el error en
+ * `props.error`. Salvo en una ruta de archivo, un método propio o `enhance()`,
+ * que esperan otra cosa que una página: ahí sigue el error.
+ *
  * Antes de todo eso corren los `_middleware.ts` de la ruta, del de fuera al
  * de dentro: pueden redirigir, dar la 404, dejar datos en `locals` para
  * `load()`, las acciones y los layouts, y añadir cabeceras con `setHeaders`.
@@ -535,6 +554,8 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
   const contexto = { url, request: peticion, cookies, locals };
   /** Las cabeceras de `setHeaders`: van en cualquier respuesta, y mandan sobre las del kit. */
   const extra = {};
+  /** Si respondió un método propio: un error ahí no es una página. */
+  let enMetodo = false;
 
   const conCookies = (respuesta) => {
     Object.assign(respuesta.headers, extra);
@@ -635,12 +656,88 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
     if (llamado) return dentro === sinRespuesta ? null : completar(await deResponse(dentro));
     return cadena(i + 1);
   };
-  return cadena(0);
+  try {
+    return await cadena(0);
+  } catch (error) {
+    const deError = rutas.find((r) => r.es500);
+    if (!deError || comoDatos || enMetodo || ruta.archivo) throw error;
+    console.error(error);
+    try {
+      const cargada = await cargar(deError);
+      const pagina = await renderizar({
+        ruta: deError,
+        modulo: cargada.modulo,
+        marcos: cargada.marcos,
+        parametros: {},
+        camino: "/500",
+        ascua,
+        contexto,
+        extra: { error },
+      });
+      const respuesta = await comoPagina(pagina, 500);
+      respuesta.headers["cache-control"] = "no-store";
+      return respuesta;
+    } catch {
+      // Si la página de error también falla, el error de verdad es el primero.
+      throw error;
+    }
+  }
+
+  /** Una página ya pintada, con su HTML entero y las cabeceras de seguridad. */
+  async function comoPagina(pagina, status) {
+    const html = await componerPagina(pagina);
+    const headers = { "content-type": pagina.tipo };
+    if (seguridad !== false) {
+      const csp =
+        seguridad.csp === false ? undefined : await contentSecurityPolicy(html, { directives: seguridad.csp ?? {}, wasm: seguridad.wasm });
+      Object.assign(
+        headers,
+        securityHeaders({ csp, reportOnly: desarrollo, hsts: !desarrollo && porHttps(peticion, url), headers: seguridad.headers }),
+      );
+    }
+    // Lo que depende de quién pregunta no se guarda en cachés compartidas.
+    if (metodo === "POST" || cookies.headers().length > 0) headers["cache-control"] = "private, no-store";
+    return conCookies({ status, headers, body: html });
+  }
 
   async function resto() {
   const conAcciones = estado === 200 && !ruta.archivo && modulo.actions && typeof modulo.actions === "object";
+  const propios = METODOS.filter((m) => typeof modulo[m] === "function");
+  /** Lo que la ruta atiende, para el `allow` de un 405. */
+  const permitidos = () => {
+    const lista = new Set();
+    if (typeof modulo.default === "function" || propios.includes("GET")) lista.add("GET").add("HEAD");
+    if (conAcciones) lista.add("POST");
+    for (const m of propios) lista.add(m);
+    return [...lista].join(", ");
+  };
+
+  // Un método propio: `export async function PUT(ctx)` responde un PUT.
+  const nombre = metodo === "HEAD" ? "GET" : metodo;
+  if (estado === 200 && propios.includes(nombre)) {
+    if (!SEGUROS.has(metodo) && seguridad !== false && !checkOrigin(peticion, { origins: seguridad.origins })) {
+      return texto(403, paraUsuario().otroOrigenPeticion);
+    }
+    enMetodo = true;
+    let devuelto;
+    try {
+      devuelto = await modulo[nombre]({ params: { ...parametros }, url, request: peticion, cookies, locals });
+    } catch (error) {
+      const destino = redireccionDe(error);
+      if (destino) return redirigir(destino);
+      if (!esNoExiste(error)) throw error;
+      enMetodo = false;
+      if (!(await aLa404())) return null;
+    }
+    if (estado === 200) {
+      const destino = redireccionDe(devuelto);
+      if (destino) return redirigir(destino);
+      if (!(devuelto instanceof Response)) throw new Error(paraDesarrollo().sinResponse(nombre, camino));
+      return completar(await deResponse(devuelto));
+    }
+  }
   if (metodo === "POST" && estado === 200) {
-    if (!conAcciones) return rechazar(405, paraUsuario().sinFormularios, { allow: "GET, HEAD" });
+    if (!conAcciones) return rechazar(405, paraUsuario().sinFormularios, { allow: permitidos() });
     if (seguridad !== false && !checkOrigin(peticion, { origins: seguridad.origins })) {
       return rechazar(403, paraUsuario().otroOrigen);
     }
@@ -683,7 +780,10 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
       }
     }
   } else if (metodo !== "GET" && metodo !== "HEAD" && estado === 200) {
-    return texto(405, paraUsuario().metodo, { allow: conAcciones ? "GET, HEAD, POST" : "GET, HEAD" });
+    return texto(405, paraUsuario().metodo, { allow: permitidos() });
+  } else if (estado === 200 && !ruta.archivo && typeof modulo.default !== "function" && propios.length > 0) {
+    // Solo métodos propios, sin página: un GET que no está entre ellos.
+    return texto(405, paraUsuario().metodo, { allow: permitidos() });
   }
 
   const pintar = () => renderizar({ ruta, modulo, marcos, parametros, camino, ascua, contexto, form });
@@ -703,19 +803,7 @@ export async function responder({ peticion, camino, rutas, cargar, ascua, compon
     return conCookies({ status: estado, headers: { "content-type": pagina.tipo, "x-content-type-options": "nosniff" }, body: pagina.cuerpo });
   }
 
-  const html = await componerPagina(pagina);
-  const headers = { "content-type": pagina.tipo };
-  if (seguridad !== false) {
-    const csp =
-      seguridad.csp === false ? undefined : await contentSecurityPolicy(html, { directives: seguridad.csp ?? {}, wasm: seguridad.wasm });
-    Object.assign(
-      headers,
-      securityHeaders({ csp, reportOnly: desarrollo, hsts: !desarrollo && porHttps(peticion, url), headers: seguridad.headers }),
-    );
-  }
-  // Lo que depende de quién pregunta no se guarda en cachés compartidas.
-  if (metodo === "POST" || cookies.headers().length > 0) headers["cache-control"] = "private, no-store";
-  return conCookies({ status: estado, headers, body: html });
+  return comoPagina(pagina, estado);
   }
 }
 
