@@ -81,6 +81,11 @@ pub trait Backend: 'static {
     fn set_attribute(&self, node: &Self::Node, name: &str, value: &str);
     fn remove_attribute(&self, node: &Self::Node, name: &str);
 
+    /// Avisa de algo que el runtime no escribió (una URL `javascript:`, un
+    /// `srcdoc` sin `sandbox`). Por defecto no hace nada; [`crate::WebBackend`]
+    /// lo manda a la consola.
+    fn warn(&self, _message: &str) {}
+
     /// Escribe una propiedad del nodo (ver [`PropValue`]).
     ///
     /// Por defecto la escribe como atributo, que es lo que vale cuando no hay

@@ -46,6 +46,7 @@ mod hydrate;
 mod list;
 mod memory;
 mod refs;
+mod seguro;
 mod ssr;
 #[cfg(feature = "web")]
 mod web;

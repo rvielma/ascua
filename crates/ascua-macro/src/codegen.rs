@@ -148,7 +148,12 @@ impl Generator {
                             AttributeValue::Class { .. } | AttributeValue::Style { .. }
                         )
                     });
-                for attribute in attributes.into_iter().chain(sueltos) {
+                // Los literales primero: un `srcdoc={…}` mira si el `<iframe>`
+                // ya tiene `sandbox`, esté escrito antes o después.
+                let (literales, attributes): (Vec<&Attribute>, Vec<&Attribute>) = attributes
+                    .into_iter()
+                    .partition(|a| matches!(a.value, AttributeValue::Literal(_)));
+                for attribute in literales.into_iter().chain(attributes).chain(sueltos) {
                     statements.push(generate_attribute(&id, attribute));
                 }
                 for child in &element.children {
@@ -298,7 +303,7 @@ fn generate_attribute(node: &Ident, attribute: &Attribute) -> TokenStream {
             if let ::std::option::Option::Some(__ascua_v) =
                 ::ascua::IntoAttrValue::into_attr_value(#expr)
             {
-                __ascua_dom.set_attr(&#node, #name, &__ascua_v);
+                __ascua_dom.set_attr_value(&#node, #name, &__ascua_v);
             }
         },
         AttributeValue::Dynamic(closure) => quote! {

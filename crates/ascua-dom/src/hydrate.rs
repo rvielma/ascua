@@ -294,6 +294,10 @@ impl<B: Backend> Backend for HydratingBackend<B> {
         self.operar(node, Operacion::RemoveAttribute(name.to_string()));
     }
 
+    fn warn(&self, message: &str) {
+        self.inner.warn(message);
+    }
+
     fn insert(&self, parent: &Self::Node, child: &Self::Node, before: Option<&Self::Node>) {
         let padre_real = self.materializar(parent);
         let hijo_resuelto = child.0.borrow().real.clone();
@@ -334,8 +338,20 @@ impl<B: Backend> Backend for HydratingBackend<B> {
     }
 
     fn attribute(&self, node: &Self::Node, name: &str) -> Option<String> {
-        let real = node.0.borrow().real.clone()?;
-        self.inner.attribute(&real, name)
+        let slot = node.0.borrow();
+        match &slot.real {
+            Some(real) => self.inner.attribute(real, name),
+            // Sin nodo real todavía, lo último que se le escribió.
+            None => slot
+                .diferidas
+                .iter()
+                .rev()
+                .find_map(|operacion| match operacion {
+                    Operacion::Attribute(n, valor) if n == name => Some(Some(valor.clone())),
+                    Operacion::RemoveAttribute(n) if n == name => Some(None),
+                    _ => None,
+                })?,
+        }
     }
 
     fn set_property(&self, node: &Self::Node, name: &str, value: &PropValue) {

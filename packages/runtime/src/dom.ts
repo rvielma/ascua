@@ -411,6 +411,28 @@ function urlSegura(nombre: string, valor: string): string {
 }
 
 /**
+ * `srcdoc` es una página entera que corre en el origen del sitio: por un hueco
+ * es lo mismo que un `innerHTML` con datos de fuera. Solo se escribe si el
+ * `<iframe>` ya tiene `sandbox`, y no con `allow-scripts` y
+ * `allow-same-origin` juntos, que le dejan quitarse el sandbox.
+ */
+function srcdocSeguro(nodo: Element, valor: string): string {
+  const sandbox = nodo.getAttribute("sandbox");
+  const permisos = sandbox?.toLowerCase().split(/\s+/) ?? [];
+  if (sandbox !== null && !(permisos.includes("allow-scripts") && permisos.includes("allow-same-origin"))) {
+    return valor;
+  }
+  console.error("Ascua bloqueó un `srcdoc` sin `sandbox`. Escribe `sandbox` literal en el <iframe> (sin `allow-scripts` y `allow-same-origin` juntos).");
+  return "";
+}
+
+/** Lo que se escribe en un atributo o propiedad que llega por un hueco. */
+function valorSeguro(nodo: Element, nombre: string, valor: string): string {
+  if (nombre.toLowerCase() === "srcdoc") return srcdocSeguro(nodo, valor);
+  return urlSegura(nombre, valor);
+}
+
+/**
  * Atributo atado a una expresión.
  *
  * `false`, `null` y `undefined` **quitan** el atributo: así se expresan los
@@ -422,7 +444,7 @@ export function attribute(nodo: Element, nombre: string, calcular: () => Attribu
     if (valor === false || valor === null || valor === undefined) {
       nodo.removeAttribute(nombre);
     } else {
-      nodo.setAttribute(nombre, valor === true ? "" : urlSegura(nombre, String(valor)));
+      nodo.setAttribute(nombre, valor === true ? "" : valorSeguro(nodo, nombre, String(valor)));
     }
   });
 }
@@ -439,7 +461,7 @@ export function property(nodo: Element, nombre: string, calcular: () => unknown)
   effect(() => {
     const valor = calcular();
     (nodo as unknown as Record<string, unknown>)[nombre] =
-      typeof valor === "string" ? urlSegura(nombre, valor) : valor;
+      typeof valor === "string" ? valorSeguro(nodo, nombre, valor) : valor;
   });
 }
 
@@ -459,7 +481,7 @@ export function cssClass(nodo: Element, nombre: string, calcular: () => unknown)
 /** Atributo que no cambia nunca. */
 export function staticAttribute(nodo: Element, nombre: string, valor: AttributeValue): void {
   if (valor === false || valor === null || valor === undefined) return;
-  nodo.setAttribute(nombre, valor === true ? "" : urlSegura(nombre, String(valor)));
+  nodo.setAttribute(nombre, valor === true ? "" : valorSeguro(nodo, nombre, String(valor)));
 }
 
 /**

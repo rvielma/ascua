@@ -73,3 +73,55 @@ describe("URLs javascript:", () => {
     expect(html).toContain("javascript:throw");
   });
 });
+
+describe("srcdoc", () => {
+  const pagina = "<script>parent.document.cookie</script>";
+
+  function iframe(sandbox?: string) {
+    const nodo = element("iframe");
+    if (sandbox !== undefined) nodo.setAttribute("sandbox", sandbox);
+    return nodo;
+  }
+
+  it("sin sandbox no se escribe", () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    const nodo = iframe();
+    staticAttribute(nodo, "srcdoc", pagina);
+    expect(nodo.getAttribute("srcdoc")).toBe("");
+    expect(error).toHaveBeenCalled();
+  });
+
+  it("con allow-scripts y allow-same-origin juntos tampoco", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const nodo = iframe("allow-same-origin  allow-scripts");
+    staticAttribute(nodo, "srcdoc", pagina);
+    expect(nodo.getAttribute("srcdoc")).toBe("");
+  });
+
+  it("con sandbox se escribe, también reactivo y con prop:", () => {
+    for (const sandbox of ["", "allow-scripts", "allow-same-origin allow-forms"]) {
+      const nodo = iframe(sandbox);
+      staticAttribute(nodo, "srcdoc", pagina);
+      expect(nodo.getAttribute("srcdoc"), JSON.stringify(sandbox)).toBe(pagina);
+    }
+    const contenido = signal("<p>uno</p>");
+    const nodo = iframe("");
+    root(() => attribute(nodo, "srcdoc", () => contenido()));
+    contenido.set("<p>dos</p>");
+    expect(nodo.getAttribute("srcdoc")).toBe("<p>dos</p>");
+
+    const otro = iframe("");
+    root(() => property(otro, "srcdoc", () => "<p>tres</p>"));
+    expect((otro as HTMLIFrameElement).srcdoc).toBe("<p>tres</p>");
+  });
+
+  it("y en el HTML que sale del servidor", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const html = renderToString(() => {
+      const nodo = element("iframe");
+      staticAttribute(nodo, "srcdoc", pagina);
+      return nodo;
+    });
+    expect(html).not.toContain("cookie");
+  });
+});

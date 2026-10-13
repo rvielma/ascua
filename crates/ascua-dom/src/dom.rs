@@ -14,6 +14,22 @@ use ascua_reactive::{
 };
 
 use crate::backend::{Backend, GlobalTarget, PropValue};
+use crate::seguro::valor_seguro;
+
+/// [`valor_seguro`] para una propiedad: solo un texto puede ser una URL.
+fn prop_segura<B: Backend>(
+    backend: &B,
+    node: &B::Node,
+    name: &str,
+    value: &PropValue,
+) -> PropValue {
+    match value {
+        PropValue::Text(texto) => {
+            PropValue::Text(valor_seguro(backend, node, name, texto).into_owned())
+        }
+        otro => otro.clone(),
+    }
+}
 
 /// Handle sobre un backend, clonable a coste de un `Rc`.
 ///
@@ -85,6 +101,13 @@ impl<B: Backend> Dom<B> {
         self.backend.set_attribute(node, name, value);
     }
 
+    /// Como [`Dom::set_attr`], para un valor que llega por una expresión: no
+    /// escribe una URL `javascript:` ni un `srcdoc` sin `sandbox`.
+    pub fn set_attr_value(&self, node: &B::Node, name: &str, value: &str) {
+        let valor = valor_seguro(&*self.backend, node, name, value);
+        self.backend.set_attribute(node, name, &valor);
+    }
+
     // --- bindings reactivos ----------------------------------------------
 
     /// Crea un nodo de texto cuyo contenido sigue a `f`.
@@ -122,7 +145,10 @@ impl<B: Backend> Dom<B> {
         let node = node.clone();
         let name = name.into();
         create_effect(move || match f() {
-            Some(value) => backend.set_attribute(&node, &name, &value),
+            Some(value) => {
+                let valor = valor_seguro(&*backend, &node, &name, &value);
+                backend.set_attribute(&node, &name, &valor);
+            }
             None => backend.remove_attribute(&node, &name),
         });
     }
@@ -169,7 +195,8 @@ impl<B: Backend> Dom<B> {
 
     /// Escribe una propiedad del nodo una vez (`prop:value={expr}`).
     pub fn set_prop(&self, node: &B::Node, name: &str, value: &PropValue) {
-        self.backend.set_property(node, name, value);
+        self.backend
+            .set_property(node, name, &prop_segura(&*self.backend, node, name, value));
     }
 
     /// Ata una propiedad a `f` (`prop:value={move || …}`).
@@ -187,7 +214,7 @@ impl<B: Backend> Dom<B> {
         let node = node.clone();
         let name = name.into();
         create_effect(move || {
-            let valor = f();
+            let valor = prop_segura(&*backend, &node, &name, &f());
             let logico = matches!(valor, PropValue::Bool(_));
             if backend.property(&node, &name, logico).as_ref() != Some(&valor) {
                 backend.set_property(&node, &name, &valor);

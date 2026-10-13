@@ -105,6 +105,10 @@ impl Backend for WebBackend {
         }
     }
 
+    fn warn(&self, message: &str) {
+        web_sys::console::error_1(&JsValue::from_str(message));
+    }
+
     fn set_property(&self, node: &Node, name: &str, value: &PropValue) {
         let valor = match value {
             PropValue::Text(texto) => JsValue::from_str(texto),
