@@ -10,7 +10,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { ISLAND_PROPS_ATTR, append, dynamicText, element, hydrate, on, text } from "../src/dom.js";
-import { defineIsland, p, type StandardSchema } from "../src/isla.js";
+import { defineIsland, p, serializeProps, type StandardSchema } from "../src/isla.js";
 import { signal } from "../src/reactivo.js";
 import { renderToString } from "../src/server.js";
 
@@ -126,6 +126,88 @@ describe("defineIsland", () => {
     hydrate([IslaContador]);
     isla.querySelector("button")!.click();
     expect(isla.textContent).toBe("1");
+  });
+});
+
+describe("props ricas", () => {
+  interface Agenda {
+    desde: Date;
+    enlace: URL;
+    total: bigint;
+    plazas: Map<string, number>;
+    etiquetas: Set<string>;
+  }
+
+  /** Pinta lo que recibió, para comprobar los tipos en el cliente. */
+  function Vista(props: Agenda) {
+    const div = element("div");
+    const desc = [
+      props.desde instanceof Date && props.desde.toISOString(),
+      props.enlace instanceof URL && props.enlace.hostname,
+      typeof props.total === "bigint" && String(props.total + 1n),
+      props.plazas instanceof Map && props.plazas.get("sala"),
+      props.etiquetas instanceof Set && [...props.etiquetas].join("+"),
+    ].join(" ");
+    append(div, text(desc));
+    return div;
+  }
+
+  const IslaAgenda = defineIsland(
+    "agenda",
+    {
+      desde: p.date,
+      enlace: p.url,
+      total: p.bigint,
+      plazas: p.map(p.string, p.number),
+      etiquetas: p.set(p.string),
+    },
+    Vista,
+  );
+
+  const datos: Agenda = {
+    desde: new Date("2026-10-13T10:30:00.000Z"),
+    enlace: new URL("https://asiste.run/citas"),
+    total: 9007199254740993n,
+    plazas: new Map([["sala", 4]]),
+    etiquetas: new Set(["urgente", "control"]),
+  };
+
+  it("viajan del servidor al cliente con su tipo", () => {
+    const isla = servir(() => IslaAgenda(datos));
+    // En el servidor se pintó con los valores ricos.
+    const esperado = "2026-10-13T10:30:00.000Z asiste.run 9007199254740994 4 urgente+control";
+    expect(isla.textContent).toBe(esperado);
+    // Al hidratar, el cliente reconstruye cada tipo desde el JSON.
+    const { created } = hydrate([IslaAgenda]);
+    expect(created).toBe(0);
+    document.body.innerHTML = "";
+    const props = JSON.parse(serializeProps(datos));
+    const reconstruida = IslaAgenda.prepare(JSON.stringify(props))!();
+    expect((reconstruida as HTMLElement).textContent).toBe(esperado);
+  });
+
+  it("serializeProps escribe lo que JSON no sabe", () => {
+    expect(JSON.parse(serializeProps(datos))).toEqual({
+      desde: "2026-10-13T10:30:00.000Z",
+      enlace: "https://asiste.run/citas",
+      total: "9007199254740993",
+      plazas: [["sala", 4]],
+      etiquetas: ["urgente", "control"],
+    });
+    // Sin el reemplazo, un bigint rompe el render.
+    expect(() => JSON.stringify({ total: 1n })).toThrow();
+  });
+
+  it("lo que no encaja deja la isla estática y dice dónde", () => {
+    const errores = capturarErrores();
+    const isla = servir(() => IslaAgenda(datos));
+    conProps(isla, serializeProps({ ...datos, plazas: [["sala", "cuatro"]] }));
+    hydrate([IslaAgenda]);
+    expect(errores[0]).toContain("plazas[0]: se esperaba number");
+
+    conProps(isla, serializeProps({ ...datos, desde: "ayer" }));
+    hydrate([IslaAgenda]);
+    expect(errores[1]).toContain("desde: se esperaba una fecha válida");
   });
 });
 

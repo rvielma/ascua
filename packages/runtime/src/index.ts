@@ -72,6 +72,7 @@ export {
 
 export {
   defineIsland,
+  serializeProps,
   p,
   type Infer,
   type InferShape,

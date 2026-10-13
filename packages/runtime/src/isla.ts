@@ -97,11 +97,12 @@ function primitivo<T>(tipo: string): StandardSchema<T> {
 }
 
 /**
- * Esquemas para los props de una isla. Describen lo que cabe en JSON, que es
- * lo que viaja.
+ * Esquemas para los props de una isla. Lo que viaja es JSON; para lo que no
+ * cabe en él —fechas, `Map`, `BigInt`—, el esquema dice en qué se convierte
+ * al llegar.
  *
  * ```ts
- * { inicial: p.number, etiqueta: p.optional(p.string) }
+ * { inicial: p.number, etiqueta: p.optional(p.string), desde: p.date }
  * ```
  */
 export const p = {
@@ -146,7 +147,81 @@ export const p = {
   nullable<T>(interior: StandardSchema<T>): StandardSchema<T | null> {
     return esquema<T | null>((valor) => (valor === null ? { value: null } : validar(interior, valor)));
   },
+
+  /** Un `Date`. Viaja como texto ISO; llega como `Date`. */
+  date: esquema<Date>((valor) => {
+    if (typeof valor !== "string" && typeof valor !== "number") return fallo("una fecha", valor);
+    const fecha = new Date(valor);
+    return Number.isNaN(fecha.getTime()) ? fallo("una fecha válida", valor) : { value: fecha };
+  }),
+
+  /** Una `URL` absoluta. */
+  url: esquema<URL>((valor) => {
+    if (typeof valor !== "string") return fallo("una URL", valor);
+    try {
+      return { value: new URL(valor) };
+    } catch {
+      return fallo("una URL válida", valor);
+    }
+  }),
+
+  /** Un `bigint`. Viaja como texto, que JSON no tiene enteros grandes. */
+  bigint: esquema<bigint>((valor) => {
+    if (typeof valor !== "string" && typeof valor !== "number") return fallo("un bigint", valor);
+    try {
+      return { value: BigInt(valor) };
+    } catch {
+      return fallo("un bigint", valor);
+    }
+  }),
+
+  /** Un `Map`. Viaja como lista de pares `[clave, valor]`. */
+  map<K, V>(clave: StandardSchema<K>, valor: StandardSchema<V>): StandardSchema<Map<K, V>> {
+    return esquema((entrada) => {
+      if (!Array.isArray(entrada)) return fallo("un Map (lista de pares)", entrada);
+      const salida = new Map<K, V>();
+      for (let i = 0; i < entrada.length; i++) {
+        const par = entrada[i];
+        if (!Array.isArray(par) || par.length !== 2) return bajo(i, fallo("un par [clave, valor]", par).issues);
+        const k = validar(clave, par[0]);
+        if (k.issues) return bajo(i, k.issues);
+        const v = validar(valor, par[1]);
+        if (v.issues) return bajo(i, v.issues);
+        salida.set(k.value, v.value);
+      }
+      return { value: salida };
+    });
+  },
+
+  /** Un `Set`. Viaja como lista. */
+  set<T>(elemento: StandardSchema<T>): StandardSchema<Set<T>> {
+    return esquema((entrada) => {
+      if (!Array.isArray(entrada)) return fallo("un Set (lista)", entrada);
+      const salida = new Set<T>();
+      for (let i = 0; i < entrada.length; i++) {
+        const resultado = validar(elemento, entrada[i]);
+        if (resultado.issues) return bajo(i, resultado.issues);
+        salida.add(resultado.value);
+      }
+      return { value: salida };
+    });
+  },
 };
+
+/**
+ * Los props como texto para el HTML. JSON, salvo lo que JSON no sabe
+ * escribir: un `Map` va como lista de pares, un `Set` como lista y un
+ * `bigint` como texto —sin esto, `JSON.stringify` lanza—. `Date` y `URL` ya
+ * se escriben como texto por su cuenta.
+ */
+export function serializeProps(props: unknown): string {
+  return JSON.stringify(props, (_clave, valor: unknown) => {
+    if (valor instanceof Map) return [...valor];
+    if (valor instanceof Set) return [...valor];
+    if (typeof valor === "bigint") return valor.toString();
+    return valor;
+  });
+}
 
 // ---------------------------------------------------------------------------
 // La isla.
@@ -191,7 +266,7 @@ export function defineIsland<S extends StandardSchema | Shape>(
   const validador = ("~standard" in esquema ? esquema : p.object(esquema as Shape)) as StandardSchema<Props<S>>;
 
   const isla = ((props: Props<S>) =>
-    island(nombre, () => componente(props), JSON.stringify(props))) as Island<Props<S>> & {
+    island(nombre, () => componente(props), serializeProps(props))) as Island<Props<S>> & {
     name: string;
     prepare: Island<Props<S>>["prepare"];
   };
