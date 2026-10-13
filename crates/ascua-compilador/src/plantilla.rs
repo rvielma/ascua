@@ -194,8 +194,9 @@ pub fn parsear_con_saltos(
     // necesita un padre donde vivir. Como raíz no hay dónde ponerlo.
     if let Nodo::Componente(componente) = &raiz {
         if matches!(componente.nombre.as_str(), SHOW | FOR | ELSE) {
-            return Err(parser.error(&format!(
+            return Err(parser.error(&msg!(
                 "<{}> necesita un elemento donde anclarse; envuélvelo",
+                "<{}> needs an element to anchor to; wrap it",
                 componente.nombre
             )));
         }

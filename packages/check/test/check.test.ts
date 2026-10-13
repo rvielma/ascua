@@ -7,7 +7,7 @@
 import { existsSync } from "node:fs";
 import { join, relative } from "node:path";
 
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { check } from "../src/index.js";
 
@@ -79,5 +79,16 @@ describe("ascua-check", () => {
 
   it("sin tsconfig lo dice", async () => {
     await expect(check({ project: join(PROYECTO, "no-existe.json") })).rejects.toThrow(/no existe/);
+  });
+
+  it("en inglés con LANG en inglés, también lo que viene del compilador", async () => {
+    vi.stubEnv("LANG", "en_US.UTF-8");
+    try {
+      await expect(check({ project: join(PROYECTO, "no-existe.json") })).rejects.toThrow(/does not exist/);
+      const roto = join(__dirname, "fixtures/roto/tsconfig.json");
+      await expect(check({ project: roto })).rejects.toThrow(/src\/raiz\.ts: line \d+: <Show> needs an element/);
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

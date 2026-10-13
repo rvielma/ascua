@@ -17,7 +17,11 @@ fn main() -> ExitCode {
     let argumentos: Vec<String> = std::env::args().skip(1).collect();
 
     if argumentos.iter().any(|a| a == "-h" || a == "--help") {
-        println!("{}", AYUDA);
+        let ayuda = match ascua_compilador::idioma::Idioma::del_entorno() {
+            ascua_compilador::idioma::Idioma::Es => AYUDA,
+            ascua_compilador::idioma::Idioma::En => HELP,
+        };
+        println!("{ayuda}");
         return ExitCode::SUCCESS;
     }
     if argumentos.iter().any(|a| a == "-V" || a == "--version") {
@@ -137,3 +141,15 @@ OPCIONES:
         --source RUTA     el nombre del archivo dentro del source map
     -h, --help            muestra esta ayuda
     -V, --version         muestra la versión";
+
+const HELP: &str = "\
+ascuac — compiles Ascua templates to DOM operations
+
+USAGE:
+    ascuac [FILE]         compiles FILE (or standard input) to stdout
+
+OPTIONS:
+        --json            writes {\"code\", \"css\", \"map\"} instead of just the code
+        --source PATH     the file name inside the source map
+    -h, --help            shows this help
+    -V, --version         shows the version";

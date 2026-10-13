@@ -51,7 +51,7 @@ const SOMBRA = ".ascua-check";
  */
 export async function check({ project = "tsconfig.json", cwd = process.cwd(), keep = false } = {}) {
   const config = resolve(cwd, project);
-  if (!existsSync(config)) throw new Error(`no existe ${relative(cwd, config) || config}`);
+  if (!existsSync(config)) throw new Error(textos().noExiste(relative(cwd, config) || config));
   const raiz = dirname(config);
   const tsc = localizarTsc(config);
   const compilar = localizarCompilador(config);
@@ -114,7 +114,7 @@ export async function check({ project = "tsconfig.json", cwd = process.cwd(), ke
 /** La línea de comandos. Devuelve el código de salida. */
 export async function main(argumentos) {
   if (argumentos.includes("-h") || argumentos.includes("--help")) {
-    console.log(AYUDA);
+    console.log(textos().ayuda);
     return 0;
   }
   const indice = argumentos.findIndex((a) => a === "-p" || a === "--project");
@@ -137,18 +137,17 @@ export async function main(argumentos) {
 
   const errores = diagnosticos.filter((d) => d.severity === "error");
   if (errores.length === 0) {
-    console.log(pintar(32, `✓ sin errores de tipos`) + ` · ${archivos} archivos, ${conPlantillas} con plantillas`);
+    const t = textos();
+    console.log(pintar(32, t.limpio) + ` · ${t.resumen(archivos, conPlantillas)}`);
     return 0;
   }
   const enArchivos = new Set(errores.map((d) => d.file)).size;
-  console.log(
-    pintar(31, `✗ ${errores.length} ${errores.length === 1 ? "error" : "errores"}`) +
-      ` en ${enArchivos} ${enArchivos === 1 ? "archivo" : "archivos"}`,
-  );
+  const t = textos();
+  console.log(pintar(31, `✗ ${t.errores(errores.length)}`) + ` ${t.enArchivos(enArchivos)}`);
   return 1;
 }
 
-const AYUDA = `ascua-check — comprueba los tipos, también dentro de las plantillas
+const AYUDA_ES = `ascua-check — comprueba los tipos, también dentro de las plantillas
 
 USO:
     ascua-check [-p tsconfig.json]
@@ -160,6 +159,50 @@ OPCIONES:
 
 Usa el typescript instalado en el proyecto, sea el 5 o el 7.`;
 
+const AYUDA_EN = `ascua-check — checks types, also inside templates
+
+USAGE:
+    ascua-check [-p tsconfig.json]
+
+OPTIONS:
+    -p, --project PATH   the project's tsconfig (default: tsconfig.json)
+        --keep           keeps .ascua-check/ when done: shows what tsc checked
+    -h, --help           shows this help
+
+Uses the typescript installed in the project, 5 or 7.`;
+
+/** Lo que dice la herramienta, en el idioma de `LANG`. */
+const TEXTOS = {
+  es: {
+    ayuda: AYUDA_ES,
+    limpio: "✓ sin errores de tipos",
+    resumen: (archivos, conPlantillas) => `${archivos} archivos, ${conPlantillas} con plantillas`,
+    errores: (n) => `${n} ${n === 1 ? "error" : "errores"}`,
+    enArchivos: (n) => `en ${n} ${n === 1 ? "archivo" : "archivos"}`,
+    noExiste: (ruta) => `no existe ${ruta}`,
+    sinTypescript: "hace falta typescript en el proyecto: stil add -D typescript (o npm install -D typescript)",
+    sinTsc: (dir) => `el paquete typescript de ${dir} no trae tsc`,
+    sinCompilador: "no se encuentra ascua-compilador",
+    tscNoLee: (ruta) => `tsc no pudo leer ${ruta}`,
+    enConfiguracion: "en la configuración",
+  },
+  en: {
+    ayuda: AYUDA_EN,
+    limpio: "✓ no type errors",
+    resumen: (archivos, conPlantillas) => `${archivos} files, ${conPlantillas} with templates`,
+    errores: (n) => `${n} ${n === 1 ? "error" : "errors"}`,
+    enArchivos: (n) => `in ${n} ${n === 1 ? "file" : "files"}`,
+    noExiste: (ruta) => `${ruta} does not exist`,
+    sinTypescript: "the project needs typescript: stil add -D typescript (or npm install -D typescript)",
+    sinTsc: (dir) => `the typescript package in ${dir} has no tsc`,
+    sinCompilador: "ascua-compilador not found",
+    tscNoLee: (ruta) => `tsc could not read ${ruta}`,
+    enConfiguracion: "in the configuration",
+  },
+};
+
+const textos = () => TEXTOS[idioma()];
+
 // ---------------------------------------------------------------------------
 
 function localizarTsc(config) {
@@ -167,16 +210,16 @@ function localizarTsc(config) {
   try {
     paquete = createRequire(config).resolve("typescript/package.json");
   } catch {
-    throw new Error("hace falta typescript en el proyecto: stil add -D typescript (o npm install -D typescript)");
+    throw new Error(textos().sinTypescript);
   }
   const { bin } = JSON.parse(readFileSync(paquete, "utf8"));
   const tsc = typeof bin === "string" ? bin : bin?.tsc;
-  if (!tsc) throw new Error(`el paquete typescript de ${dirname(paquete)} no trae tsc`);
+  if (!tsc) throw new Error(textos().sinTsc(dirname(paquete)));
   return join(dirname(paquete), tsc);
 }
 
 /**
- * El idioma de los errores del compilador, de `LANG`, con la regla del kit:
+ * El idioma de quien usa la herramienta, de `LANG`, con la regla del kit:
  * español sin indicación o con `es*`, `C` o `POSIX`; inglés con otro. El wasm
  * no ve el entorno, así que se le pasa.
  */
@@ -196,7 +239,7 @@ function localizarCompilador(config) {
       // Se prueba el siguiente.
     }
   }
-  throw new Error("no se encuentra ascua-compilador");
+  throw new Error(textos().sinCompilador);
 }
 
 function mostrarConfig(tsc, config, raiz) {
@@ -204,7 +247,7 @@ function mostrarConfig(tsc, config, raiz) {
   try {
     return JSON.parse(ejecucion.stdout);
   } catch {
-    throw new Error(`tsc no pudo leer ${relative(raiz, config)}:\n${ejecucion.stdout}${ejecucion.stderr}`);
+    throw new Error(`${textos().tscNoLee(relative(raiz, config))}:\n${ejecucion.stdout}${ejecucion.stderr}`);
   }
 }
 
@@ -305,7 +348,7 @@ function devolver(diagnostico, raiz, sombra, mapas) {
   // Un error del tsconfig generado es un error del tuyo, pero sus líneas no
   // son las tuyas: se da sin posición.
   if (diagnostico.file === join(sombra, "tsconfig.json")) {
-    return { ...diagnostico, file: "", message: `en la configuración: ${diagnostico.message}` };
+    return { ...diagnostico, file: "", message: `${textos().enConfiguracion}: ${diagnostico.message}` };
   }
   const original = join(raiz, relative(sombra, diagnostico.file));
   const mapa = mapas.get(diagnostico.file);
