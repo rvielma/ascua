@@ -39,7 +39,16 @@ fn main() -> ExitCode {
 
     let fuente = match leer(ruta) {
         Ok(fuente) => fuente,
-        Err(error) => return fallar(&format!("no se pudo leer la entrada: {error}")),
+        Err(error) => {
+            return fallar(&match ascua_compilador::idioma::Idioma::del_entorno() {
+                ascua_compilador::idioma::Idioma::Es => {
+                    format!("no se pudo leer la entrada: {error}")
+                }
+                ascua_compilador::idioma::Idioma::En => {
+                    format!("could not read the input: {error}")
+                }
+            })
+        }
     };
 
     let json = argumentos.iter().any(|a| a == "--json");
@@ -52,7 +61,8 @@ fn main() -> ExitCode {
         .or(ruta)
         .unwrap_or("entrada.ts");
 
-    match ascua_compilador::compilar_con_origen(&fuente, origen) {
+    let idioma = ascua_compilador::idioma::Idioma::del_entorno();
+    match ascua_compilador::compilar_en_idioma(&fuente, origen, idioma) {
         Ok(salida) => {
             // Con --json salen el código y el CSS juntos, que es lo que
             // necesita un bundler para emitir la hoja de estilos.

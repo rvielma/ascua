@@ -21,6 +21,7 @@
 
 pub mod codegen;
 pub mod escaner;
+pub mod idioma;
 pub mod mapa;
 pub mod plantilla;
 #[cfg(feature = "wasm")]
@@ -39,11 +40,17 @@ pub struct Error {
     pub mensaje: String,
     /// Línea del archivo original donde está la plantilla que falló.
     pub linea: usize,
+    /// El idioma del mensaje, para que `Display` diga «línea» o «line».
+    pub idioma: idioma::Idioma,
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "línea {}: {}", self.linea, self.mensaje)
+        let linea = match self.idioma {
+            idioma::Idioma::Es => "línea",
+            idioma::Idioma::En => "line",
+        };
+        write!(f, "{linea} {}: {}", self.linea, self.mensaje)
     }
 }
 
@@ -71,6 +78,19 @@ pub struct Salida {
 /// Si alguna plantilla está mal formada.
 pub fn compilar(fuente: &str) -> Result<Salida, Error> {
     compilar_con_origen(fuente, "entrada.ts")
+}
+
+/// Como [`compilar_con_origen`], con los errores en `idioma` (por defecto,
+/// español).
+///
+/// # Errors
+/// Si alguna plantilla está mal formada.
+pub fn compilar_en_idioma(
+    fuente: &str,
+    origen: &str,
+    idioma: idioma::Idioma,
+) -> Result<Salida, Error> {
+    idioma::con(idioma, || compilar_con_origen(fuente, origen))
 }
 
 /// Compila y nombra el archivo de origen en el source map.
@@ -161,6 +181,7 @@ fn compilar_en(
                 Error {
                     mensaje: error.mensaje,
                     linea: linea_plantilla + 1,
+                    idioma: idioma::actual(),
                 }
             })?;
 
@@ -485,6 +506,24 @@ export function Contador() {
             "{}",
             salida.mapa
         );
+    }
+
+    #[test]
+    fn los_errores_salen_en_el_idioma_pedido() {
+        let fuente = "const a = 1;\nconst c = view`<div><p>x</div></p>`;\n";
+        let ingles =
+            compilar_en_idioma(fuente, "a.ts", idioma::Idioma::En).expect_err("debería fallar");
+        assert_eq!(ingles.to_string(), "line 2: </div> does not close <p>");
+        let espanol =
+            compilar_en_idioma(fuente, "a.ts", idioma::Idioma::Es).expect_err("debería fallar");
+        assert_eq!(espanol.to_string(), "línea 2: </div> no cierra <p>");
+        // El idioma dura lo que la compilación: después, español otra vez.
+        assert!(compilar(fuente)
+            .expect_err("debería fallar")
+            .mensaje
+            .contains("no cierra"));
+        assert_eq!(idioma::Idioma::de_codigo("en_US.UTF-8"), idioma::Idioma::En);
+        assert_eq!(idioma::Idioma::de_codigo("es"), idioma::Idioma::Es);
     }
 
     #[test]

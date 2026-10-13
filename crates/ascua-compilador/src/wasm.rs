@@ -13,12 +13,23 @@ use wasm_bindgen::prelude::*;
 /// `source` es el nombre que llevará el archivo dentro del source map: la ruta
 /// que verá quien abra las herramientas del navegador. Se puede omitir.
 ///
+/// `lang` es el idioma de los errores: `"en"` para inglés; sin él, español.
+///
 /// # Errors
 /// El mensaje del compilador, con la línea de la plantilla que falló.
 #[wasm_bindgen(js_name = compileJson)]
-pub fn compile_json(fuente: &str, source: Option<String>) -> Result<String, String> {
+pub fn compile_json(
+    fuente: &str,
+    source: Option<String>,
+    lang: Option<String>,
+) -> Result<String, String> {
     let nombre = source.unwrap_or_else(|| "entrada.ts".to_string());
-    let salida = crate::compilar_con_origen(fuente, &nombre).map_err(|error| error.to_string())?;
+    let idioma = lang
+        .as_deref()
+        .map(crate::idioma::Idioma::de_codigo)
+        .unwrap_or_default();
+    let salida =
+        crate::compilar_en_idioma(fuente, &nombre, idioma).map_err(|error| error.to_string())?;
     Ok(format!(
         "{{\"code\":{},\"css\":{},\"map\":{}}}",
         json_cadena(&salida.codigo),

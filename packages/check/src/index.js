@@ -175,12 +175,23 @@ function localizarTsc(config) {
   return join(dirname(paquete), tsc);
 }
 
+/**
+ * El idioma de los errores del compilador, de `LANG`, con la regla del kit:
+ * español sin indicación o con `es*`, `C` o `POSIX`; inglés con otro. El wasm
+ * no ve el entorno, así que se le pasa.
+ */
+function idioma() {
+  const env = process.env;
+  const lang = env.LC_ALL || env.LC_MESSAGES || env.LANG || "";
+  return lang && !/^es/i.test(lang) && !/^(C|POSIX)(\.|$)/.test(lang) ? "en" : "es";
+}
+
 /** El compilador de Ascua, buscado desde el proyecto y desde este paquete. */
 function localizarCompilador(config) {
   for (const desde of [config, import.meta.url]) {
     try {
       const wasm = createRequire(desde)("ascua-compilador");
-      return (codigo, archivo) => JSON.parse(wasm.compileJson(codigo, archivo));
+      return (codigo, archivo) => JSON.parse(wasm.compileJson(codigo, archivo, idioma()));
     } catch {
       // Se prueba el siguiente.
     }

@@ -20,6 +20,10 @@ const { code, css } = JSON.parse(compileJson(fuente));
 el CSS que se extrajo de los `<style>`, ya scopeado. Lo que no es plantilla se
 copia sin tocar: esto no transpila TypeScript.
 
+Una plantilla mal formada lanza el mensaje con su línea. El tercer argumento
+es el idioma de ese mensaje: `compileJson(fuente, "a.ts", "en")` lo da en
+inglés; sin él, en español.
+
 En el navegador, el mismo .wasm con el envoltorio de `./web`:
 
 ```js

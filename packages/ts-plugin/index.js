@@ -140,7 +140,7 @@ function init({ typescript: ts }) {
 
     function errorDeCompilacion(archivo, error) {
       const texto = String(error?.message ?? error);
-      const partes = /^línea (\d+): (.*)$/s.exec(texto);
+      const partes = /^(?:línea|line) (\d+): (.*)$/s.exec(texto);
       const linea = partes ? Math.max(0, Number(partes[1]) - 1) : 0;
       const inicio = archivo.getPositionOfLineAndCharacter(Math.min(linea, archivo.getLineStarts().length - 1), 0);
       const fin = archivo.text.indexOf("\n", inicio);
@@ -434,6 +434,17 @@ function init({ typescript: ts }) {
 }
 
 /** El compilador, buscado desde el proyecto y desde este paquete. */
+/**
+ * El idioma de los errores del compilador, de `LANG`, con la regla del kit:
+ * español sin indicación o con `es*`, `C` o `POSIX`; inglés con otro. El wasm
+ * no ve el entorno, así que se le pasa.
+ */
+function idioma() {
+  const env = process.env;
+  const lang = env.LC_ALL || env.LC_MESSAGES || env.LANG || "";
+  return lang && !/^es/i.test(lang) && !/^(C|POSIX)(\.|$)/.test(lang) ? "en" : "es";
+}
+
 function localizarCompilador(info) {
   const desde = [];
   const directorio = info.project?.getCurrentDirectory?.();
@@ -442,7 +453,7 @@ function localizarCompilador(info) {
   for (const lugar of desde) {
     try {
       const wasm = createRequire(lugar)("ascua-compilador");
-      return (codigo, archivo) => wasm.compileJson(codigo, archivo);
+      return (codigo, archivo) => wasm.compileJson(codigo, archivo, idioma());
     } catch {
       // Se prueba el siguiente.
     }

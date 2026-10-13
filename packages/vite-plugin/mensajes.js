@@ -34,6 +34,7 @@ const ES = {
   metodo: "Método no permitido",
   demasiado: "Demasiado grande",
   interno: "Error interno",
+  enArchivo: (archivo) => `en ${archivo}`,
   // Para quien desarrolla.
   restoAlFinal: (archivo) => `${archivo}: [...rest] solo puede ir al final`,
   mismaUrl: (a, b, url) => `${a} y ${b} dan la misma URL: ${url}`,
@@ -73,6 +74,7 @@ const EN = {
   metodo: "Method not allowed",
   demasiado: "Too large",
   interno: "Internal error",
+  enArchivo: (archivo) => `in ${archivo}`,
   restoAlFinal: (archivo) => `${archivo}: [...rest] can only go last`,
   mismaUrl: (a, b, url) => `${a} and ${b} have the same URL: ${url}`,
   sinSecreto: "ascua: signed cookies need the ASCUA_SECRET environment variable, 32 characters or more",
@@ -102,9 +104,12 @@ export function fijarIdioma(idioma) {
   globalThis.__ascuaLang = idioma === "en" ? "en" : "es";
 }
 
-/** Los textos para quien desarrolla, en el idioma de `LANG`. */
-export function paraDesarrollo() {
+/** El idioma de quien desarrolla, de `LANG`: `"es"` o `"en"`. */
+export function idiomaDeDesarrollo() {
   const env = globalThis.process?.env ?? {};
   const lang = env.LC_ALL || env.LC_MESSAGES || env.LANG || "";
-  return lang && !/^es/i.test(lang) && !/^(C|POSIX)(\.|$)/.test(lang) ? MENSAJES.en : MENSAJES.es;
+  return lang && !/^es/i.test(lang) && !/^(C|POSIX)(\.|$)/.test(lang) ? "en" : "es";
 }
+
+/** Los textos para quien desarrolla, en el idioma de `LANG`. */
+export const paraDesarrollo = () => MENSAJES[idiomaDeDesarrollo()];

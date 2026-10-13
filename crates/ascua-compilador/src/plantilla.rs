@@ -11,6 +11,8 @@
 //! Los huecos llegan aquí ya separados por el escáner, sustituidos por un
 //! marcador que no puede aparecer en HTML (área de uso privado de Unicode).
 
+use crate::idioma::msg;
+
 /// Delimitadores del marcador de hueco: `\u{E000}` índice `\u{E001}`.
 pub const ABRE: char = '\u{E000}';
 pub const CIERRA: char = '\u{E001}';
@@ -122,7 +124,9 @@ impl std::error::Error for Error {}
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} (posición {})", self.mensaje, self.posicion)
+        let posicion = self.posicion;
+        let donde = crate::idioma::msg!("posición {posicion}", "position {posicion}");
+        write!(f, "{} ({donde})", self.mensaje)
     }
 }
 
@@ -295,7 +299,10 @@ impl Parser<'_> {
             self.posicion += 1;
         }
         self.posicion = inicio;
-        Err(self.error("falta cerrar el comentario con -->"))
+        Err(self.error(&msg!(
+            "falta cerrar el comentario con -->",
+            "the comment is missing its closing -->"
+        )))
     }
 
     fn saltar_espacios_y_comentarios(&mut self) -> Resultado<()> {
@@ -312,7 +319,7 @@ impl Parser<'_> {
             self.posicion += 1;
             Ok(())
         } else {
-            Err(self.error(&format!("se esperaba `{esperado}`")))
+            Err(self.error(&msg!("se esperaba `{esperado}`", "expected `{esperado}`")))
         }
     }
 
@@ -322,7 +329,7 @@ impl Parser<'_> {
             Some('<') => self.etiqueta(),
             Some(ABRE) => self.hueco(),
             Some(_) => Ok(Nodo::Texto(self.texto())),
-            None => Err(self.error("plantilla vacía")),
+            None => Err(self.error(&msg!("plantilla vacía", "empty template"))),
         }
     }
 
@@ -359,13 +366,15 @@ impl Parser<'_> {
             .iter()
             .collect::<String>()
             .parse()
-            .map_err(|_| self.error("marcador de hueco corrupto"))?;
+            .map_err(|_| self.error(&msg!("marcador de hueco corrupto", "corrupt hole marker")))?;
         self.consumir(CIERRA)?;
 
-        self.expresiones
-            .get(indice)
-            .cloned()
-            .ok_or_else(|| self.error("marcador de hueco fuera de rango"))
+        self.expresiones.get(indice).cloned().ok_or_else(|| {
+            self.error(&msg!(
+                "marcador de hueco fuera de rango",
+                "hole marker out of range"
+            ))
+        })
     }
 
     /// Un elemento HTML o un componente.
@@ -378,7 +387,10 @@ impl Parser<'_> {
         self.consumir('<')?;
         let etiqueta = self.nombre();
         if etiqueta.is_empty() {
-            return Err(self.error("se esperaba el nombre de una etiqueta"));
+            return Err(self.error(&msg!(
+                "se esperaba el nombre de una etiqueta",
+                "expected a tag name"
+            )));
         }
         let es_componente = etiqueta.starts_with(char::is_uppercase);
 
@@ -428,7 +440,10 @@ impl Parser<'_> {
             cierre.eq_ignore_ascii_case(&etiqueta)
         };
         if !coincide {
-            return Err(self.error(&format!("</{cierre}> no cierra <{etiqueta}>")));
+            return Err(self.error(&msg!(
+                "</{cierre}> no cierra <{etiqueta}>",
+                "</{cierre}> does not close <{etiqueta}>"
+            )));
         }
 
         self.terminar(etiqueta, atributos, hijos, linea)
@@ -447,8 +462,9 @@ impl Parser<'_> {
                 .iter()
                 .find(|hijo| matches!(hijo, Nodo::Componente(c) if c.nombre == ELSE))
             {
-                return Err(self.error(&format!(
+                return Err(self.error(&msg!(
                     "<{}> es la otra rama de un <Show>, y aquí no hay ninguno",
+                    "<{}> is the other branch of a <Show>, and there is none here",
                     suelto.nombre
                 )));
             }
@@ -482,10 +498,12 @@ impl Parser<'_> {
         match componente.nombre.as_str() {
             SHOW => {
                 if componente.prop("when").is_none() {
-                    return Err(self.error(
+                    return Err(self.error(&msg!(
                         "<Show> necesita `when`, una closure que devuelva si el contenido se \
-                         muestra: <Show when=${() => activo()}>",
-                    ));
+                         muestra: <Show when=${{() => activo()}}>",
+                        "<Show> needs `when`, a closure that returns whether the content is \
+                         shown: <Show when=${{() => active()}}>",
+                    )));
                 }
                 let ramas = componente
                     .hijos
@@ -493,22 +511,28 @@ impl Parser<'_> {
                     .filter(|hijo| matches!(hijo, Nodo::Componente(c) if c.nombre == ELSE))
                     .count();
                 if ramas > 1 {
-                    return Err(self.error("un <Show> tiene un solo <Else>"));
+                    return Err(self.error(&msg!(
+                        "un <Show> tiene un solo <Else>",
+                        "a <Show> has a single <Else>"
+                    )));
                 }
             }
             FOR => {
                 for obligatorio in ["each", "key", "render"] {
                     if componente.prop(obligatorio).is_none() {
-                        return Err(self.error(&format!(
+                        return Err(self.error(&msg!(
                             "<For> necesita `{obligatorio}`: <For each=${{() => items()}} \
+                             key=${{(item) => item.id}} render=${{(item) => view`…`}}/>",
+                            "<For> needs `{obligatorio}`: <For each=${{() => items()}} \
                              key=${{(item) => item.id}} render=${{(item) => view`…`}}/>"
                         )));
                     }
                 }
                 if !componente.hijos.is_empty() {
-                    return Err(self.error(
+                    return Err(self.error(&msg!(
                         "el contenido de <For> va en `render`, que se ejecuta una vez por clave",
-                    ));
+                        "the content of <For> goes in `render`, which runs once per key",
+                    )));
                 }
             }
             _ => {}
@@ -528,10 +552,12 @@ impl Parser<'_> {
         let css: String = self.chars[inicio..self.posicion].iter().collect();
 
         if css.contains(ABRE) {
-            return Err(self.error(
+            return Err(self.error(&msg!(
                 "el CSS de un <style> se extrae en tiempo de compilación, así que no admite \
-                 interpolaciones ${...}; para estilos que cambian, usa un atributo",
-            ));
+                 interpolaciones ${{...}}; para estilos que cambian, usa un atributo",
+                "the CSS of a <style> is extracted at compile time, so it does not take \
+                 ${{...}} interpolations; for styles that change, use an attribute",
+            )));
         }
 
         self.consumir('<')?;
@@ -540,7 +566,10 @@ impl Parser<'_> {
         self.saltar_espacios();
         self.consumir('>')?;
         if !cierre.eq_ignore_ascii_case("style") {
-            return Err(self.error(&format!("</{cierre}> no cierra <style>")));
+            return Err(self.error(&msg!(
+                "</{cierre}> no cierra <style>",
+                "</{cierre}> does not close <style>"
+            )));
         }
 
         if !self.css.is_empty() {
@@ -558,7 +587,10 @@ impl Parser<'_> {
             }
             match self.actual() {
                 None => {
-                    return Err(self.error(&format!("falta la etiqueta de cierre </{etiqueta}>")))
+                    return Err(self.error(&msg!(
+                        "falta la etiqueta de cierre </{etiqueta}>",
+                        "missing closing tag </{etiqueta}>"
+                    )))
                 }
                 Some('<') if self.mirar(1) == Some('/') => return Ok(hijos),
                 _ => {
@@ -587,7 +619,10 @@ impl Parser<'_> {
         let linea = self.linea();
         let mut nombre = self.nombre();
         if nombre.is_empty() {
-            return Err(self.error("se esperaba el nombre de un atributo"));
+            return Err(self.error(&msg!(
+                "se esperaba el nombre de un atributo",
+                "expected an attribute name"
+            )));
         }
         self.saltar_espacios();
 
@@ -597,7 +632,10 @@ impl Parser<'_> {
             || nombre == "ref")
             && self.actual() != Some('=')
         {
-            return Err(self.error(&format!("`{nombre}` necesita un valor en ${{}}")));
+            return Err(self.error(&msg!(
+                "`{nombre}` necesita un valor en ${{}}",
+                "`{nombre}` needs a value in ${{}}"
+            )));
         }
 
         // Atributo sin valor: `disabled`.
@@ -626,8 +664,9 @@ impl Parser<'_> {
                     Valor::Referencia(expresion)
                 } else if let Some(propiedad) = nombre.strip_prefix("bind:") {
                     if !ENLAZABLES.contains(&propiedad) {
-                        return Err(self.error(&format!(
+                        return Err(self.error(&msg!(
                             "`bind:{propiedad}` no existe; se puede atar {}",
+                            "`bind:{propiedad}` does not exist; you can bind {}",
                             ENLAZABLES.join(", ")
                         )));
                     }
@@ -648,7 +687,12 @@ impl Parser<'_> {
                     Valor::Estatico(expresion)
                 }
             }
-            _ => return Err(self.error("el valor de un atributo va entre comillas o en ${}")),
+            _ => {
+                return Err(self.error(&msg!(
+                    "el valor de un atributo va entre comillas o en ${{}}",
+                    "an attribute value goes in quotes or in ${{}}"
+                )))
+            }
         };
 
         Ok(Atributo {
@@ -661,7 +705,7 @@ impl Parser<'_> {
     fn literal(&mut self) -> Resultado<String> {
         let comilla = self
             .actual()
-            .ok_or_else(|| self.error("literal sin abrir"))?;
+            .ok_or_else(|| self.error(&msg!("literal sin abrir", "unopened literal")))?;
         self.posicion += 1;
         let inicio = self.posicion;
         while self.actual().is_some_and(|c| c != comilla) {

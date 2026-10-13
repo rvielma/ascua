@@ -16,6 +16,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
 
+import { idiomaDeDesarrollo, paraDesarrollo } from "./mensajes.js";
 import { sitio } from "./sitio.js";
 
 const EXTENSIONES = /\.[jt]sx?$/;
@@ -46,7 +47,8 @@ function elegirCompilador(opciones) {
   for (const desde of [join(process.cwd(), "index.js"), import.meta.url]) {
     try {
       const wasm = createRequire(desde)("ascua-compilador");
-      return (codigo, archivo) => JSON.parse(wasm.compileJson(codigo, archivo));
+      // El wasm no ve `LANG`: el idioma de los errores se le pasa.
+      return (codigo, archivo) => JSON.parse(wasm.compileJson(codigo, archivo, idiomaDeDesarrollo()));
     } catch {
       // Se prueba el siguiente.
     }
@@ -132,7 +134,7 @@ function compilador(opciones) {
       } catch (error) {
         // El compilador en wasm lanza el mensaje como cadena, no como Error.
         const detalle = error?.stderr?.toString().trim() || error?.message || String(error);
-        this.error(`ascua: ${detalle}\n  en ${archivo}`);
+        this.error(`ascua: ${detalle}\n  ${paraDesarrollo().enArchivo(archivo)}`);
         return null;
       }
 

@@ -6,6 +6,7 @@
 
 import { afterEach, expect, it, vi } from "vitest";
 
+import ascua from "../index.js";
 import { fijarIdioma, paraDesarrollo } from "../mensajes.js";
 import { field, fields, responder, validate } from "../sitio-comun.js";
 
@@ -54,4 +55,21 @@ it("lo de quien desarrolla sigue a LANG", () => {
   expect(paraDesarrollo().construido(1, 2, "dist")).toBe("ascua: 1 page and 2 files in dist/");
   vi.stubEnv("LANG", "es_CL.UTF-8");
   expect(paraDesarrollo().construido(3, 0, "dist")).toBe("ascua: 3 páginas en dist/");
+});
+
+it("los errores de plantilla siguen a LANG, también los del compilador wasm", () => {
+  const rota = "export const a = view`<div><p>x</div></p>`;\n";
+  const errorAl = () => {
+    const plugins = [ascua()].flat();
+    const plantillas = plugins.find((p) => p.transform);
+    try {
+      plantillas.transform.call({ error: (m) => { throw new Error(m); } }, rota, "/src/a.ts");
+    } catch (error) {
+      return error.message;
+    }
+    return "";
+  };
+  expect(errorAl()).toBe("ascua: línea 1: </div> no cierra <p>\n  en /src/a.ts");
+  vi.stubEnv("LANG", "en_US.UTF-8");
+  expect(errorAl()).toBe("ascua: line 1: </div> does not close <p>\n  in /src/a.ts");
 });
