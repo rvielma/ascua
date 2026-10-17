@@ -126,3 +126,7 @@ benchmarks/*/dist/**
 examples/ssr-ts/dist
 examples/ssr-ts/dist/**
 packages/create/versions.json
+
+# La extensión de VS Code que sirve el sitio: la genera web/build.sh
+web/public/vscode
+web/public/vscode/**

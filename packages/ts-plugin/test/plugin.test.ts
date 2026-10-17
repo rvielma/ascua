@@ -18,6 +18,7 @@ const PROYECTO = join(__dirname, "fixtures/proyecto");
 const ruta = (archivo: string) => join(PROYECTO, archivo);
 
 let servicio: import("typescript").LanguageService;
+let base: import("typescript").LanguageService;
 
 beforeAll(() => {
   const configuracion = ts.readConfigFile(ruta("tsconfig.json"), ts.sys.readFile).config;
@@ -37,7 +38,7 @@ beforeAll(() => {
     directoryExists: ts.sys.directoryExists,
     getDirectories: ts.sys.getDirectories,
   };
-  const base = ts.createLanguageService(host, ts.createDocumentRegistry());
+  base = ts.createLanguageService(host, ts.createDocumentRegistry());
   servicio = init({ typescript: ts }).create({
     languageService: base,
     project: { getCurrentDirectory: () => PROYECTO, projectService: { logger: { info() {} } } },
@@ -198,4 +199,22 @@ it("fuera de las plantillas no cambia nada", () => {
     /Metrica/,
   );
   expect(dirname(ruta("x"))).toBe(PROYECTO);
+});
+
+describe("cargado por el editor para todos los proyectos", () => {
+  // Así lo carga la extensión de VS Code: tsserver lo marca con `global`.
+  const crear = (directorio: string) =>
+    init({ typescript: ts }).create({
+      languageService: base,
+      project: { getCurrentDirectory: () => directorio, projectService: { logger: { info() {} } } },
+      config: { name: "ascua-ts-plugin", global: true },
+    });
+
+  it("en un proyecto sin ascua no hace nada: un html`` de Lit no es suyo", () => {
+    expect(crear(PROYECTO)).toBe(base);
+  });
+
+  it("en un proyecto con ascua en su package.json, trabaja", () => {
+    expect(crear(join(__dirname, "fixtures/con-ascua/src"))).not.toBe(base);
+  });
 });

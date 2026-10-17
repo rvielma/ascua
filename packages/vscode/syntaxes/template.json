@@ -1,0 +1,26 @@
+{
+  "scopeName": "inline.ascua.template",
+  "injectionSelector": "L:meta.template.ascua -comment -meta.template.expression.ts",
+  "patterns": [
+    { "include": "source.ts#template-substitution-element" },
+    { "include": "#component" }
+  ],
+  "repository": {
+    "component": {
+      "name": "meta.tag.component.ascua",
+      "begin": "(</?)([A-Z][\\w.]*)(?=[\\s/>]|$)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.html" },
+        "2": { "name": "entity.name.tag.html support.class.component.ascua" }
+      },
+      "end": "/?>",
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.tag.end.html" }
+      },
+      "patterns": [
+        { "include": "source.ts#template-substitution-element" },
+        { "include": "text.html.basic#attribute" }
+      ]
+    }
+  }
+}

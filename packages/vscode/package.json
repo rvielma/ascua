@@ -1,0 +1,53 @@
+{
+  "name": "ascua-vscode",
+  "displayName": "Ascua",
+  "description": "Las plantillas de Ascua en VS Code: colores de HTML y CSS dentro de view``, y errores de tipos, autocompletado e ir a la definición sin tocar el tsconfig.",
+  "version": "0.1.0",
+  "publisher": "ascua",
+  "license": "MIT OR Apache-2.0",
+  "homepage": "https://ascua.gitweave.run/docs/tipos/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rvielma/ascua.git",
+    "directory": "packages/vscode"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "keywords": [
+    "ascua",
+    "templates",
+    "tagged template",
+    "html"
+  ],
+  "contributes": {
+    "typescriptServerPlugins": [
+      {
+        "name": "ascua-ts-plugin",
+        "enableForWorkspaceTypeScriptVersions": true
+      }
+    ],
+    "grammars": [
+      {
+        "scopeName": "inline.ascua.view",
+        "path": "./syntaxes/view.json",
+        "injectTo": ["source.ts", "source.tsx", "source.js", "source.js.jsx"],
+        "embeddedLanguages": {
+          "meta.embedded.block.html": "html",
+          "source.css": "css"
+        }
+      },
+      {
+        "scopeName": "inline.ascua.template",
+        "path": "./syntaxes/template.json",
+        "injectTo": ["source.ts", "source.tsx", "source.js", "source.js.jsx"]
+      }
+    ]
+  },
+  "dependencies": {
+    "ascua-ts-plugin": "^0.6.2"
+  }
+}

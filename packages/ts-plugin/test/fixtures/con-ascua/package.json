@@ -1,0 +1,7 @@
+{
+  "name": "con-ascua",
+  "private": true,
+  "dependencies": {
+    "ascua": "^0.7.3"
+  }
+}

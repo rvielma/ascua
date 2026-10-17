@@ -23,8 +23,9 @@
  * él está `ascua-check`.
  */
 
+const { readFileSync } = require("node:fs");
 const { createRequire } = require("node:module");
-const { join } = require("node:path");
+const { dirname, join } = require("node:path");
 
 const { atributosDe } = require("./atributos.js");
 const { enmascarar, etiquetaEn, lineasDeOrigen, plantillaEn } = require("./plantilla.js");
@@ -44,6 +45,13 @@ function init({ typescript: ts }) {
   function create(info) {
     const ls = info.languageService;
     const registrar = (mensaje) => info.project?.projectService?.logger?.info?.(`[ascua] ${mensaje}`);
+    // Cargado por el editor para todos los proyectos —la extensión de VS
+    // Code—, solo trabaja donde se usa Ascua: en otro sitio, un html`` es de
+    // Lit, no nuestro.
+    if (info.config?.global && !usaAscua(info.project?.getCurrentDirectory?.())) {
+      registrar("el proyecto no usa ascua: el plugin no hace nada");
+      return ls;
+    }
     const compilar = localizarCompilador(info);
     if (!compilar) {
       registrar("no se encuentra ascua-compilador: el plugin no hace nada");
@@ -433,7 +441,22 @@ function init({ typescript: ts }) {
   return { create };
 }
 
-/** El compilador, buscado desde el proyecto y desde este paquete. */
+/** Si el package.json más cercano a `directorio` depende de ascua. */
+function usaAscua(directorio) {
+  for (let dir = directorio; dir; ) {
+    let manifiesto;
+    try {
+      manifiesto = JSON.parse(readFileSync(join(dir, "package.json"), "utf8"));
+    } catch {
+      const arriba = dirname(dir);
+      dir = arriba === dir ? undefined : arriba;
+      continue;
+    }
+    return ["dependencies", "devDependencies", "peerDependencies"].some((campo) => manifiesto[campo]?.ascua);
+  }
+  return false;
+}
+
 /**
  * El idioma de los errores del compilador, de `LANG`, con la regla del kit:
  * español sin indicación o con `es*`, `C` o `POSIX`; inglés con otro. El wasm
@@ -445,6 +468,7 @@ function idioma() {
   return lang && !/^es/i.test(lang) && !/^(C|POSIX)(\.|$)/.test(lang) ? "en" : "es";
 }
 
+/** El compilador, buscado desde el proyecto y desde este paquete. */
 function localizarCompilador(info) {
   const desde = [];
   const directorio = info.project?.getCurrentDirectory?.();

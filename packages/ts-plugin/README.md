@@ -33,7 +33,9 @@ stil add -D ascua-ts-plugin      # o npm install -D ascua-ts-plugin
 **Y en el editor, la versión de TypeScript del proyecto.** `tsserver` busca
 los plugins junto al TypeScript que ejecuta, así que tiene que ser el del
 `node_modules` del proyecto. En VS Code: *TypeScript: Select TypeScript Version
-→ Use Workspace Version*.
+→ Use Workspace Version*, o la [extensión de
+Ascua](https://ascua.gitweave.run/docs/tipos/), que trae el plugin y no pide
+ninguna de las dos cosas.
 
 ## Con qué TypeScript
 
